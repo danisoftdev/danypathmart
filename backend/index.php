@@ -47,6 +47,8 @@ $routes = [
     'POST ' . 'auth/verify-email'          => 'auth/verify-email.php',
     'POST ' . 'auth/resend-otp'            => 'auth/resend-otp.php',
     'POST ' . 'auth/login'                 => 'auth/login.php',
+    'POST ' . 'auth/forgot-password'       => 'auth/forgot-password.php',
+    'POST ' . 'auth/reset-password'        => 'auth/reset-password.php',
     'POST ' . 'auth/refresh'               => 'auth/refresh.php',
     'POST ' . 'auth/logout'                => 'auth/logout.php',
     'GET '  . 'auth/me'                     => 'auth/me.php',
@@ -64,6 +66,22 @@ $routes = [
     'GET '  . 'categories'                  => 'categories/index.php',
     'GET '  . 'search/autocomplete'         => 'search/autocomplete.php',
     'GET '  . 'search'                      => 'search/index.php',
+    'POST ' . 'search/image'                => 'search/image.php',
+
+    // Checkout, orders & payments (Day 3B)
+    'GET '  . 'shipping/calculate'          => 'shipping/calculate.php',
+    'POST ' . 'shipping/calculate'          => 'shipping/calculate.php',
+    'GET '  . 'addresses'                   => 'addresses/index.php',
+    'POST ' . 'addresses'                   => 'addresses/create.php',
+    'POST ' . 'orders'                      => 'orders/create.php',
+    'POST ' . 'payments/initialize'         => 'payments/initialize.php',
+    'POST ' . 'payments/webhook'            => 'payments/webhook.php',
+    'POST ' . 'payments/dev-confirm'        => 'payments/dev-confirm.php',
+
+    // Image search follow-up + admin alerts (Day 3C)
+    'POST ' . 'search/describe'             => 'search/describe.php',
+    'GET '  . 'admin/image-alerts'          => 'admin/image-alerts/index.php',
+    'GET '  . 'admin/image-alerts/count'    => 'admin/image-alerts/count.php',
 ];
 
 $key = $method . ' ' . $route;
@@ -74,6 +92,20 @@ if ($handlerFile === null && $method === 'GET'
     && preg_match('#^products/([A-Za-z0-9][A-Za-z0-9\-]*)$#', $route, $m) === 1) {
     $_GET['slug'] = $m[1];
     $handlerFile = 'products/show.php';
+}
+
+// Dynamic route: GET orders/{id}
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^orders/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'orders/show.php';
+}
+
+// Dynamic route: POST admin/image-alerts/{id}
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/image-alerts/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/image-alerts/update.php';
 }
 
 if ($handlerFile === null) {

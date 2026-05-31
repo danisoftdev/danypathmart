@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useWebAuthn } from '../../hooks/useWebAuthn';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const login = useAuthStore((s) => s.login);
   const setSession = useAuthStore((s) => s.setSession);
   const { loginWithBiometric, isSupported } = useWebAuthn();
+
+  const notice = location.state?.reset ? 'Password changed. Please log in.' : '';
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
@@ -57,6 +60,12 @@ export default function LoginPage() {
     <form onSubmit={submit} className="auth-card">
       <h1 className="mb-1 text-2xl font-bold">Welcome back</h1>
       <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Log in to your DanyPathMart account.</p>
+
+      {notice && (
+        <div className="mb-4 rounded-lg bg-brand-green/10 px-3 py-2 text-sm font-medium text-brand-green">
+          {notice}
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 rounded-lg bg-brand-red/10 px-3 py-2 text-sm text-brand-red">{error}</div>

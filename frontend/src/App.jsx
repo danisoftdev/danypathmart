@@ -6,8 +6,13 @@ import ProtectedRoute from './components/routing/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import ShopPage from './pages/ShopPage';
 import ProductDetailPage from './pages/ProductDetailPage';
-import ImageSearchPage from './pages/ImageSearchPage';
+import SearchResultsPage from './pages/SearchResultsPage';
+import CartPage from './pages/CartPage';
+import CheckoutPage from './pages/CheckoutPage';
+import OrderConfirmationPage from './pages/OrderConfirmationPage';
 import DashboardPage from './pages/DashboardPage';
+import AdminLayout from './components/layout/AdminLayout';
+import ImageAlertsPage from './pages/admin/ImageAlertsPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -64,7 +69,17 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/product/:slug" element={<ProductDetailPage />} />
-          <Route path="/image-search" element={<ImageSearchPage />} />
+          <Route path="/search" element={<SearchResultsPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/order/:id"
+            element={
+              <ProtectedRoute>
+                <OrderConfirmationPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
@@ -73,6 +88,16 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="image-alerts" element={<ImageAlertsPage />} />
+          </Route>
         </Route>
 
         <Route element={<AuthLayout />}>
