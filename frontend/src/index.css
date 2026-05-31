@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-brand-light text-black antialiased dark:bg-brand-dark dark:text-white;
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-lg bg-brand-green px-5 py-2.5 font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-secondary {
+    @apply rounded-lg bg-brand-gold px-5 py-2.5 font-semibold text-black transition hover:bg-opacity-90;
+  }
+  .btn-ghost {
+    @apply rounded-lg border border-brand-green px-5 py-2.5 font-semibold text-brand-green transition hover:bg-brand-green hover:text-white;
+  }
+  .input-field {
+    @apply w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-2.5 text-black outline-none transition focus:border-brand-green dark:border-gray-700 dark:bg-[#1c1c1c] dark:text-white;
+  }
+  .auth-card {
+    @apply w-full max-w-md rounded-2xl bg-white p-8 shadow-lg dark:bg-[#1c1c1c];
+  }
+}
