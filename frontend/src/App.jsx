@@ -10,9 +10,14 @@ import SearchResultsPage from './pages/SearchResultsPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
 import OrderConfirmationPage from './pages/OrderConfirmationPage';
-import DashboardPage from './pages/DashboardPage';
+import DashboardLayout from './components/layout/DashboardLayout';
+import OrdersPage from './pages/dashboard/OrdersPage';
+import OrderDetailPage from './pages/dashboard/OrderDetailPage';
+import SettingsPage from './pages/dashboard/SettingsPage';
 import AdminLayout from './components/layout/AdminLayout';
 import ImageAlertsPage from './pages/admin/ImageAlertsPage';
+import CompanySettings from './pages/admin/CompanySettings';
+import StaffAccounts from './pages/admin/StaffAccounts';
 import RegisterPage from './pages/auth/RegisterPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -84,10 +89,14 @@ export default function App() {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <DashboardLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            <Route index element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
           <Route
             path="/admin"
             element={
@@ -97,6 +106,8 @@ export default function App() {
             }
           >
             <Route path="image-alerts" element={<ImageAlertsPage />} />
+            <Route path="company-settings" element={<CompanySettings />} />
+            <Route path="staff" element={<StaffAccounts />} />
           </Route>
         </Route>
 

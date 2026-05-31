@@ -8,6 +8,15 @@ declare(strict_types=1);
  * /api/{path} -> index.php?route={path} via .htaccess.
  */
 
+// Dev only: when running under `php -S ... -t backend index.php`, let the
+// built-in server serve existing static files (e.g. /uploads/*) directly.
+if (PHP_SAPI === 'cli-server') {
+    $staticPath = (string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+    if ($staticPath !== '' && $staticPath !== '/' && is_file(__DIR__ . $staticPath)) {
+        return false;
+    }
+}
+
 require __DIR__ . '/vendor/autoload.php';
 
 // Lightweight PSR-4-ish autoloader for the project's own classes.
@@ -60,6 +69,8 @@ $routes = [
     'GET '  . 'auth/webauthn/challenge'     => 'auth/webauthn/challenge.php',
     'POST ' . 'auth/webauthn/register'      => 'auth/webauthn/register.php',
     'POST ' . 'auth/webauthn/authenticate'  => 'auth/webauthn/authenticate.php',
+    'GET '  . 'auth/webauthn/credentials'   => 'auth/webauthn/credentials.php',
+    'POST ' . 'auth/change-password'        => 'auth/change-password.php',
 
     // Catalogue & search (Day 2)
     'GET '  . 'products'                    => 'products/index.php',
@@ -82,6 +93,25 @@ $routes = [
     'POST ' . 'search/describe'             => 'search/describe.php',
     'GET '  . 'admin/image-alerts'          => 'admin/image-alerts/index.php',
     'GET '  . 'admin/image-alerts/count'    => 'admin/image-alerts/count.php',
+
+    // RBAC staff management (Day 4A)
+    'GET '  . 'admin/staff'                 => 'admin/staff/index.php',
+    'POST ' . 'admin/staff'                 => 'admin/staff/create.php',
+
+    // Company settings + public company info (Day 4C)
+    'GET '  . 'admin/company-settings'      => 'admin/company-settings/index.php',
+    'PUT '  . 'admin/company-settings'      => 'admin/company-settings/update.php',
+    'GET '  . 'public/company-info'         => 'public/company-info.php',
+
+    // User dashboard: orders, settings, sessions, currency (Day 4B)
+    'GET '  . 'orders'                      => 'orders/index.php',
+    'PUT '  . 'users/profile'               => 'users/profile.php',
+    'POST ' . 'users/avatar'                => 'users/avatar.php',
+    'PUT '  . 'users/currency'              => 'users/currency.php',
+    'POST ' . 'users/email/request-change'  => 'users/email/request-change.php',
+    'POST ' . 'users/email/confirm-change'  => 'users/email/confirm-change.php',
+    'GET '  . 'users/sessions'              => 'users/sessions/index.php',
+    'GET '  . 'public/currencies'           => 'public/currencies.php',
 ];
 
 $key = $method . ' ' . $route;
@@ -106,6 +136,55 @@ if ($handlerFile === null && $method === 'POST'
     && preg_match('#^admin/image-alerts/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/image-alerts/update.php';
+}
+
+// Dynamic route: PUT admin/staff/{id}/permissions
+if ($handlerFile === null && $method === 'PUT'
+    && preg_match('#^admin/staff/([0-9]+)/permissions$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/staff/permissions.php';
+}
+
+// Dynamic route: DELETE admin/staff/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/staff/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/staff/delete.php';
+}
+
+// Dynamic route: DELETE users/sessions/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^users/sessions/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'users/sessions/delete.php';
+}
+
+// Dynamic route: DELETE auth/webauthn/credentials/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^auth/webauthn/credentials/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'auth/webauthn/credential-delete.php';
+}
+
+// Dynamic route: POST addresses/{id}/default
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^addresses/([0-9]+)/default$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'addresses/set-default.php';
+}
+
+// Dynamic route: PUT addresses/{id}
+if ($handlerFile === null && $method === 'PUT'
+    && preg_match('#^addresses/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'addresses/update.php';
+}
+
+// Dynamic route: DELETE addresses/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^addresses/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'addresses/delete.php';
 }
 
 if ($handlerFile === null) {

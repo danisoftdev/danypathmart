@@ -25,7 +25,13 @@ body {
   .input-field {
     @apply w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-2.5 text-black outline-none transition focus:border-brand-green dark:border-gray-700 dark:bg-[#1c1c1c] dark:text-white;
   }
+  .modal-input {
+    @apply w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black outline-none transition focus:border-brand-green disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#111] dark:text-white;
+  }
   .auth-card {
     @apply w-full max-w-md rounded-2xl bg-white p-8 shadow-lg dark:bg-[#1c1c1c];
+  }
+  .card-panel {
+    @apply rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-[#161616];
   }
 }

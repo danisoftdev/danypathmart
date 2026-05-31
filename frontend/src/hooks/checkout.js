@@ -27,6 +27,30 @@ export function useAddAddress() {
   });
 }
 
+export function useUpdateAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }) => (await api.put(`/addresses/${id}`, payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['addresses'] }),
+  });
+}
+
+export function useDeleteAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.delete(`/addresses/${id}`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['addresses'] }),
+  });
+}
+
+export function useSetDefaultAddress() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/addresses/${id}/default`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['addresses'] }),
+  });
+}
+
 export function useCreateOrder() {
   return useMutation({
     mutationFn: async ({ items, address_id, notes }) =>
