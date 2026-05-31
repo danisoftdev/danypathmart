@@ -69,7 +69,7 @@ export default function Navbar() {
       {/* Mobile panel */}
       {open && (
         <div className="border-t border-black/5 px-4 py-3 md:hidden dark:border-white/10">
-          <SearchBar />
+          <SearchBar onNavigate={() => setOpen(false)} />
           <nav className="mt-3 flex flex-col gap-2 text-sm font-medium">
             <Link to="/shop" onClick={() => setOpen(false)} className="py-1">Shop</Link>
             <Link to="/cart" onClick={() => setOpen(false)} className="py-1">Cart</Link>

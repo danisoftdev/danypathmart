@@ -58,14 +58,29 @@ $routes = [
     'GET '  . 'auth/webauthn/challenge'     => 'auth/webauthn/challenge.php',
     'POST ' . 'auth/webauthn/register'      => 'auth/webauthn/register.php',
     'POST ' . 'auth/webauthn/authenticate'  => 'auth/webauthn/authenticate.php',
+
+    // Catalogue & search (Day 2)
+    'GET '  . 'products'                    => 'products/index.php',
+    'GET '  . 'categories'                  => 'categories/index.php',
+    'GET '  . 'search/autocomplete'         => 'search/autocomplete.php',
+    'GET '  . 'search'                      => 'search/index.php',
 ];
 
 $key = $method . ' ' . $route;
-if (!isset($routes[$key])) {
+$handlerFile = $routes[$key] ?? null;
+
+// Dynamic route: GET products/{slug}
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^products/([A-Za-z0-9][A-Za-z0-9\-]*)$#', $route, $m) === 1) {
+    $_GET['slug'] = $m[1];
+    $handlerFile = 'products/show.php';
+}
+
+if ($handlerFile === null) {
     Response::error('Route not found: ' . $key, 404);
 }
 
-$handler = __DIR__ . '/api/' . $routes[$key];
+$handler = __DIR__ . '/api/' . $handlerFile;
 if (!is_file($handler)) {
     Response::error('Route handler missing on server', 500);
 }
