@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CameraIcon, SearchIcon } from '../icons';
+import { SearchIcon } from '../icons';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useAutocomplete } from '../../hooks/catalog';
 import AutocompleteDropdown from './AutocompleteDropdown';
+import ImageSearchButton from './ImageSearchButton';
 
 export default function SearchBar({ onNavigate }) {
   const navigate = useNavigate();
@@ -11,7 +12,7 @@ export default function SearchBar({ onNavigate }) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const containerRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const imageBtnRef = useRef(null);
 
   const debounced = useDebounce(query, 300);
   const { data, isFetching } = useAutocomplete(debounced);
@@ -43,7 +44,7 @@ export default function SearchBar({ onNavigate }) {
   const goSearch = (term) => {
     const q = (term ?? query).trim();
     if (!q) return;
-    navigate(`/shop?search=${encodeURIComponent(q)}`);
+    navigate(`/search?q=${encodeURIComponent(q)}`);
     close();
   };
 
@@ -68,16 +69,7 @@ export default function SearchBar({ onNavigate }) {
     return selectSuggestion(suggestions[idx - products.length - categories.length]);
   };
 
-  const openImagePicker = () => fileInputRef.current?.click();
-
-  const handleFile = (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
-    navigate('/image-search', { state: { previewUrl, name: file.name } });
-    close();
-  };
+  const openImagePicker = () => imageBtnRef.current?.open();
 
   const handleKeyDown = (e) => {
     if (!showDropdown) {
@@ -115,15 +107,11 @@ export default function SearchBar({ onNavigate }) {
           placeholder="Search uniforms, badges, books..."
           className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-black outline-none placeholder:text-gray-400 dark:bg-[#1c1c1c] dark:text-white"
         />
-        <button
-          type="button"
-          onClick={openImagePicker}
-          aria-label="Search by image"
-          title="Search by image"
-          className="absolute right-12 flex h-9 w-9 items-center justify-center rounded-lg text-brand-green transition hover:bg-brand-green/10"
-        >
-          <CameraIcon />
-        </button>
+        <ImageSearchButton
+          ref={imageBtnRef}
+          onClose={close}
+          buttonClassName="absolute right-12 flex h-9 w-9 items-center justify-center rounded-lg text-brand-green transition hover:bg-brand-green/10"
+        />
         <button
           type="submit"
           aria-label="Search"
@@ -132,14 +120,6 @@ export default function SearchBar({ onNavigate }) {
           <SearchIcon />
         </button>
       </form>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFile}
-        className="hidden"
-      />
 
       {showDropdown && (
         <AutocompleteDropdown

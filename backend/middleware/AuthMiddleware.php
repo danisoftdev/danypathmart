@@ -60,11 +60,64 @@ final class AuthMiddleware
     }
 
     /**
+     * Require an authenticated admin/staff account. Halts with 403 otherwise.
+     *
+     * @return array<string,mixed>
+     */
+    public static function requireAdmin(): array
+    {
+        $user = self::authenticate();
+        if (!in_array($user['role'] ?? '', ['super_admin', 'staff'], true)) {
+            Response::error('Administrator access required.', 403, ['code' => 'forbidden']);
+        }
+        return $user;
+    }
+
+    /**
      * @return array<string,mixed>|null
      */
     public static function getUser(): ?array
     {
         return self::$user;
+    }
+
+    /**
+     * Resolve the user from a Bearer token if present, without halting the
+     * request. Returns null for guests or invalid/expired tokens.
+     *
+     * @return array<string,mixed>|null
+     */
+    public static function optional(): ?array
+    {
+        $token = self::bearerToken();
+        if ($token === null) {
+            return null;
+        }
+
+        try {
+            $claims = Jwt::decode($token);
+        } catch (Throwable $e) {
+            return null;
+        }
+
+        $userId = (int) ($claims['sub'] ?? 0);
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, name, username, email, role, status, preferred_currency, totp_enabled
+             FROM users WHERE id = ?'
+        );
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+
+        if ($user === false || $user['status'] === 'disabled') {
+            return null;
+        }
+
+        self::$user = $user;
+        return $user;
     }
 
     private static function bearerToken(): ?string
