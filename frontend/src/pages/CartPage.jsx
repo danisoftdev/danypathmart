@@ -1,7 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom';
 import ProductImage from '../components/product/ProductImage';
+import EmptyState from '../components/ui/EmptyState';
 import { formatPrice } from '../lib/currency';
 import { useCartStore } from '../store/cartStore';
+
+function CartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="20" r="1.4" />
+      <circle cx="18" cy="20" r="1.4" />
+      <path d="M2 3h2.2l2 12.5a1.5 1.5 0 001.5 1.3h9.3a1.5 1.5 0 001.5-1.2L20 7H5" />
+    </svg>
+  );
+}
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -12,17 +23,14 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold">Your cart is empty</h1>
-        <p className="mt-2 text-black/60 dark:text-white/60">
-          Browse the shop to add uniforms, badges and more.
-        </p>
-        <Link
-          to="/shop"
-          className="mt-6 inline-block rounded-lg bg-brand-green px-5 py-2.5 font-semibold text-white transition hover:bg-opacity-90"
-        >
-          Go to Shop
-        </Link>
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <EmptyState
+          icon={CartIcon}
+          title="Your cart is empty"
+          message="Browse the shop to add uniforms, badges and more."
+          actionLabel="Go to Shop"
+          actionTo="/shop"
+        />
       </div>
     );
   }

@@ -57,7 +57,7 @@ export default function VerifyEmailPage() {
     return (
       <div className="auth-card text-center">
         <h1 className="mb-2 text-xl font-bold">Verification link expired</h1>
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mb-4 text-sm text-muted">
           Please register again to receive a new code.
         </p>
         <Link to="/register" className="btn-primary inline-block">Go to register</Link>
@@ -68,7 +68,7 @@ export default function VerifyEmailPage() {
   return (
     <div className="auth-card text-center">
       <h1 className="mb-1 text-2xl font-bold">Verify your email</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mb-6 text-sm text-muted">
         Enter the 6-digit code we sent to {email ? <strong>{email}</strong> : 'your email'}.
       </p>
 
@@ -81,7 +81,7 @@ export default function VerifyEmailPage() {
 
       <OTPInput onComplete={verify} disabled={submitting} />
 
-      <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-6 text-sm text-muted">
         {countdown > 0 ? (
           <span>Resend code in {countdown}s</span>
         ) : (

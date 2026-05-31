@@ -9,7 +9,7 @@ function Toggle({ label, checked, onChange }) {
         aria-checked={checked}
         onClick={onChange}
         className={`relative h-5 w-9 rounded-full transition ${
-          checked ? 'bg-brand-green' : 'bg-gray-300 dark:bg-gray-600'
+          checked ? 'bg-brand-green' : 'bg-[#E5E7EB] dark:bg-[#2A2A2A]'
         }`}
       >
         <span
@@ -59,15 +59,15 @@ export default function FiltersPanel({ categories, filters, update, onClear }) {
             placeholder="Min"
             value={filters.price_min ?? ''}
             onChange={(e) => update({ price_min: e.target.value })}
-            className="w-full rounded-lg border-2 border-gray-200 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-[#1c1c1c]"
+            className="modal-input px-2 py-1"
           />
-          <span className="text-gray-400">-</span>
+          <span className="text-subtle">-</span>
           <input
             type="number"
             placeholder="Max"
             value={filters.price_max ?? ''}
             onChange={(e) => update({ price_max: e.target.value })}
-            className="w-full rounded-lg border-2 border-gray-200 bg-white px-2 py-1 text-sm dark:border-gray-700 dark:bg-[#1c1c1c]"
+            className="modal-input px-2 py-1"
           />
         </div>
       </div>

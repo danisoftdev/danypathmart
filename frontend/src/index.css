@@ -9,29 +9,56 @@ body,
 }
 
 body {
-  @apply bg-brand-light text-black antialiased dark:bg-brand-dark dark:text-white;
+  @apply bg-brand-light text-[#111111] antialiased dark:bg-brand-dark dark:text-white;
 }
 
 @layer components {
+  /* Buttons */
   .btn-primary {
-    @apply rounded-lg bg-brand-green px-5 py-2.5 font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply rounded-lg bg-[#2C7A4B] px-5 py-2.5 font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-secondary {
-    @apply rounded-lg bg-brand-gold px-5 py-2.5 font-semibold text-black transition hover:bg-opacity-90;
+    @apply rounded-lg bg-[#F59E0B] px-5 py-2.5 font-semibold text-black transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-danger {
+    @apply rounded-lg bg-[#EF4444] px-5 py-2.5 font-semibold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-ghost {
-    @apply rounded-lg border border-brand-green px-5 py-2.5 font-semibold text-brand-green transition hover:bg-brand-green hover:text-white;
+    @apply rounded-lg border border-brand-green px-5 py-2.5 font-semibold text-brand-green transition hover:bg-brand-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60;
   }
+
+  /* Typography helpers */
+  .text-muted {
+    @apply text-black/60 dark:text-white/60;
+  }
+  .text-subtle {
+    @apply text-black/50 dark:text-white/50;
+  }
+  .placeholder-muted::placeholder {
+    @apply text-[#9CA3AF];
+  }
+
+  /* Form fields */
   .input-field {
-    @apply w-full rounded-lg border-2 border-gray-200 bg-white px-4 py-2.5 text-black outline-none transition focus:border-brand-green dark:border-gray-700 dark:bg-[#1c1c1c] dark:text-white;
+    @apply w-full rounded-lg border-2 border-[#E5E7EB] bg-white px-4 py-2.5 text-[#111111] outline-none transition placeholder:text-[#9CA3AF] focus:border-brand-green dark:border-white/15 dark:bg-[#1C1C1C] dark:text-white;
   }
   .modal-input {
-    @apply w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-black outline-none transition focus:border-brand-green disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#111] dark:text-white;
+    @apply w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-[#111111] outline-none transition placeholder:text-[#9CA3AF] focus:border-brand-green disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#1C1C1C] dark:text-white;
   }
+
+  /* Cards */
   .auth-card {
-    @apply w-full max-w-md rounded-2xl bg-white p-8 shadow-lg dark:bg-[#1c1c1c];
+    @apply w-full max-w-md rounded-2xl bg-white p-8 text-[#111111] shadow-lg dark:bg-[#1C1C1C] dark:text-white;
   }
   .card-panel {
-    @apply rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6 dark:border-white/10 dark:bg-[#161616];
+    @apply rounded-xl border border-black/5 bg-white p-5 text-[#111111] shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-[#1C1C1C] dark:text-white sm:p-6;
+  }
+  .card-brand {
+    @apply rounded-xl border-l-4 border-[#2C7A4B] bg-white text-[#111111] shadow-sm transition hover:shadow-md dark:bg-[#1C1C1C] dark:text-white;
+  }
+
+  /* Skeleton */
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-[#E5E7EB] dark:bg-[#2A2A2A];
   }
 }

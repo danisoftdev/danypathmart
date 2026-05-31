@@ -64,7 +64,7 @@ export default function LoginPage() {
   return (
     <form onSubmit={submit} className="auth-card">
       <h1 className="mb-1 text-2xl font-bold">Welcome back</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Log in to your DanyPathMart account.</p>
+      <p className="mb-6 text-sm text-muted">Log in to your DanyPathMart account.</p>
 
       {notice && (
         <div className="mb-4 rounded-lg bg-brand-green/10 px-3 py-2 text-sm font-medium text-brand-green">
@@ -104,10 +104,10 @@ export default function LoginPage() {
 
       {isSupported && (
         <>
-          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
-            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+          <div className="my-4 flex items-center gap-3 text-xs text-subtle">
+            <span className="h-px flex-1 bg-[#E5E7EB] dark:bg-white/15" />
             OR
-            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            <span className="h-px flex-1 bg-[#E5E7EB] dark:bg-white/15" />
           </div>
           <button type="button" onClick={biometricLogin} className="btn-ghost w-full" disabled={bioLoading}>
             {bioLoading ? 'Waiting for device...' : 'Login with Face ID / Fingerprint / Passkey'}
@@ -115,7 +115,7 @@ export default function LoginPage() {
         </>
       )}
 
-      <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-4 text-center text-sm text-muted">
         New here?{' '}
         <Link to="/register" className="font-semibold text-brand-green">Create an account</Link>
       </p>

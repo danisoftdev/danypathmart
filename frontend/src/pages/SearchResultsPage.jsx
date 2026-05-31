@@ -3,6 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import ProductCard from '../components/product/ProductCard';
+import EmptyState from '../components/ui/EmptyState';
+import { ProductGridSkeleton } from '../components/ui/Skeleton';
 import { useImageSearchStore } from '../store/imageSearchStore';
 
 function ProductGrid({ products }) {
@@ -143,19 +145,21 @@ function TextResults({ query }) {
       <h1 className="mb-1 text-2xl font-bold">
         Search results{query ? ` for "${query}"` : ''}
       </h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mb-6 text-sm text-muted">
         {isLoading ? 'Searching...' : `${data?.meta?.total ?? products.length} item(s) found`}
       </p>
 
-      {isError ? (
-        <p className="text-red-500">Something went wrong. Please try again.</p>
-      ) : products.length === 0 && !isLoading ? (
-        <div className="rounded-2xl border border-black/10 bg-white p-8 text-center dark:border-white/15 dark:bg-[#1c1c1c]">
-          <p className="text-black/70 dark:text-white/70">No products matched your search.</p>
-          <Link to="/shop" className="mt-3 inline-block text-brand-green hover:underline">
-            Browse all products
-          </Link>
-        </div>
+      {isLoading ? (
+        <ProductGridSkeleton count={6} />
+      ) : isError ? (
+        <p className="text-brand-red">Something went wrong. Please try again.</p>
+      ) : products.length === 0 ? (
+        <EmptyState
+          title="No products found"
+          message="No products matched your search. Try different keywords or browse the catalogue."
+          actionLabel="Browse all products"
+          actionTo="/shop"
+        />
       ) : (
         <ProductGrid products={products} />
       )}

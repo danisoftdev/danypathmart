@@ -17,14 +17,14 @@ export default function Footer() {
             <span className="text-brand-green">DanyPathMart</span>
             <span className="text-brand-gold">.</span>
           </div>
-          <p className="mt-2 text-sm text-gray-400">
+          <p className="mt-2 text-sm text-white/60">
             SDA youth insignias, uniforms, badges, books &amp; materials across Ghana.
           </p>
         </div>
 
         <div className="text-sm">
           <h3 className="mb-3 font-semibold text-brand-gold">Contact</h3>
-          <ul className="space-y-1 text-gray-300">
+          <ul className="space-y-1 text-white/80">
             {company.phone && <li>{company.phone}</li>}
             {company.email && (
               <li>
@@ -34,7 +34,7 @@ export default function Footer() {
               </li>
             )}
             {company.address && <li>{company.address}</li>}
-            {company.business_hours && <li className="text-gray-400">{company.business_hours}</li>}
+            {company.business_hours && <li className="text-white/60">{company.business_hours}</li>}
           </ul>
         </div>
 
@@ -42,17 +42,17 @@ export default function Footer() {
           <h3 className="mb-3 font-semibold text-brand-gold">Connect</h3>
           <div className="flex items-center gap-3">
             {company.facebook && (
-              <a href={company.facebook} aria-label="Facebook" className="text-gray-300 hover:text-white">
+              <a href={company.facebook} aria-label="Facebook" className="text-white/80 hover:text-white">
                 <FacebookIcon />
               </a>
             )}
             {company.instagram && (
-              <a href={company.instagram} aria-label="Instagram" className="text-gray-300 hover:text-white">
+              <a href={company.instagram} aria-label="Instagram" className="text-white/80 hover:text-white">
                 <InstagramIcon />
               </a>
             )}
             {company.twitter && (
-              <a href={company.twitter} aria-label="Twitter" className="text-gray-300 hover:text-white">
+              <a href={company.twitter} aria-label="Twitter" className="text-white/80 hover:text-white">
                 <TwitterIcon />
               </a>
             )}
@@ -68,7 +68,7 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-white/10 px-6 py-4 text-center text-xs text-gray-400">
+      <div className="border-t border-white/10 px-6 py-4 text-center text-xs text-white/50">
         &copy; {new Date().getFullYear()} DanyPathMart &middot; Developed by{' '}
         <a
           href="https://danysoftdev.com"

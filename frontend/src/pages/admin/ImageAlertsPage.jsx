@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { resolveImageUrl } from '../../lib/currency';
 import { useImageAlerts, useUpdateAlert } from '../../hooks/admin';
+import EmptyState from '../../components/ui/EmptyState';
+import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 
 const STATUSES = ['pending', 'reviewed', 'actioned'];
 
@@ -178,12 +180,15 @@ export default function ImageAlertsPage() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-[#1c1c1c]">
-        {isLoading ? (
-          <p className="p-8 text-center text-black/60 dark:text-white/60">Loading alerts...</p>
-        ) : alerts.length === 0 ? (
-          <p className="p-8 text-center text-black/60 dark:text-white/60">No alerts to review.</p>
-        ) : (
+      {isLoading ? (
+        <AdminTableSkeleton rows={5} cols={5} />
+      ) : alerts.length === 0 ? (
+        <EmptyState
+          title="No image alerts"
+          message="When customers search by image and no product matches, alerts appear here."
+        />
+      ) : (
+      <div className="overflow-hidden rounded-xl border border-black/5 bg-white dark:border-white/10 dark:bg-[#1C1C1C]">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-black/10 text-xs uppercase tracking-wide text-black/40 dark:border-white/10 dark:text-white/40">
               <tr>
@@ -218,8 +223,8 @@ export default function ImageAlertsPage() {
               ))}
             </tbody>
           </table>
-        )}
       </div>
+      )}
 
       {active && <ReviewModal alert={active} onClose={() => setActive(null)} />}
     </div>

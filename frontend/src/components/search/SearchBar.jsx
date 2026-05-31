@@ -105,7 +105,7 @@ export default function SearchBar({ onNavigate }) {
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder="Search uniforms, badges, books..."
-          className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-black outline-none placeholder:text-gray-400 dark:bg-[#1c1c1c] dark:text-white"
+          className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-[#111111] outline-none placeholder-muted dark:bg-[#1C1C1C] dark:text-white"
         />
         <ImageSearchButton
           ref={imageBtnRef}

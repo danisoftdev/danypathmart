@@ -74,7 +74,7 @@ export default function TwoFactorVerifyPage() {
   return (
     <div className="auth-card text-center">
       <h1 className="mb-1 text-2xl font-bold">Two-factor authentication</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mb-6 text-sm text-muted">
         {useBackup ? 'Enter one of your backup codes.' : 'Enter the 6-digit code from your authenticator app.'}
       </p>
 

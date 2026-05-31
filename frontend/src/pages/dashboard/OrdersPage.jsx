@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom';
 import { useOrders } from '../../hooks/account';
+import EmptyState from '../../components/ui/EmptyState';
+import { OrderListSkeleton } from '../../components/ui/Skeleton';
 import { formatPrice, resolveImageUrl } from '../../lib/currency';
 
 const STATUS_STYLES = {
-  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300',
-  processing: 'bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-300',
-  shipped: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-400/15 dark:text-indigo-300',
-  out_for_delivery: 'bg-purple-100 text-purple-800 dark:bg-purple-400/15 dark:text-purple-300',
+  pending: 'bg-brand-gold/20 text-amber-800 dark:text-brand-gold',
+  processing: 'bg-brand-green/15 text-brand-green',
+  shipped: 'bg-brand-emerald/15 text-brand-emerald',
+  out_for_delivery: 'bg-brand-orange/15 text-brand-orange',
   delivered: 'bg-brand-green/15 text-brand-green',
-  cancelled: 'bg-red-100 text-red-700 dark:bg-red-400/15 dark:text-red-300',
+  cancelled: 'bg-brand-red/15 text-brand-red',
 };
 
 function statusLabel(status) {
@@ -16,7 +18,7 @@ function statusLabel(status) {
 }
 
 function StatusBadge({ status }) {
-  const cls = STATUS_STYLES[status] || 'bg-black/10 text-black/70 dark:bg-white/10 dark:text-white/70';
+  const cls = STATUS_STYLES[status] || 'bg-black/10 text-[#111111] dark:bg-white/10 dark:text-white';
   return (
     <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {statusLabel(status) || 'Unknown'}
@@ -36,10 +38,9 @@ export default function OrdersPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="h-28 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />
-        ))}
+      <div>
+        <h1 className="mb-5 text-xl font-bold">My Orders</h1>
+        <OrderListSkeleton count={3} />
       </div>
     );
   }
@@ -50,12 +51,14 @@ export default function OrdersPage() {
 
   if (!orders || orders.length === 0) {
     return (
-      <div className="rounded-2xl border border-black/5 bg-white p-10 text-center dark:border-white/10 dark:bg-[#161616]">
-        <h2 className="text-lg font-semibold">No orders yet</h2>
-        <p className="mt-1 text-sm text-black/60 dark:text-white/60">
-          When you place an order it will show up here with live tracking.
-        </p>
-        <Link to="/shop" className="btn-primary mt-5 inline-block">Start shopping</Link>
+      <div>
+        <h1 className="mb-5 text-xl font-bold">My Orders</h1>
+        <EmptyState
+          title="No orders yet"
+          message="When you place an order it will show up here with live tracking."
+          actionLabel="Start shopping"
+          actionTo="/shop"
+        />
       </div>
     );
   }
@@ -67,7 +70,7 @@ export default function OrdersPage() {
         {orders.map((order) => (
           <div
             key={order.id}
-            className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition hover:shadow-md sm:p-5 dark:border-white/10 dark:bg-[#161616]"
+            className="card-brand p-4 sm:p-5"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -79,7 +82,7 @@ export default function OrdersPage() {
                     </span>
                   )}
                 </p>
-                <p className="text-xs text-black/50 dark:text-white/50">{formatDate(order.created_at)}</p>
+                <p className="text-xs text-subtle">{formatDate(order.created_at)}</p>
               </div>
               <StatusBadge status={order.status} />
             </div>
@@ -89,14 +92,14 @@ export default function OrdersPage() {
                 {order.thumbnails.slice(0, 4).map((t, i) => (
                   <div
                     key={i}
-                    className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white bg-black/5 dark:border-[#161616] dark:bg-white/10"
+                    className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white bg-black/5 dark:border-[#1C1C1C] dark:bg-white/10"
                   >
                     {t ? (
                       <img src={resolveImageUrl(t)} alt="" className="h-full w-full object-cover" />
                     ) : null}
                   </div>
                 ))}
-                <span className="ml-5 self-center text-xs text-black/50 dark:text-white/50">
+                <span className="ml-5 self-center text-xs text-subtle">
                   {order.item_count} item{order.item_count === 1 ? '' : 's'}
                 </span>
               </div>

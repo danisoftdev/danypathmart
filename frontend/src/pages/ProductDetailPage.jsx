@@ -4,6 +4,8 @@ import { useProduct } from '../hooks/catalog';
 import ProductImage from '../components/product/ProductImage';
 import { formatPrice } from '../lib/currency';
 import { useCartStore } from '../store/cartStore';
+import EmptyState from '../components/ui/EmptyState';
+import { ProductDetailSkeleton } from '../components/ui/Skeleton';
 
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -14,22 +16,18 @@ export default function ProductDetailPage() {
   const [added, setAdded] = useState(false);
 
   if (isLoading) {
-    return (
-      <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 md:grid-cols-2">
-        <div className="aspect-square animate-pulse rounded-xl bg-black/10 dark:bg-white/10" />
-        <div className="space-y-4">
-          <div className="h-8 w-2/3 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-          <div className="h-6 w-1/3 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-        </div>
-      </div>
-    );
+    return <ProductDetailSkeleton />;
   }
 
   if (isError || !data?.data) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
-        <p className="text-gray-400">Product not found.</p>
-        <Link to="/shop" className="btn-primary mt-4 inline-block">Back to shop</Link>
+      <div className="mx-auto max-w-3xl px-4 py-20">
+        <EmptyState
+          title="Product not found"
+          message="This item may have been removed or the link is incorrect."
+          actionLabel="Back to shop"
+          actionTo="/shop"
+        />
       </div>
     );
   }
@@ -46,7 +44,7 @@ export default function ProductDetailPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <nav className="mb-6 text-sm text-gray-400">
+      <nav className="mb-6 text-sm text-subtle">
         <Link to="/shop" className="hover:text-brand-green">Shop</Link>
         {product.category && (
           <>
@@ -86,7 +84,7 @@ export default function ProductDetailPage() {
         </div>
 
         <div>
-          <h1 className="text-2xl font-bold">{product.name}</h1>
+          <h1 className="text-2xl font-bold text-[#111111] dark:text-white">{product.name}</h1>
           <div className="mt-2 text-3xl font-extrabold text-brand-green">
             {formatPrice(product.price)}
           </div>
@@ -117,13 +115,13 @@ export default function ProductDetailPage() {
           )}
 
           {product.description && (
-            <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-gray-600 dark:text-gray-300">
+            <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-muted">
               {product.description}
             </p>
           )}
 
           <div className="mt-6 flex items-center gap-3">
-            <div className="flex items-center rounded-lg border-2 border-gray-200 dark:border-gray-700">
+            <div className="flex items-center rounded-lg border-2 border-[#E5E7EB] dark:border-white/15">
               <button
                 type="button"
                 onClick={() => setQty((q) => Math.max(1, q - 1))}

@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useCategories, useProducts } from '../hooks/catalog';
 import ProductCard from '../components/product/ProductCard';
 import FiltersPanel from '../components/shop/FiltersPanel';
+import EmptyState from '../components/ui/EmptyState';
+import { ProductGridSkeleton } from '../components/ui/Skeleton';
 import { CloseIcon } from '../components/icons';
 
 function flatten(nodes = []) {
@@ -69,7 +71,7 @@ export default function ShopPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between gap-4">
         <h1 className="text-2xl font-bold">
-          Shop {filters.search && <span className="text-gray-400">/ &quot;{filters.search}&quot;</span>}
+          Shop {filters.search && <span className="text-subtle">/ &quot;{filters.search}&quot;</span>}
         </h1>
         <div className="flex items-center gap-3">
           <button
@@ -82,7 +84,7 @@ export default function ShopPage() {
           <select
             value={filters.sort}
             onChange={(e) => update({ sort: e.target.value })}
-            className="rounded-lg border-2 border-gray-200 bg-white px-3 py-2 text-sm outline-none dark:border-gray-700 dark:bg-[#1c1c1c]"
+            className="input-field px-3 py-2 text-sm"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -98,18 +100,19 @@ export default function ShopPage() {
 
         <div className="flex-1">
           {isLoading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="aspect-[3/4] animate-pulse rounded-xl bg-black/10 dark:bg-white/10" />
-              ))}
-            </div>
+            <ProductGridSkeleton count={6} />
           ) : isError ? (
             <p className="py-16 text-center text-brand-red">Could not load products. Is the API running?</p>
           ) : products.length === 0 ? (
-            <p className="py-16 text-center text-gray-400">No products match your filters.</p>
+            <EmptyState
+              title="No products found"
+              message="Try adjusting your filters or browse the full catalogue."
+              actionLabel="Clear filters"
+              onAction={clear}
+            />
           ) : (
             <>
-              <p className="mb-4 text-sm text-gray-400">{meta.total} products</p>
+              <p className="mb-4 text-sm text-subtle">{meta.total} products</p>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {products.map((p) => (
                   <ProductCard key={p.id} product={p} />

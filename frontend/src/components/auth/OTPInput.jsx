@@ -68,7 +68,7 @@ export default function OTPInput({ length = 6, onComplete, disabled = false }) {
           disabled={disabled}
           onChange={(e) => handleChange(index, e)}
           onKeyDown={(e) => handleKeyDown(index, e)}
-          className="h-14 w-12 rounded-lg border-2 border-gray-200 bg-white text-center text-2xl font-bold text-black outline-none transition focus:border-brand-green disabled:opacity-60 dark:border-gray-700 dark:bg-[#1c1c1c] dark:text-white"
+          className="h-14 w-12 rounded-lg border-2 border-[#E5E7EB] bg-white text-center text-2xl font-bold text-[#111111] outline-none transition focus:border-brand-green disabled:opacity-60 dark:border-white/15 dark:bg-[#1C1C1C] dark:text-white"
         />
       ))}
     </div>

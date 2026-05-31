@@ -35,7 +35,7 @@ export default function RegisterPage() {
   return (
     <form onSubmit={submit} className="auth-card">
       <h1 className="mb-1 text-2xl font-bold">Create your account</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mb-6 text-sm text-muted">
         Join DanyPathMart to shop insignias, uniforms and more.
       </p>
 
@@ -86,7 +86,7 @@ export default function RegisterPage() {
         {loading ? 'Creating account...' : 'Create account'}
       </button>
 
-      <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p className="mt-4 text-center text-sm text-muted">
         Already have an account?{' '}
         <Link to="/login" className="font-semibold text-brand-green">Log in</Link>
       </p>

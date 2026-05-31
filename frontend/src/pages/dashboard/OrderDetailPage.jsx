@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useOrder } from '../../hooks/checkout';
 import { formatPrice, resolveImageUrl } from '../../lib/currency';
+import { FormPanelSkeleton } from '../../components/ui/Skeleton';
 
 const STEPS = [
   { key: 'placed', label: 'Order Placed' },
@@ -110,7 +111,7 @@ export default function OrderDetailPage() {
   const order = data?.order;
 
   if (isLoading) {
-    return <div className="h-80 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />;
+    return <FormPanelSkeleton sections={2} />;
   }
   if (isError || !order) {
     return (

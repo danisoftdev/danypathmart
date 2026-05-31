@@ -12,7 +12,7 @@ export default function AuthLayout() {
         <Logo className="text-2xl" />
       </Link>
       <Outlet />
-      <p className="mt-8 text-xs text-gray-400">
+      <p className="mt-8 text-xs text-subtle">
         Developed &amp; Owned by{' '}
         <a
           href="https://danysoftdev.com"

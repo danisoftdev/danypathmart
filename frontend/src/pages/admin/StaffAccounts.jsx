@@ -3,6 +3,8 @@ import { Navigate } from 'react-router-dom';
 import { useDeleteStaff, useStaff } from '../../hooks/admin';
 import { useAuthStore } from '../../store/authStore';
 import AddEditStaffModal from '../../components/admin/AddEditStaffModal';
+import EmptyState from '../../components/ui/EmptyState';
+import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 
 const STATUS_STYLES = {
   verified: 'bg-brand-green/15 text-brand-green',
@@ -37,20 +39,23 @@ export default function StaffAccounts() {
         <button
           type="button"
           onClick={() => setModal({ staff: null })}
-          className="rounded-lg bg-brand-green px-4 py-2 text-sm font-semibold text-white transition hover:bg-opacity-90"
+          className="btn-primary py-2 text-sm"
         >
           + Add staff
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white dark:border-white/10 dark:bg-[#1c1c1c]">
-        {isLoading ? (
-          <p className="p-8 text-center text-black/60 dark:text-white/60">Loading staff...</p>
-        ) : staff.length === 0 ? (
-          <p className="p-8 text-center text-black/60 dark:text-white/60">
-            No staff accounts yet. Add one to delegate access.
-          </p>
-        ) : (
+      {isLoading ? (
+        <AdminTableSkeleton rows={4} cols={6} />
+      ) : staff.length === 0 ? (
+        <EmptyState
+          title="No staff accounts"
+          message="Add a staff member to delegate admin access with custom permissions."
+          actionLabel="Add staff"
+          onAction={() => setModal({ staff: null })}
+        />
+      ) : (
+      <div className="overflow-hidden rounded-xl border border-black/5 bg-white dark:border-white/10 dark:bg-[#1C1C1C]">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-black/10 text-xs uppercase tracking-wide text-black/40 dark:border-white/10 dark:text-white/40">
               <tr>
@@ -100,8 +105,8 @@ export default function StaffAccounts() {
               ))}
             </tbody>
           </table>
-        )}
       </div>
+      )}
 
       {modal && (
         <AddEditStaffModal staff={modal.staff} onClose={() => setModal(null)} />

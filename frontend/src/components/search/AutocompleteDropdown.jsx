@@ -1,4 +1,5 @@
 import ProductImage from '../product/ProductImage';
+import { SkeletonBlock } from '../ui/Skeleton';
 import { formatPrice } from '../../lib/currency';
 import { SearchIcon, CameraIcon } from '../icons';
 
@@ -32,8 +33,8 @@ export default function AutocompleteDropdown({
         <div className="p-3">
           {[0, 1, 2].map((i) => (
             <div key={i} className="mb-2 flex items-center gap-3">
-              <div className="h-10 w-10 animate-pulse rounded bg-black/10 dark:bg-white/10" />
-              <div className="h-4 flex-1 animate-pulse rounded bg-black/10 dark:bg-white/10" />
+              <SkeletonBlock className="h-10 w-10" />
+              <SkeletonBlock className="h-4 flex-1" />
             </div>
           ))}
         </div>
@@ -105,7 +106,7 @@ export default function AutocompleteDropdown({
                       activeIndex === idx ? 'bg-brand-green/10' : ''
                     }`}
                   >
-                    <SearchIcon className="h-4 w-4 text-gray-400" />
+                    <SearchIcon className="h-4 w-4 text-subtle" />
                     <span className="truncate">{s}</span>
                   </button>
                 );
@@ -114,7 +115,7 @@ export default function AutocompleteDropdown({
           )}
 
           {!hasResults && (
-            <div className="px-4 py-6 text-center text-sm text-gray-400">No matches found.</div>
+            <div className="px-4 py-6 text-center text-sm text-muted">No matches found.</div>
           )}
 
           <button

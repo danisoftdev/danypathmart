@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCompanySettings, useUpdateCompanySettings } from '../../hooks/admin';
 import { FacebookIcon, InstagramIcon, TwitterIcon, WhatsAppIcon } from '../../components/icons';
+import { FormPanelSkeleton } from '../../components/ui/Skeleton';
 
 const EMPTY = {
   company_name: '',
@@ -85,7 +86,7 @@ export default function CompanySettings() {
   };
 
   if (isLoading) {
-    return <div className="h-96 animate-pulse rounded-2xl bg-black/5 dark:bg-white/5" />;
+    return <FormPanelSkeleton sections={3} />;
   }
 
   return (
