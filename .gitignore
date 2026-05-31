@@ -1,0 +1,22 @@
+# ---- Dependencies & build output ----
+frontend/node_modules/
+frontend/dist/
+backend/vendor/
+
+# ---- Environment & secrets ----
+backend/.env
+frontend/.env
+*.env.local
+
+# ---- Uploads & runtime storage ----
+backend/uploads/
+backend/storage/mail/
+backend/storage/ratelimit/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+*.sql.bak

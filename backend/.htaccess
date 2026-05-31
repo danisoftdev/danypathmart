@@ -1,0 +1,21 @@
+# DanyPathMart API - route everything through index.php
+
+RewriteEngine On
+
+# Allow the front controller and real files/directories to be served directly.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Send all other API requests to the router as ?route=<path>.
+RewriteRule ^(.*)$ index.php?route=$1 [QSA,L]
+
+# Block direct browser access to the .env file.
+<Files ".env">
+    Require all denied
+</Files>
+
+# Block direct access to the Composer manifest and lock file.
+<FilesMatch "^(composer\.(json|lock)|\.env\..*)$">
+    Require all denied
+</FilesMatch>
