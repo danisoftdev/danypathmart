@@ -3,10 +3,13 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import OTPInput from '../../components/auth/OTPInput';
 import { useAuthStore } from '../../store/authStore';
+import { homePathForUser } from '../../lib/permissions';
 
 export default function TwoFactorVerifyPage() {
   const navigate = useNavigate();
   const tempToken = useAuthStore((s) => s.tempToken);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
   const setSession = useAuthStore((s) => s.setSession);
 
   const [useBackup, setUseBackup] = useState(false);
@@ -15,13 +18,24 @@ export default function TwoFactorVerifyPage() {
   const [submitting, setSubmitting] = useState(false);
   const submittedRef = useRef(false);
 
+  // After a successful verify, setSession clears tempToken before navigate
+  // finishes — send authenticated users to their home route, not back to login.
+  if (isAuthenticated && user) {
+    return <Navigate to={homePathForUser(user)} replace />;
+  }
+
   if (!tempToken) {
     return <Navigate to="/login" replace />;
   }
 
   const finish = (data) => {
+    if (!data?.access_token || !data?.user) {
+      setError('Login response was incomplete. Please try again.');
+      submittedRef.current = false;
+      return;
+    }
     setSession(data);
-    navigate('/dashboard');
+    navigate(homePathForUser(data.user), { replace: true });
   };
 
   const verifyTotp = async (code) => {
