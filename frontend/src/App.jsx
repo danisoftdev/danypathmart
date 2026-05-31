@@ -4,6 +4,9 @@ import AppLayout from './components/layout/AppLayout';
 import AuthLayout from './components/layout/AuthLayout';
 import ProtectedRoute from './components/routing/ProtectedRoute';
 import HomePage from './pages/HomePage';
+import ShopPage from './pages/ShopPage';
+import ProductDetailPage from './pages/ProductDetailPage';
+import ImageSearchPage from './pages/ImageSearchPage';
 import DashboardPage from './pages/DashboardPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
@@ -59,6 +62,9 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/shop" element={<ShopPage />} />
+          <Route path="/product/:slug" element={<ProductDetailPage />} />
+          <Route path="/image-search" element={<ImageSearchPage />} />
           <Route
             path="/dashboard"
             element={

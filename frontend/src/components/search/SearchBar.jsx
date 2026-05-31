@@ -1,43 +1,160 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CameraIcon, SearchIcon } from '../icons';
 import { useDebounce } from '../../hooks/useDebounce';
+import { useAutocomplete } from '../../hooks/catalog';
+import AutocompleteDropdown from './AutocompleteDropdown';
 
-/**
- * Search bar skeleton. The autocomplete dropdown and image-search flow are
- * wired up on Day 2 / Day 3 - this provides the input, camera, and submit UI.
- */
-export default function SearchBar() {
+export default function SearchBar({ onNavigate }) {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  // Reserved for Day 2 autocomplete (debounced API calls).
-  useDebounce(query, 300);
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const containerRef = useRef(null);
+  const fileInputRef = useRef(null);
+
+  const debounced = useDebounce(query, 300);
+  const { data, isFetching } = useAutocomplete(debounced);
+
+  const products = data?.products ?? [];
+  const categories = data?.categories ?? [];
+  const suggestions = data?.suggestions ?? [];
+  const total = products.length + categories.length + suggestions.length;
+
+  const showDropdown = open && query.trim().length >= 2;
+
+  // Close on outside click.
+  useEffect(() => {
+    function handleClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const close = () => {
+    setOpen(false);
+    setActiveIndex(-1);
+    onNavigate?.();
+  };
+
+  const goSearch = (term) => {
+    const q = (term ?? query).trim();
+    if (!q) return;
+    navigate(`/shop?search=${encodeURIComponent(q)}`);
+    close();
+  };
+
+  const selectProduct = (p) => {
+    navigate(`/product/${p.slug}`);
+    close();
+  };
+  const selectCategory = (c) => {
+    navigate(`/shop?category=${encodeURIComponent(c.slug)}`);
+    close();
+  };
+  const selectSuggestion = (s) => {
+    setQuery(s);
+    goSearch(s);
+  };
+
+  const selectIndex = (idx) => {
+    if (idx < products.length) return selectProduct(products[idx]);
+    if (idx < products.length + categories.length) {
+      return selectCategory(categories[idx - products.length]);
+    }
+    return selectSuggestion(suggestions[idx - products.length - categories.length]);
+  };
+
+  const openImagePicker = () => fileInputRef.current?.click();
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const previewUrl = URL.createObjectURL(file);
+    navigate('/image-search', { state: { previewUrl, name: file.name } });
+    close();
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showDropdown) {
+      if (e.key === 'Enter') goSearch();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.min(i + 1, total - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && activeIndex < total) selectIndex(activeIndex);
+      else goSearch();
+    } else if (e.key === 'Escape') {
+      setOpen(false);
+    }
+  };
 
   return (
-    <form
-      onSubmit={(e) => e.preventDefault()}
-      className="relative flex w-full items-center"
-    >
+    <div ref={containerRef} className="relative w-full">
+      <form onSubmit={(e) => { e.preventDefault(); goSearch(); }} className="relative flex items-center">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActiveIndex(-1);
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          placeholder="Search uniforms, badges, books..."
+          className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-black outline-none placeholder:text-gray-400 dark:bg-[#1c1c1c] dark:text-white"
+        />
+        <button
+          type="button"
+          onClick={openImagePicker}
+          aria-label="Search by image"
+          title="Search by image"
+          className="absolute right-12 flex h-9 w-9 items-center justify-center rounded-lg text-brand-green transition hover:bg-brand-green/10"
+        >
+          <CameraIcon />
+        </button>
+        <button
+          type="submit"
+          aria-label="Search"
+          className="absolute right-1 flex h-9 w-10 items-center justify-center rounded-lg bg-brand-green text-white transition hover:bg-opacity-90"
+        >
+          <SearchIcon />
+        </button>
+      </form>
+
       <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search uniforms, badges, books..."
-        className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-black outline-none placeholder:text-gray-400 dark:bg-[#1c1c1c] dark:text-white"
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFile}
+        className="hidden"
       />
-      <button
-        type="button"
-        aria-label="Search by image"
-        title="Search by image"
-        className="absolute right-12 flex h-9 w-9 items-center justify-center rounded-lg text-brand-green transition hover:bg-brand-green/10"
-      >
-        <CameraIcon />
-      </button>
-      <button
-        type="submit"
-        aria-label="Search"
-        className="absolute right-1 flex h-9 w-10 items-center justify-center rounded-lg bg-brand-green text-white transition hover:bg-opacity-90"
-      >
-        <SearchIcon />
-      </button>
-    </form>
+
+      {showDropdown && (
+        <AutocompleteDropdown
+          loading={isFetching && total === 0}
+          products={products}
+          categories={categories}
+          suggestions={suggestions}
+          activeIndex={activeIndex}
+          onHoverIndex={setActiveIndex}
+          onSelectProduct={selectProduct}
+          onSelectCategory={selectCategory}
+          onSelectSuggestion={selectSuggestion}
+          onImageSearch={openImagePicker}
+        />
+      )}
+    </div>
   );
 }

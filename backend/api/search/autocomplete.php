@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Config\Database;
+use App\Helpers\Response;
+
+$q = trim((string) ($_GET['q'] ?? ''));
+
+// Require at least 2 characters to avoid noisy keystroke queries.
+if (mb_strlen($q) < 2) {
+    Response::success(['products' => [], 'categories' => [], 'suggestions' => []]);
+}
+
+$pdo = Database::pdo();
+$like = '%' . $q . '%';
+
+$productStmt = $pdo->prepare(
+    "SELECT id, name, price, images, slug
+     FROM products
+     WHERE (name LIKE ? OR description LIKE ? OR JSON_SEARCH(tags, 'one', ?) IS NOT NULL)
+       AND status = 'active' AND stock_qty > 0
+     ORDER BY name ASC
+     LIMIT 5"
+);
+$productStmt->execute([$like, $like, $like]);
+$products = array_map(static function (array $r): array {
+    $images = $r['images'] ? (json_decode((string) $r['images'], true) ?: []) : [];
+    return [
+        'id'     => (int) $r['id'],
+        'name'   => $r['name'],
+        'slug'   => $r['slug'],
+        'price'  => (float) $r['price'],
+        'images' => is_array($images) ? $images : [],
+    ];
+}, $productStmt->fetchAll());
+
+$categoryStmt = $pdo->prepare(
+    'SELECT id, name, slug FROM categories WHERE name LIKE ? ORDER BY name ASC LIMIT 3'
+);
+$categoryStmt->execute([$like]);
+$categories = array_map(static fn (array $r): array => [
+    'id'   => (int) $r['id'],
+    'name' => $r['name'],
+    'slug' => $r['slug'],
+], $categoryStmt->fetchAll());
+
+$suggestStmt = $pdo->prepare(
+    'SELECT query FROM search_logs WHERE query LIKE ? GROUP BY query ORDER BY COUNT(*) DESC LIMIT 4'
+);
+$suggestStmt->execute([$like]);
+$suggestions = array_map(static fn (array $r): string => (string) $r['query'], $suggestStmt->fetchAll());
+
+$log = $pdo->prepare(
+    "INSERT INTO search_logs (user_id, query, results_count, search_type) VALUES (NULL, ?, ?, 'text')"
+);
+$log->execute([$q, count($products)]);
+
+Response::success([
+    'products'    => $products,
+    'categories'  => $categories,
+    'suggestions' => $suggestions,
+]);
