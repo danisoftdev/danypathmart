@@ -62,3 +62,8 @@ export function hasPermission(user, key) {
 export function isAdminUser(user) {
   return !!user && (user.role === 'super_admin' || user.role === 'staff');
 }
+
+/** Where a user should land after authenticating. Admins go to the admin panel. */
+export function homePathForUser(user) {
+  return isAdminUser(user) ? '/admin' : '/dashboard';
+}

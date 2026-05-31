@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useWebAuthn } from '../../hooks/useWebAuthn';
+import { homePathForUser } from '../../lib/permissions';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -25,7 +26,11 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await login(form.email, form.password);
-      navigate(res.requires2FA ? '/2fa' : '/dashboard');
+      if (res.requires2FA) {
+        navigate('/2fa');
+      } else {
+        navigate(homePathForUser(useAuthStore.getState().user));
+      }
     } catch (err) {
       const data = err.response?.data;
       if (data?.code === 'email_unverified') {
@@ -44,7 +49,7 @@ export default function LoginPage() {
     try {
       const data = await loginWithBiometric();
       setSession(data);
-      navigate('/dashboard');
+      navigate(homePathForUser(data.user));
     } catch (err) {
       if (err?.name === 'NotAllowedError') {
         setError('Biometric prompt was cancelled.');

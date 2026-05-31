@@ -3,13 +3,32 @@ import { useAuthStore } from '../../store/authStore';
 import { useAlertCount } from '../../hooks/admin';
 import { hasPermission, isAdminUser } from '../../lib/permissions';
 
-// Each item: route, label, required permission (null = any admin),
-// superAdminOnly flag, and whether it shows the pending-alert badge.
+// Sidebar items gated by RBAC permission. super_admin bypasses all checks (hasPermission).
 const NAV = [
-  { to: '/admin/image-alerts', label: 'Image Alerts', permission: 'view_image_alerts', badge: 'alerts' },
+  { to: '/admin/orders', label: 'Orders', permission: 'view_orders' },
+  { to: '/admin/products', label: 'Products', permission: 'view_products' },
+  { to: '/admin/categories', label: 'Categories', permission: 'manage_categories' },
+  { to: '/admin/users', label: 'Customers', permission: 'view_users' },
+  { to: '/admin/reports', label: 'Reports', permission: 'view_reports' },
+  { to: '/admin/shipping', label: 'Shipping & Rates', permission: 'manage_shipping' },
   { to: '/admin/company-settings', label: 'Company Settings', permission: 'view_company_settings' },
+  { to: '/admin/image-alerts', label: 'Image Alerts', permission: 'view_image_alerts', badge: 'alerts' },
   { to: '/admin/staff', label: 'Staff Accounts', superAdminOnly: true },
 ];
+
+/** Lands /admin on the first section the user can actually access. */
+export function AdminIndexRedirect() {
+  const user = useAuthStore((s) => s.user);
+  if (!isAdminUser(user)) return <Navigate to="/" replace />;
+
+  for (const item of NAV) {
+    if (item.superAdminOnly && user?.role !== 'super_admin') continue;
+    if (item.permission && !hasPermission(user, item.permission)) continue;
+    return <Navigate to={item.to} replace />;
+  }
+
+  return <Navigate to="/" replace />;
+}
 
 function SidebarLink({ to, label, badge }) {
   return (

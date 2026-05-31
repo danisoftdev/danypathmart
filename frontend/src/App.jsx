@@ -14,10 +14,16 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import OrdersPage from './pages/dashboard/OrdersPage';
 import OrderDetailPage from './pages/dashboard/OrderDetailPage';
 import SettingsPage from './pages/dashboard/SettingsPage';
-import AdminLayout from './components/layout/AdminLayout';
+import AdminLayout, { AdminIndexRedirect } from './components/layout/AdminLayout';
 import ImageAlertsPage from './pages/admin/ImageAlertsPage';
 import CompanySettings from './pages/admin/CompanySettings';
 import StaffAccounts from './pages/admin/StaffAccounts';
+import AdminOrdersPage from './pages/admin/AdminOrdersPage';
+import AdminProductsPage from './pages/admin/AdminProductsPage';
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage';
+import AdminReportsPage from './pages/admin/AdminReportsPage';
+import AdminShippingPage from './pages/admin/AdminShippingPage';
 import RegisterPage from './pages/auth/RegisterPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import LoginPage from './pages/auth/LoginPage';
@@ -105,6 +111,13 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            <Route index element={<AdminIndexRedirect />} />
+            <Route path="orders" element={<AdminOrdersPage />} />
+            <Route path="products" element={<AdminProductsPage />} />
+            <Route path="categories" element={<AdminCategoriesPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
+            <Route path="shipping" element={<AdminShippingPage />} />
             <Route path="image-alerts" element={<ImageAlertsPage />} />
             <Route path="company-settings" element={<CompanySettings />} />
             <Route path="staff" element={<StaffAccounts />} />

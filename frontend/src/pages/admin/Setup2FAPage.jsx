@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import TwoFactorSetup from '../../components/auth/TwoFactorSetup';
 import { useAuthStore } from '../../store/authStore';
+import { homePathForUser } from '../../lib/permissions';
 
 export default function Setup2FAPage() {
   const navigate = useNavigate();
   const loadMe = useAuthStore((s) => s.loadMe);
 
   const handleComplete = async () => {
-    await loadMe();
-    navigate('/dashboard', { replace: true });
+    const fresh = await loadMe();
+    navigate(homePathForUser(fresh), { replace: true });
   };
 
   return (
