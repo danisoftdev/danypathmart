@@ -42,7 +42,7 @@ final class AuthMiddleware
         }
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, role, status, preferred_currency, totp_enabled
+            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo
              FROM users WHERE id = ?'
         );
         $stmt->execute([$userId]);
@@ -69,6 +69,20 @@ final class AuthMiddleware
         $user = self::authenticate();
         if (!in_array($user['role'] ?? '', ['super_admin', 'staff'], true)) {
             Response::error('Administrator access required.', 403, ['code' => 'forbidden']);
+        }
+        return $user;
+    }
+
+    /**
+     * Require an authenticated super_admin. Halts with 403 otherwise.
+     *
+     * @return array<string,mixed>
+     */
+    public static function requireSuperAdmin(): array
+    {
+        $user = self::authenticate();
+        if (($user['role'] ?? '') !== 'super_admin') {
+            Response::error('Super administrator access required.', 403, ['code' => 'forbidden']);
         }
         return $user;
     }
@@ -106,7 +120,7 @@ final class AuthMiddleware
         }
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, role, status, preferred_currency, totp_enabled
+            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo
              FROM users WHERE id = ?'
         );
         $stmt->execute([$userId]);

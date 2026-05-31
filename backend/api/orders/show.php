@@ -49,6 +49,16 @@ $items = array_map(static function (array $r): array {
     ];
 }, $itemsStmt->fetchAll());
 
+$trackStmt = $pdo->prepare(
+    'SELECT status, note, created_at FROM order_tracking WHERE order_id = ? ORDER BY created_at ASC, id ASC'
+);
+$trackStmt->execute([$orderId]);
+$tracking = array_map(static fn (array $t): array => [
+    'status'     => $t['status'],
+    'note'       => $t['note'],
+    'created_at' => $t['created_at'],
+], $trackStmt->fetchAll());
+
 $address = null;
 if ($order['address_id'] !== null) {
     $aStmt = $pdo->prepare(
@@ -77,6 +87,7 @@ Response::success([
         'created_at'             => $order['created_at'],
         'address'                => $address,
         'items'                  => $items,
+        'tracking'               => $tracking,
         'has_preorder'           => array_reduce($items, static fn ($c, $i) => $c || $i['is_preorder'], false),
     ],
 ]);

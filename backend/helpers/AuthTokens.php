@@ -93,7 +93,10 @@ final class AuthTokens
             'role'               => $u['role'],
             'status'             => $u['status'],
             'preferred_currency' => $u['preferred_currency'] ?? 'GHS',
+            'phone'              => $u['phone'] ?? null,
+            'profile_photo'      => $u['profile_photo'] ?? null,
             'totp_enabled'       => (int) ($u['totp_enabled'] ?? 0),
+            'permissions'        => StaffPermission::effective((int) $u['id'], (string) $u['role']),
         ];
     }
 }
