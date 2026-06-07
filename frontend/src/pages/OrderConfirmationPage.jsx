@@ -1,9 +1,22 @@
 import { Link, useParams } from 'react-router-dom';
 import ProductImage from '../components/product/ProductImage';
+import CompletePaymentPanel from '../components/checkout/CompletePaymentPanel';
+import PrintExportActions from '../components/ui/PrintExportActions';
 import { formatPrice } from '../lib/currency';
-import { useOrder } from '../hooks/checkout';
+import { isGroupOrder, printGroupRoster, printReceipt, rosterLinesFromOrder } from '../lib/orderDocuments';
+import { downloadGroupRosterCsv } from '../lib/csvExport';
+import { useOrder, useAirLabels } from '../hooks/checkout';
+import { useCompanyStore } from '../store/companyStore';
+import { orderWhatsAppMessage, whatsAppLink } from '../lib/whatsapp';
 
-function StatusBadge({ paid }) {
+function StatusBadge({ paid, pod }) {
+  if (pod && !paid) {
+    return (
+      <span className="rounded-full bg-brand-gold/20 px-3 py-1 text-xs font-semibold text-amber-800">
+        Pay on delivery
+      </span>
+    );
+  }
   return (
     <span
       className={[
@@ -18,7 +31,9 @@ function StatusBadge({ paid }) {
 
 export default function OrderConfirmationPage() {
   const { id } = useParams();
-  const { data, isLoading, isError } = useOrder(id);
+  const { data, isLoading, isError, refetch } = useOrder(id);
+  const company = useCompanyStore((s) => s.company);
+  const labels = useAirLabels();
 
   if (isLoading) {
     return (
@@ -40,28 +55,61 @@ export default function OrderConfirmationPage() {
 
   const order = data.order;
   const paid = order.payment_status === 'paid';
+  const isPod = order.payment_method === 'pod';
+  const waUrl = order.notify_whatsapp
+    ? whatsAppLink(company?.whatsapp_support, orderWhatsAppMessage(order.id))
+    : null;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="rounded-2xl border border-black/5 bg-white p-6 dark:border-white/10 dark:bg-[#1c1c1c]">
         <div className="text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-brand-green/10 text-3xl text-brand-green">
-            {'\u2713'}
+            ✓
           </div>
           <h1 className="text-2xl font-bold">Thank you for your order!</h1>
           <p className="mt-1 text-black/60 dark:text-white/60">
             Order <span className="font-semibold">#{order.id}</span>
           </p>
           <div className="mt-3 flex items-center justify-center gap-2">
-            <StatusBadge paid={paid} />
-            <span className="text-xs text-black/50 dark:text-white/50 capitalize">{order.status}</span>
+            <StatusBadge paid={paid} pod={isPod} />
+            <span className="text-xs capitalize text-black/50 dark:text-white/50">{order.status?.replace(/_/g, ' ')}</span>
           </div>
+          {!paid && !isPod && (
+            <p className="mt-4 rounded-xl bg-brand-gold/15 px-4 py-3 text-sm text-amber-900 dark:text-brand-gold">
+              Complete payment below to start preparing your order.
+            </p>
+          )}
+          <CompletePaymentPanel order={order} onPaid={() => refetch()} />
+          <PrintExportActions
+            className="mt-4 justify-center"
+            actions={[
+              { label: 'Print receipt', onClick: () => printReceipt(order, company) },
+              ...(isGroupOrder(order)
+                ? [
+                    {
+                      label: 'Print roster',
+                      onClick: () =>
+                        printGroupRoster({ organizationName: order.organization_name, order, company }),
+                    },
+                    {
+                      label: 'Export roster CSV',
+                      onClick: () =>
+                        downloadGroupRosterCsv(
+                          order.organization_name,
+                          rosterLinesFromOrder(order),
+                          order.id
+                        ),
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
 
         {order.has_preorder && (
           <div className="mt-6 rounded-xl bg-brand-gold/15 p-4 text-sm text-amber-800 dark:text-amber-300">
-            Your order includes pre-order items sourced internationally. Estimated arrival dates are
-            shown per item below.
+            {labels.orderNotice} Estimated arrival dates are shown per item below.
           </div>
         )}
 
@@ -80,7 +128,7 @@ export default function OrderConfirmationPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-black/60 dark:text-white/60">
-                    {item.quantity} &times; {formatPrice(item.unit_price)}
+                    {item.quantity} × {formatPrice(item.unit_price)}
                     {item.is_preorder && item.estimated_arrival && (
                       <span className="ml-2 text-brand-gold">ETA {item.estimated_arrival}</span>
                     )}
@@ -97,19 +145,27 @@ export default function OrderConfirmationPage() {
             <span className="text-black/60 dark:text-white/60">Subtotal</span>
             <span>{formatPrice(order.subtotal)}</span>
           </div>
+          {order.intl_shipping_cost > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-black/60 dark:text-white/60">{labels.intlShippingTitle}</span>
+              <span>{formatPrice(order.intl_shipping_cost)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
-            <span className="text-black/60 dark:text-white/60">International shipping</span>
-            <span>{formatPrice(order.intl_shipping_cost)}</span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-black/60 dark:text-white/60">
-              Local delivery ({order.local_delivery_percent}%)
-            </span>
+            <span className="text-black/60 dark:text-white/60">{labels.localDeliveryTitle}</span>
             <span>{formatPrice(order.local_delivery_cost)}</span>
           </div>
+          {(order.wallet_paid || 0) > 0 && (
+            <div className="flex justify-between text-sm text-brand-green">
+              <span>Wallet applied</span>
+              <span>-{formatPrice(order.wallet_paid)}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-black/10 pt-2 text-base font-bold dark:border-white/10">
-            <span>Total paid</span>
-            <span>{formatPrice(order.total)}</span>
+            <span>{paid ? 'Total paid' : 'Total due'}</span>
+            <span className="text-brand-green">
+              {formatPrice(paid ? order.total : (order.amount_due ?? order.total))}
+            </span>
           </div>
         </div>
 
@@ -124,9 +180,26 @@ export default function OrderConfirmationPage() {
           </div>
         )}
 
+        {waUrl && (
+          <div className="mt-6 rounded-xl border border-brand-green/30 bg-brand-green/5 p-4">
+            <p className="text-sm font-bold text-brand-green">WhatsApp updates</p>
+            <p className="mt-1 text-xs text-muted">
+              Tap below to open WhatsApp with your order reference — no extra login required.
+            </p>
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-primary mt-3 inline-flex w-full items-center justify-center gap-2 py-2.5 text-sm"
+            >
+              Open WhatsApp
+            </a>
+          </div>
+        )}
+
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
-            to="/dashboard"
+            to={`/dashboard/orders/${order.id}`}
             className="flex-1 rounded-lg bg-brand-green px-4 py-3 text-center font-semibold text-white transition hover:bg-opacity-90"
           >
             Track Order

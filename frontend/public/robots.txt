@@ -3,4 +3,4 @@ Disallow: /admin
 Disallow: /api
 Disallow: /dashboard
 
-Sitemap: https://danypathmart.com/sitemap.xml
+Sitemap: https://danypathmart.store/sitemap.xml

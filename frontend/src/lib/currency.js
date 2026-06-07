@@ -1,24 +1,15 @@
-// Currency symbols use unicode escapes to keep this source file pure ASCII.
-const SYMBOLS = {
-  GHS: 'GH\u20B5', // Ghana cedi
-  USD: '$',
-  NGN: '\u20A6', // naira
-  EUR: '\u20AC',
-  GBP: '\u00A3',
-};
+// Storefront prices and payments are Ghana Cedis (GHS) only.
 
-/**
- * Format a price for display. Live FX conversion arrives on Day 5; for now
- * amounts are stored and shown in GHS.
- */
-export function formatPrice(amount, currency = 'GHS') {
+const GHS_SYMBOL = 'GH\u20B5';
+
+/** Format a GHS amount for display. */
+export function formatPrice(amount) {
   const value = Number(amount) || 0;
-  const symbol = SYMBOLS[currency] || `${currency} `;
   const formatted = value.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  return `${symbol}${formatted}`;
+  return `${GHS_SYMBOL}${formatted}`;
 }
 
 export function resolveImageUrl(url) {

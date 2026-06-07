@@ -29,4 +29,20 @@ final class PermissionMiddleware
             ]);
         }
     }
+
+    /** @param list<string> $permissions */
+    public static function requireAny(array $permissions): void
+    {
+        $user = AuthMiddleware::getUser() ?? AuthMiddleware::authenticate();
+
+        if (($user['role'] ?? '') === 'super_admin') {
+            return;
+        }
+
+        if (!StaffPermission::userHasAny((int) $user['id'], (string) $user['role'], $permissions)) {
+            Response::error('You do not have permission to perform this action.', 403, [
+                'code' => 'forbidden',
+            ]);
+        }
+    }
 }

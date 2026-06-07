@@ -78,6 +78,130 @@ export function CloseIcon({ className = 'h-6 w-6' }) {
   );
 }
 
+export function TrashIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
+export function BellIcon({ className = 'h-6 w-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+      <path d="M13.7 21a2 2 0 01-3.4 0" />
+    </svg>
+  );
+}
+
+export function HomeIcon({ className = 'h-6 w-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z" />
+    </svg>
+  );
+}
+
+export function GridIcon({ className = 'h-6 w-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+  );
+}
+
+export function FlashIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" stroke="none">
+      <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+    </svg>
+  );
+}
+
+export function ShieldCheckIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M12 3l8 3v6c0 5-3.5 8.5-8 9-4.5-.5-8-4-8-9V6z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}
+
+export function TruckIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M3 7h11v8H3zM14 10h4l2 3v2h-6V10z" />
+      <circle cx="7" cy="18" r="1.5" />
+      <circle cx="18" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
+export function MapPinIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M12 21s7-5.2 7-11a7 7 0 10-14 0c0 5.8 7 11 7 11z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+export function StarIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" stroke="none">
+      <path d="M12 2l2.9 6.9H22l-5.5 4.1 2.1 6.9L12 16.9 5.4 20l2.1-6.9L2 8.9h7.1z" />
+    </svg>
+  );
+}
+
+export function ChatIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M4 5a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4z" />
+    </svg>
+  );
+}
+
+export function CardIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
+export function StoreIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M4 10h16l-1.5-5H5.5L4 10zM6 10v9h12v-9" />
+      <path d="M9 14h6" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
 export function WhatsAppIcon({ className = 'h-5 w-5' }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor">

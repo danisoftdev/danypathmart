@@ -1,9 +1,9 @@
 -- =============================================================================
 -- DanyPathMart — Seed Data
--- Run AFTER schema.sql (phpMyAdmin -> Import) on the danypathmart_db database.
+-- Run AFTER schema.sql (phpMyAdmin -> Import) on the danypathmart database.
 -- -----------------------------------------------------------------------------
 -- Super admin login (CHANGE ALL THREE BEFORE GOING LIVE — see security checklist)
---   email:    admin@danypathmart.com
+--   email:    admin@danypathmart.store
 --   username: superadmin
 --   password: DanyPath@Admin2025!
 -- Bcrypt hash below was generated with:
@@ -19,7 +19,7 @@ INSERT INTO users (name, username, email, password_hash, role, status, preferred
 VALUES (
     'Super Admin',
     'superadmin',
-    'admin@danypathmart.com',
+    'admin@danypathmart.store',
     '$2y$12$9ZA4fDCJMubBZGyW61iOw.You83WMa8R/j0YboRrP9deHT0kATyfu',
     'super_admin',
     'verified',
@@ -37,7 +37,7 @@ INSERT INTO company_settings (
     return_policy, usd_to_ghs_rate, updated_by
 ) VALUES (
     'DanyPathMart',
-    'support@danypathmart.com',
+    'support@danypathmart.store',
     '+233000000000',
     '+233000000000',
     'Accra, Ghana',
@@ -54,14 +54,10 @@ INSERT INTO shipping_settings (local_delivery_base_percent, updated_by)
 VALUES (5.00, @admin_id);
 
 -- -----------------------------------------------------------------------------
--- 4. Currency rates (display currencies; storefront always charges in GHS)
+-- 4. Currency (GHS only — storefront charges in Ghana Cedis)
 -- -----------------------------------------------------------------------------
 INSERT INTO currency_rates (currency_code, currency_name, rate_to_ghs) VALUES
-    ('GHS', 'Ghana Cedi',     1.0000),
-    ('USD', 'US Dollar',      15.5000),
-    ('EUR', 'Euro',           16.8000),
-    ('GBP', 'British Pound',  19.6000),
-    ('NGN', 'Nigerian Naira', 0.0100);
+    ('GHS', 'Ghana Cedi', 1.0000);
 
 -- -----------------------------------------------------------------------------
 -- 5. Sample top-level categories
@@ -101,20 +97,5 @@ VALUES (
 );
 
 -- =============================================================================
--- End of seed data
+-- End of seed data (no sample products — add catalog via Admin → Products)
 -- =============================================================================
-
--- =============================================================================
--- Sample products (Day 2)
--- =============================================================================
-INSERT INTO products
-    (category_id, name, slug, description, price, stock_qty, images, tags, is_preorder, origin_country, estimated_arrival_days, status)
-VALUES
-    (1, 'Master Guide Insignia', 'master-guide-insignia', 'Embroidered Master Guide rank insignia for sashes and uniforms.', 45.00, 120, '["/uploads/products/master-guide.jpg"]', '["insignia","master guide","rank","gold"]', 0, NULL, NULL, 'active'),
-    (1, 'Pathfinder Class Pin Set', 'pathfinder-class-pin-set', 'Complete set of Pathfinder class pins (Friend to Guide).', 60.00, 0, '["/uploads/products/class-pins.jpg"]', '["insignia","pathfinder","pins","class"]', 1, 'China', 21, 'active'),
-    (2, 'Pathfinder Field Uniform', 'pathfinder-field-uniform', 'Official Pathfinder field uniform shirt, durable cotton blend.', 150.00, 40, '["/uploads/products/field-uniform.jpg"]', '["uniform","pathfinder","field","shirt"]', 0, NULL, NULL, 'active'),
-    (2, 'Adventurer Dress Uniform', 'adventurer-dress-uniform', 'Adventurer dress uniform, full set with cap.', 180.00, 25, '["/uploads/products/adventurer-uniform.jpg"]', '["uniform","adventurer","dress"]', 0, NULL, NULL, 'active'),
-    (3, 'Honor Badge - Camping', 'honor-badge-camping', 'Camping honor badge, embroidered twill.', 12.50, 300, '["/uploads/products/badge-camping.jpg"]', '["badge","honor","camping","outdoor"]', 0, NULL, NULL, 'active'),
-    (3, 'Honor Badge - Swimming', 'honor-badge-swimming', 'Swimming honor badge, embroidered twill.', 12.50, 0, '["/uploads/products/badge-swimming.jpg"]', '["badge","honor","swimming","water"]', 1, 'China', 28, 'active'),
-    (4, 'Pathfinder Administration Manual', 'pathfinder-administration-manual', 'Official guide for Pathfinder club administration.', 75.00, 60, '["/uploads/products/admin-manual.jpg"]', '["book","manual","administration","guide"]', 0, NULL, NULL, 'active'),
-    (5, 'Pathfinder Scarf and Slide', 'pathfinder-scarf-and-slide', 'Triangular scarf with metal slide.', 35.00, 90, '["/uploads/products/scarf-slide.jpg"]', '["accessory","scarf","slide","yellow"]', 0, NULL, NULL, 'active');

@@ -7,7 +7,7 @@ use App\Helpers\Response;
 use App\Helpers\StaffPermission;
 use App\Middleware\AuthMiddleware;
 
-$admin = AuthMiddleware::requireSuperAdmin();
+$admin = AuthMiddleware::requireAnyPermission(['manage_staff']);
 $pdo = Database::pdo();
 $body = Response::body();
 

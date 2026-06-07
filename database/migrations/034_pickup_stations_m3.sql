@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS pickup_stations (
+    id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    name            VARCHAR(200)    NOT NULL,
+    slug            VARCHAR(120)    NOT NULL,
+    station_type    ENUM('owned','partner','club','church') NOT NULL DEFAULT 'owned',
+    region          VARCHAR(120)    NOT NULL,
+    city            VARCHAR(120)    NOT NULL,
+    street_address  VARCHAR(255)    NOT NULL,
+    landmark        VARCHAR(255)    DEFAULT NULL,
+    phone           VARCHAR(40)     DEFAULT NULL,
+    hours           TEXT            DEFAULT NULL,
+    latitude        DECIMAL(10,7)   DEFAULT NULL,
+    longitude       DECIMAL(10,7)   DEFAULT NULL,
+    pickup_handling_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    is_active       TINYINT(1)      NOT NULL DEFAULT 1,
+    created_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_pickup_stations_slug (slug),
+    KEY idx_pickup_stations_active (is_active),
+    KEY idx_pickup_stations_region_city (region, city)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

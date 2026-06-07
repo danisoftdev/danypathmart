@@ -18,6 +18,33 @@ final class ShippingService
     private const VOLUMETRIC_FACTOR = 167.0;
 
     /**
+     * International freight cost per unit (GHS) from CBM / weight and freight rate.
+     *
+     * @param array<string,mixed> $product
+     */
+    public static function intlFreightPerUnit(array $product, float $usdToGhs): float
+    {
+        if ((int) ($product['is_preorder'] ?? 0) !== 1) {
+            return 0.0;
+        }
+
+        $l  = (float) ($product['cbm_length'] ?? 0);
+        $w  = (float) ($product['cbm_width'] ?? 0);
+        $h  = (float) ($product['cbm_height'] ?? 0);
+        $wt = (float) ($product['cbm_weight'] ?? 0);
+        $fr = (float) ($product['intl_freight_rate'] ?? 0);
+
+        if ($fr <= 0 || ($l <= 0 && $w <= 0 && $h <= 0 && $wt <= 0)) {
+            return 0.0;
+        }
+
+        $cbm = ($l * $w * $h) / 1_000_000.0;
+        $chargeable = max($wt, $cbm * self::VOLUMETRIC_FACTOR);
+
+        return round($chargeable * $fr * $usdToGhs, 2);
+    }
+
+    /**
      * @return array{local_delivery_percent:float,usd_to_ghs_rate:float}
      */
     public static function settings(PDO $pdo): array
@@ -46,7 +73,7 @@ final class ShippingService
      *   lines:array<int,array<string,mixed>>, errors:array<int,array<string,mixed>>
      * }
      */
-    public static function quote(PDO $pdo, array $items, bool $requireStock = false): array
+    public static function quote(PDO $pdo, array $items, bool $requireStock = false, ?string $region = null, ?int $pickupStationId = null): array
     {
         $qtyById = [];
         foreach ($items as $item) {
@@ -99,15 +126,7 @@ final class ShippingService
 
                 $eta = null;
                 if ($isPre) {
-                    $l  = (float) ($p['cbm_length'] ?? 0);
-                    $w  = (float) ($p['cbm_width'] ?? 0);
-                    $h  = (float) ($p['cbm_height'] ?? 0);
-                    $wt = (float) ($p['cbm_weight'] ?? 0);
-                    $fr = (float) ($p['intl_freight_rate'] ?? 0);
-
-                    $cbm = ($l * $w * $h) / 1_000_000.0;
-                    $chargeable = max($wt, $cbm * self::VOLUMETRIC_FACTOR);
-                    $intl += $chargeable * $fr * $set['usd_to_ghs_rate'] * $qty;
+                    $intl += self::intlFreightPerUnit($p, $set['usd_to_ghs_rate']) * $qty;
 
                     if (!empty($p['estimated_arrival_days'])) {
                         $eta = date('Y-m-d', time() + ((int) $p['estimated_arrival_days']) * 86400);
@@ -126,17 +145,96 @@ final class ShippingService
 
         $subtotal = round($subtotal, 2);
         $intl = round($intl, 2);
-        $local = round($subtotal * ($set['local_delivery_percent'] / 100.0), 2);
+
+        $deliveryMode = 'address';
+        $localPercent = round($set['local_delivery_percent'], 2);
+        if ($pickupStationId !== null && $pickupStationId > 0) {
+            $station = PickupStationService::findActive($pdo, $pickupStationId);
+            if ($station !== null) {
+                $local = round((float) $station['pickup_handling_fee'], 2);
+                $localPercent = 0.0;
+                $deliveryMode = 'pickup';
+                $region = (string) $station['region'];
+            } else {
+                $local = round($subtotal * ($set['local_delivery_percent'] / 100.0), 2);
+            }
+        } else {
+            $local = round($subtotal * ($set['local_delivery_percent'] / 100.0), 2);
+        }
+
+        $preorderCount = 0;
+        $chargeableKg = 0.0;
+        foreach ($lines as $line) {
+            if (!$line['is_preorder']) {
+                continue;
+            }
+            $preorderCount += (int) $line['quantity'];
+            $p = $line['product'];
+            $l = (float) ($p['cbm_length'] ?? 0);
+            $w = (float) ($p['cbm_width'] ?? 0);
+            $h = (float) ($p['cbm_height'] ?? 0);
+            $wt = (float) ($p['cbm_weight'] ?? 0);
+            $cbm = ($l * $w * $h) / 1_000_000.0;
+            $chargeableKg += max($wt, $cbm * self::VOLUMETRIC_FACTOR) * (int) $line['quantity'];
+        }
+
+        $deliveryExplanation = self::buildDeliveryExplanation(
+            $region,
+            $localPercent,
+            $preorderCount,
+            round($chargeableKg, 2),
+            $intl > 0,
+            $deliveryMode === 'pickup'
+        );
 
         return [
             'subtotal'               => $subtotal,
             'intl_shipping_cost'     => $intl,
             'local_delivery_cost'    => $local,
-            'local_delivery_percent' => round($set['local_delivery_percent'], 2),
+            'local_delivery_percent' => $localPercent,
             'total'                  => round($subtotal + $intl + $local, 2),
             'currency'               => 'GHS',
             'lines'                  => $lines,
             'errors'                 => $errors,
+            'delivery_explanation'   => $deliveryExplanation,
+            'delivery_mode'          => $deliveryMode,
+            'pickup_station_id'      => $deliveryMode === 'pickup' ? $pickupStationId : null,
+        ];
+    }
+
+    /**
+     * @return array{line:string,local_rule:string,local_zone:?string,intl_rule:?string,intl_weight_note:?string}
+     */
+    public static function buildDeliveryExplanation(
+        ?string $region,
+        float $localPercent,
+        int $preorderCount,
+        float $chargeableKg,
+        bool $hasIntl,
+        bool $isPickup = false
+    ): array {
+        $zone = $region !== null && trim($region) !== '' ? trim($region) : 'Ghana';
+        if ($isPickup) {
+            $localRule = 'Pickup & handling fee';
+            $parts = [$zone, 'collect at station'];
+        } else {
+            $localRule = $localPercent . '% of subtotal';
+            $parts = [$zone, 'local ' . $localRule];
+        }
+
+        $intlRule = null;
+        $intlNote = null;
+        if ($hasIntl && $preorderCount > 0) {
+            $intlRule = 'International delivery (by air)';
+            $parts[] = 'intl by air';
+        }
+
+        return [
+            'line'               => implode(' · ', $parts),
+            'local_rule'         => $localRule,
+            'local_zone'         => $zone,
+            'intl_rule'          => $intlRule,
+            'intl_weight_note'   => null,
         ];
     }
 }

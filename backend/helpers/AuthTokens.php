@@ -95,8 +95,14 @@ final class AuthTokens
             'preferred_currency' => $u['preferred_currency'] ?? 'GHS',
             'phone'              => $u['phone'] ?? null,
             'profile_photo'      => $u['profile_photo'] ?? null,
-            'totp_enabled'       => (int) ($u['totp_enabled'] ?? 0),
-            'permissions'        => StaffPermission::effective((int) $u['id'], (string) $u['role']),
+            'totp_enabled'               => (int) ($u['totp_enabled'] ?? 0),
+            'assigned_pickup_station_id' => isset($u['assigned_pickup_station_id'])
+                ? ($u['assigned_pickup_station_id'] !== null ? (int) $u['assigned_pickup_station_id'] : null)
+                : null,
+            'permissions'                => StaffPermission::effective((int) $u['id'], (string) $u['role']),
+            'staff_id'                   => EmployeeService::isWorkforceRole((string) ($u['role'] ?? ''))
+                ? EmployeeService::staffIdForUserId(Database::pdo(), (int) $u['id'])
+                : null,
         ];
     }
 }

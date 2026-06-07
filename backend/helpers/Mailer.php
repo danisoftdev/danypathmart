@@ -38,7 +38,7 @@ final class Mailer
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->CharSet = 'UTF-8';
 
-            $fromEmail = (string) Env::get('SMTP_USER', 'noreply@danypathmart.com');
+            $fromEmail = (string) Env::get('SMTP_USER', 'noreply@danypathmart.store');
             $mail->setFrom($fromEmail, (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
             $mail->addAddress($toEmail, $toName);
 
@@ -51,6 +51,55 @@ final class Mailer
             return true;
         } catch (PHPMailerException $e) {
             error_log('Mailer error: ' . $mail->ErrorInfo);
+            return false;
+        }
+    }
+
+    /** Send HTML email with a CSV file attachment. */
+    public static function sendWithCsvAttachment(
+        string $toEmail,
+        string $toName,
+        string $subject,
+        string $html,
+        string $csvContent,
+        string $filename = 'export.csv'
+    ): bool {
+        Env::load();
+        $host = Env::get('SMTP_HOST');
+
+        if ($host === null) {
+            $dir = dirname(__DIR__) . '/storage/mail';
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            $safe = preg_replace('/[^a-z0-9]+/i', '_', $toEmail);
+            $base = $dir . '/' . date('Ymd_His') . '_' . $safe;
+            @file_put_contents($base . '.html', "<!-- To: {$toEmail} | Subject: {$subject} -->\n" . $html);
+            @file_put_contents($base . '_' . $filename, $csvContent);
+            return true;
+        }
+
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host = $host;
+            $mail->Port = Env::int('SMTP_PORT', 587);
+            $mail->SMTPAuth = true;
+            $mail->Username = (string) Env::get('SMTP_USER', '');
+            $mail->Password = (string) Env::get('SMTP_PASS', '');
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->CharSet = 'UTF-8';
+            $mail->setFrom((string) Env::get('SMTP_USER', 'noreply@danypathmart.store'), (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+            $mail->addAddress($toEmail, $toName);
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $html;
+            $mail->AltBody = strip_tags($html);
+            $mail->addStringAttachment($csvContent, $filename, PHPMailer::ENCODING_BASE64, 'text/csv');
+            $mail->send();
+            return true;
+        } catch (PHPMailerException $e) {
+            error_log('Mailer CSV attachment error: ' . $mail->ErrorInfo);
             return false;
         }
     }
@@ -104,7 +153,7 @@ final class Mailer
             . OTPService::TTL_MINUTES . ' minutes. If you did not request it, you can ignore this email.</p>'
             . '</div>'
             . '<p style="text-align:center;color:#666;font-size:12px;margin-top:24px;">'
-            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.com</p>'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
             . '</div></body></html>';
     }
 
@@ -142,7 +191,7 @@ final class Mailer
             $mail->Password = (string) Env::get('SMTP_PASS', '');
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
             $mail->CharSet = 'UTF-8';
-            $mail->setFrom((string) Env::get('SMTP_USER', 'noreply@danypathmart.com'), (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+            $mail->setFrom((string) Env::get('SMTP_USER', 'noreply@danypathmart.store'), (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
             $mail->addAddress($toEmail, 'DanyPathMart Admin');
 
             $imgTag = '';
@@ -196,7 +245,7 @@ final class Mailer
             . 'text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;">Log in</a></div>'
             . '</div>'
             . '<p style="text-align:center;color:#666;font-size:12px;margin-top:24px;">'
-            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.com</p>'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
             . '</div></body></html>';
 
         return self::send($toEmail, $toName, 'Your DanyPathMart staff account has been created', $html);
@@ -228,7 +277,7 @@ final class Mailer
             . 'safely ignore this email &mdash; your password will not change.</p>'
             . '</div>'
             . '<p style="text-align:center;color:#666;font-size:12px;margin-top:24px;">'
-            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.com</p>'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
             . '</div></body></html>';
 
         return self::send($toEmail, $toName, 'Reset your DanyPathMart password', $html);
@@ -247,6 +296,239 @@ final class Mailer
     }
 
     /**
+     * Order status change — sent when admin updates tracking status.
+     *
+     * @param array{order:array<string,mixed>,items:array<int,array<string,mixed>>,status:string,status_label:string,note:?string,tracking_ref:string} $ctx
+     */
+    public static function orderStatusUpdate(string $toEmail, string $toName, array $ctx): bool
+    {
+        $tracking = htmlspecialchars($ctx['tracking_ref'], ENT_QUOTES);
+        $subject = "Order {$tracking} update — {$ctx['status_label']}";
+        return self::send($toEmail, $toName, $subject, self::orderStatusHtml($ctx));
+    }
+
+    public static function customerNotification(
+        string $toEmail,
+        string $toName,
+        string $title,
+        string $body,
+        ?string $linkUrl = null
+    ): bool {
+        $safeTitle = htmlspecialchars($title, ENT_QUOTES);
+        $safeBody = nl2br(htmlspecialchars($body, ENT_QUOTES));
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $cta = $linkUrl
+            ? '<div style="text-align:center;margin:20px 0 0;">'
+                . '<a href="' . htmlspecialchars($appUrl . $linkUrl, ENT_QUOTES) . '" '
+                . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+                . 'padding:12px 24px;border-radius:10px;font-weight:700;">View in app</a></div>'
+            : '';
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">' . $safeTitle . '</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0;">' . $safeBody . '</p>'
+            . $cta
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
+            . '</div></body></html>';
+
+        return self::send($toEmail, $toName, $safeTitle . ' — DanyPathMart', $html);
+    }
+
+    /** Branded admin alert (orders, sign-ins, contact, etc.). */
+    public static function adminAlert(
+        string $toEmail,
+        string $title,
+        string $body,
+        ?string $linkUrl = null
+    ): bool {
+        $safeTitle = htmlspecialchars($title, ENT_QUOTES);
+        $safeBody = nl2br(htmlspecialchars($body, ENT_QUOTES));
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $adminLink = $linkUrl
+            ? (str_starts_with($linkUrl, 'http') ? $linkUrl : $appUrl . $linkUrl)
+            : $appUrl . '/admin/dashboard';
+        $cta = '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($adminLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Open admin</a></div>';
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span>'
+            . '<p style="color:#888;font-size:12px;margin:8px 0 0;">Admin alert</p></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">' . $safeTitle . '</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0;">' . $safeBody . '</p>'
+            . $cta
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'DanyPathMart admin notification</p>'
+            . '</div></body></html>';
+
+        return self::send($toEmail, 'DanyPathMart Admin', $safeTitle, $html);
+    }
+
+    /**
+     * @param array{id:int,name:string,email:string,subject:string,message:string} $ctx
+     */
+    public static function contactFormToAdmin(string $toEmail, array $ctx): bool
+    {
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $inboxLink = $appUrl . '/admin/contact-inbox';
+        $safeName = htmlspecialchars($ctx['name'], ENT_QUOTES);
+        $safeEmail = htmlspecialchars($ctx['email'], ENT_QUOTES);
+        $safeSubject = htmlspecialchars($ctx['subject'], ENT_QUOTES);
+        $safeMessage = nl2br(htmlspecialchars($ctx['message'], ENT_QUOTES));
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">New contact message</h1>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>From:</strong> ' . $safeName . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Email:</strong> '
+            . '<a href="mailto:' . $safeEmail . '" style="color:#2C7A4B;">' . $safeEmail . '</a></p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 12px;"><strong>Subject:</strong> ' . $safeSubject . '</p>'
+            . '<div style="background:#fff;border-radius:10px;padding:14px;border:1px solid #eee;">'
+            . '<p style="color:#333;font-size:15px;line-height:1.6;margin:0;">' . $safeMessage . '</p></div>'
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($inboxLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Open inbox</a></div>'
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Message #' . (int) $ctx['id'] . ' &middot; DanyPathMart admin</p>'
+            . '</div></body></html>';
+
+        return self::send($toEmail, 'DanyPathMart Admin', 'New contact: ' . $ctx['subject'], $html);
+    }
+
+    /** @param array{id:int,job_title:string,job_type_label:string,name:string,email:string,phone:string,city:string,cover_message:string,responses?:list<array<string,mixed>>} $ctx */
+    public static function careerApplicationToAdmin(string $toEmail, array $ctx): bool
+    {
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $inboxLink = $appUrl . '/admin/career-applications';
+        $safeName = htmlspecialchars($ctx['name'], ENT_QUOTES);
+        $safeEmail = htmlspecialchars($ctx['email'], ENT_QUOTES);
+        $safePhone = htmlspecialchars($ctx['phone'], ENT_QUOTES);
+        $safeJob = htmlspecialchars($ctx['job_title'], ENT_QUOTES);
+        $safeType = htmlspecialchars($ctx['job_type_label'], ENT_QUOTES);
+
+        $details = '';
+        $responses = $ctx['responses'] ?? [];
+        if (is_array($responses) && $responses !== []) {
+            foreach ($responses as $r) {
+                $label = htmlspecialchars((string) ($r['field_label'] ?? 'Field'), ENT_QUOTES);
+                if (($r['field_type'] ?? '') === 'file' && !empty($r['file_name'])) {
+                    $val = htmlspecialchars((string) $r['file_name'], ENT_QUOTES) . ' (file uploaded)';
+                } else {
+                    $val = nl2br(htmlspecialchars((string) ($r['value_text'] ?? ''), ENT_QUOTES));
+                }
+                $details .= '<p style="color:#444;font-size:14px;margin:0 0 8px;"><strong>' . $label . ':</strong> ' . $val . '</p>';
+            }
+        } else {
+            $safeMessage = nl2br(htmlspecialchars($ctx['cover_message'], ENT_QUOTES));
+            $details = '<div style="background:#fff;border-radius:10px;padding:14px;border:1px solid #eee;">'
+                . '<p style="color:#333;font-size:15px;line-height:1.6;margin:0;">' . $safeMessage . '</p></div>';
+        }
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">New career application</h1>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Role:</strong> ' . $safeJob . ' (' . $safeType . ')</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>From:</strong> ' . $safeName . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Email:</strong> '
+            . '<a href="mailto:' . $safeEmail . '" style="color:#2C7A4B;">' . $safeEmail . '</a></p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 12px;"><strong>Phone:</strong> ' . $safePhone . '</p>'
+            . $details
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($inboxLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">View applications</a></div>'
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Application #' . (int) $ctx['id'] . ' &middot; DanyPathMart admin</p>'
+            . '</div></body></html>';
+
+        return self::send($toEmail, 'DanyPathMart Admin', 'Career application: ' . $ctx['job_title'], $html);
+    }
+
+    /**
+     * @param array{order:array<string,mixed>,items:array<int,array<string,mixed>>,status:string,status_label:string,note:?string,tracking_ref:string} $ctx
+     */
+    private static function orderStatusHtml(array $ctx): string
+    {
+        $order = $ctx['order'];
+        $currency = 'GHS ';
+        $money = static fn ($v): string => $currency . number_format((float) $v, 2);
+        $tracking = htmlspecialchars($ctx['tracking_ref'], ENT_QUOTES);
+        $statusLabel = htmlspecialchars($ctx['status_label'], ENT_QUOTES);
+        $note = trim((string) ($ctx['note'] ?? ''));
+        $noteBlock = $note !== ''
+            ? '<div style="background:#FEF3C7;border-radius:10px;padding:12px 14px;margin:0 0 16px;color:#7c4a03;font-size:13px;">'
+                . '<strong>Update:</strong> ' . htmlspecialchars($note, ENT_QUOTES) . '</div>'
+            : '';
+
+        $rows = '';
+        foreach ($ctx['items'] as $item) {
+            $name = htmlspecialchars((string) ($item['name'] ?? 'Product'), ENT_QUOTES);
+            $qty = (int) ($item['quantity'] ?? 1);
+            $rows .= '<tr>'
+                . '<td style="padding:8px 6px;border-bottom:1px solid #eee;color:#222;">' . $name . '</td>'
+                . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;color:#222;">' . $qty . '</td>'
+                . '</tr>';
+        }
+
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $trackLink = $appUrl . '/dashboard/orders/' . (int) $order['id'];
+        $paymentRef = trim((string) ($order['payment_ref'] ?? ''));
+        $refLine = $paymentRef !== ''
+            ? '<p style="color:#444;font-size:13px;margin:0 0 8px;"><strong>Payment ref:</strong> '
+                . htmlspecialchars($paymentRef, ENT_QUOTES) . '</p>'
+            : '';
+
+        return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:600px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:22px;margin:0 0 6px;">' . $statusLabel . '</h1>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 4px;">Tracking reference: <strong>' . $tracking . '</strong></p>'
+            . $refLine
+            . $noteBlock
+            . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px;">'
+            . '<thead><tr>'
+            . '<th style="text-align:left;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Item</th>'
+            . '<th style="text-align:center;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Qty</th>'
+            . '</tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<p style="color:#111;font-size:15px;font-weight:700;margin:0 0 16px;">Order total: ' . $money($order['total']) . '</p>'
+            . '<div style="text-align:center;">'
+            . '<a href="' . htmlspecialchars($trackLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">View order details</a></div>'
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
+            . '</div></body></html>';
+    }
+
+    /**
      * @param array{order:array<string,mixed>,items:array<int,array<string,mixed>>} $ctx
      */
     private static function orderConfirmationHtml(array $ctx): string
@@ -262,7 +544,7 @@ final class Mailer
             $hasPreorder = $hasPreorder || $isPre;
             $name = htmlspecialchars((string) ($item['name'] ?? 'Product'), ENT_QUOTES);
             $badge = $isPre
-                ? ' <span style="background:#F59E0B;color:#000;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;">PRE-ORDER</span>'
+                ? ' <span style="background:#F59E0B;color:#000;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700;">BY AIR</span>'
                 : '';
             $lineTotal = (float) $item['unit_price'] * (int) $item['quantity'];
             $rows .= '<tr>'
@@ -274,7 +556,7 @@ final class Mailer
 
         $preNotice = $hasPreorder
             ? '<div style="background:#FEF3C7;border-radius:10px;padding:12px 14px;margin:0 0 16px;color:#7c4a03;font-size:13px;">'
-                . 'Your order contains pre-order items sourced internationally. Estimated arrival times are shown in your account.'
+                . 'Your order includes items shipped by air from overseas. Estimated arrival times are shown in your account.'
                 . '</div>'
             : '';
 
@@ -310,7 +592,7 @@ final class Mailer
             . 'padding:12px 24px;border-radius:10px;font-weight:700;">Track your order</a></div>'
             . '</div>'
             . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
-            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.com</p>'
+            . 'Developed &amp; Owned by danysoftdev &middot; danypathmart.store</p>'
             . '</div></body></html>';
     }
 

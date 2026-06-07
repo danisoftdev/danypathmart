@@ -2,29 +2,54 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from '../icons';
 import { useDebounce } from '../../hooks/useDebounce';
-import { useAutocomplete } from '../../hooks/catalog';
-import AutocompleteDropdown from './AutocompleteDropdown';
+import { useAutocomplete, useCategories } from '../../hooks/catalog';
+import AutocompleteDropdown, { SearchExplorePanel } from './AutocompleteDropdown';
 import ImageSearchButton from './ImageSearchButton';
+import {
+  addRecentSearch,
+  clearRecentSearches,
+  DEFAULT_POPULAR_SEARCHES,
+  getRecentSearches,
+} from '../../lib/browseStorage';
 
-export default function SearchBar({ onNavigate }) {
+function flatten(nodes = []) {
+  return nodes.flatMap((n) => [n, ...flatten(n.children)]);
+}
+
+const SIZE_CLASS = {
+  md: 'py-2.5 pl-11 pr-[7.5rem] text-base',
+  lg: 'py-3 pl-12 pr-[8.5rem] text-base md:text-[15px]',
+};
+
+export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState([]);
   const containerRef = useRef(null);
   const imageBtnRef = useRef(null);
+  const inputRef = useRef(null);
 
   const debounced = useDebounce(query, 300);
   const { data, isFetching } = useAutocomplete(debounced);
+  const { data: catData } = useCategories();
+  const allCategories = flatten(catData?.data ?? []);
 
   const products = data?.products ?? [];
   const categories = data?.categories ?? [];
   const suggestions = data?.suggestions ?? [];
   const total = products.length + categories.length + suggestions.length;
+  const trimmed = query.trim();
+  const showExplore = open && trimmed.length < 2;
+  const showAutocomplete = open && trimmed.length >= 2;
 
-  const showDropdown = open && query.trim().length >= 2;
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+  }, [autoFocus]);
 
-  // Close on outside click.
+  const refreshRecent = () => setRecentSearches(getRecentSearches());
+
   useEffect(() => {
     function handleClick(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
@@ -44,6 +69,7 @@ export default function SearchBar({ onNavigate }) {
   const goSearch = (term) => {
     const q = (term ?? query).trim();
     if (!q) return;
+    addRecentSearch(q);
     navigate(`/search?q=${encodeURIComponent(q)}`);
     close();
   };
@@ -72,7 +98,7 @@ export default function SearchBar({ onNavigate }) {
   const openImagePicker = () => imageBtnRef.current?.open();
 
   const handleKeyDown = (e) => {
-    if (!showDropdown) {
+    if (!showAutocomplete) {
       if (e.key === 'Enter') goSearch();
       return;
     }
@@ -93,35 +119,70 @@ export default function SearchBar({ onNavigate }) {
 
   return (
     <div ref={containerRef} className="relative w-full">
-      <form onSubmit={(e) => { e.preventDefault(); goSearch(); }} className="relative flex items-center">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          goSearch();
+        }}
+        className="relative flex items-center"
+      >
+        <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-green/70" aria-hidden>
+          <SearchIcon className="h-5 w-5" />
+        </span>
         <input
-          type="text"
+          ref={inputRef}
+          type="search"
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setActiveIndex(-1);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            refreshRecent();
+            setOpen(true);
+          }}
           onKeyDown={handleKeyDown}
           placeholder="Search uniforms, badges, books..."
-          className="w-full rounded-xl border-2 border-brand-green bg-white py-2.5 pl-4 pr-24 text-[#111111] outline-none placeholder-muted dark:bg-[#1C1C1C] dark:text-white"
+          aria-label="Search products"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          autoFocus={autoFocus}
+          className={`w-full rounded-full border border-black/12 bg-[#F3F4F6] font-medium text-[#111111] shadow-inner outline-none transition placeholder:text-[#6B7280] focus:border-brand-green focus:bg-white focus:ring-2 focus:ring-brand-green/25 dark:border-white/15 dark:bg-[#2A2A2A] dark:text-white dark:focus:bg-[#1E1E1E] ${SIZE_CLASS[size]}`}
         />
         <ImageSearchButton
           ref={imageBtnRef}
           onClose={close}
-          buttonClassName="absolute right-12 flex h-9 w-9 items-center justify-center rounded-lg text-brand-green transition hover:bg-brand-green/10"
+          buttonClassName="absolute right-[4.75rem] flex h-9 w-9 items-center justify-center rounded-full text-brand-green transition hover:bg-black/5 dark:hover:bg-white/10"
         />
         <button
           type="submit"
           aria-label="Search"
-          className="absolute right-1 flex h-9 w-10 items-center justify-center rounded-lg bg-brand-green text-white transition hover:bg-opacity-90"
+          className="absolute right-1 top-1/2 flex h-9 -translate-y-1/2 items-center gap-1.5 rounded-full bg-brand-green px-3.5 text-sm font-bold text-white transition hover:bg-opacity-90 sm:px-4"
         >
-          <SearchIcon />
+          <SearchIcon className="h-4 w-4 md:hidden" />
+          <span className="hidden sm:inline">Search</span>
         </button>
       </form>
 
-      {showDropdown && (
+      {showExplore && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-2">
+          <SearchExplorePanel
+            recentSearches={recentSearches}
+            popularSearches={DEFAULT_POPULAR_SEARCHES}
+            categories={allCategories}
+            onSelectSearch={goSearch}
+            onClearRecent={() => {
+              clearRecentSearches();
+              setRecentSearches([]);
+            }}
+            onSelectCategory={selectCategory}
+            onImageSearch={openImagePicker}
+          />
+        </div>
+      )}
+
+      {showAutocomplete && (
         <AutocompleteDropdown
           loading={isFetching && total === 0}
           products={products}

@@ -1,13 +1,11 @@
 import { useSearchParams } from 'react-router-dom';
 import ProfileTab from '../../components/dashboard/settings/ProfileTab';
 import SecurityTab from '../../components/dashboard/settings/SecurityTab';
-import CurrencyTab from '../../components/dashboard/settings/CurrencyTab';
 import AddressesTab from '../../components/dashboard/settings/AddressesTab';
 
 const TABS = [
   { id: 'profile', label: 'Profile', Component: ProfileTab },
   { id: 'security', label: 'Security', Component: SecurityTab },
-  { id: 'currency', label: 'Currency', Component: CurrencyTab },
   { id: 'addresses', label: 'Addresses', Component: AddressesTab },
 ];
 

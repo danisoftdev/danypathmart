@@ -8,18 +8,8 @@ use App\Middleware\AuthMiddleware;
 
 $user = AuthMiddleware::authenticate();
 $pdo = Database::pdo();
-$body = Response::body();
 
-$currency = strtoupper(trim((string) ($body['currency'] ?? '')));
+$pdo->prepare("UPDATE users SET preferred_currency = 'GHS' WHERE id = ?")
+    ->execute([(int) $user['id']]);
 
-// Must be a configured display currency.
-$stmt = $pdo->prepare('SELECT 1 FROM currency_rates WHERE currency_code = ?');
-$stmt->execute([$currency]);
-if ($stmt->fetchColumn() === false) {
-    Response::error('Unsupported currency.', 422, ['code' => 'bad_currency']);
-}
-
-$pdo->prepare('UPDATE users SET preferred_currency = ? WHERE id = ?')
-    ->execute([$currency, (int) $user['id']]);
-
-Response::success(['message' => 'Currency preference saved.', 'preferred_currency' => $currency]);
+Response::success(['message' => 'All prices are shown in Ghana Cedis (GHS).', 'preferred_currency' => 'GHS']);

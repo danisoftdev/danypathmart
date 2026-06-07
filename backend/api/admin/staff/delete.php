@@ -6,7 +6,7 @@ use App\Config\Database;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
 
-$admin = AuthMiddleware::requireSuperAdmin();
+$admin = AuthMiddleware::requireAnyPermission(['manage_staff']);
 $pdo = Database::pdo();
 
 $targetId = (int) ($_GET['id'] ?? 0);

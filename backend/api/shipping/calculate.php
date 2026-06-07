@@ -3,13 +3,11 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\ClubLoyaltyService;
 use App\Helpers\Response;
 use App\Helpers\ShippingService;
+use App\Middleware\AuthMiddleware;
 
-/**
- * Shipping/total quote for a cart. Accepts items via JSON body (preferred) or a
- * JSON-encoded `items` query param so both GET and POST callers work.
- */
 $body = Response::body();
 $items = $body['items'] ?? null;
 
@@ -22,7 +20,35 @@ if (!is_array($items)) {
     $items = [];
 }
 
-$quote = ShippingService::quote(Database::pdo(), $items, false);
+$region = isset($body['region']) ? trim((string) $body['region']) : null;
+if ($region === '') {
+    $region = null;
+}
+
+$pickupStationId = isset($body['pickup_station_id']) ? (int) $body['pickup_station_id'] : 0;
+if ($pickupStationId <= 0) {
+    $pickupStationId = null;
+}
+
+$orderType = trim((string) ($body['order_type'] ?? 'retail'));
+if (!in_array($orderType, ['retail', 'group', 'institutional'], true)) {
+    $orderType = 'retail';
+}
+$organizationName = trim((string) ($body['organization_name'] ?? ''));
+
+$pdo = Database::pdo();
+$quote = ShippingService::quote($pdo, $items, false, $region, $pickupStationId);
+
+$user = AuthMiddleware::optional();
+if ($user !== null && in_array($orderType, ['group', 'institutional'], true)) {
+    $quote = ClubLoyaltyService::apply(
+        $pdo,
+        $quote,
+        (int) $user['id'],
+        $orderType,
+        $organizationName
+    );
+}
 
 Response::success([
     'subtotal'               => $quote['subtotal'],
@@ -31,4 +57,9 @@ Response::success([
     'local_delivery_percent' => $quote['local_delivery_percent'],
     'total'                  => $quote['total'],
     'currency'               => $quote['currency'],
+    'delivery_explanation'   => $quote['delivery_explanation'],
+    'delivery_mode'          => $quote['delivery_mode'] ?? 'address',
+    'pickup_station_id'      => $quote['pickup_station_id'] ?? null,
+    'discount_amount'        => $quote['discount_amount'] ?? 0,
+    'discount_label'         => $quote['discount_label'] ?? null,
 ]);

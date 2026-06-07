@@ -42,7 +42,8 @@ final class AuthMiddleware
         }
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo
+            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
+                    assigned_pickup_station_id
              FROM users WHERE id = ?'
         );
         $stmt->execute([$userId]);
@@ -78,6 +79,40 @@ final class AuthMiddleware
      *
      * @return array<string,mixed>
      */
+    /**
+     * Require an authenticated driver account.
+     *
+     * @return array<string,mixed>
+     */
+    public static function requireStationStaff(): array
+    {
+        $user = self::authenticate();
+        if (($user['role'] ?? '') !== 'station_staff') {
+            Response::error('Station staff access required.', 403, ['code' => 'forbidden']);
+        }
+        $flags = \App\Helpers\PlatformFeatures::load(\App\Config\Database::pdo());
+        if (!$flags['station_repack_module_enabled']) {
+            Response::error('Station repack module is not enabled.', 403);
+        }
+        if (empty($user['assigned_pickup_station_id'])) {
+            Response::error('Your account is not assigned to a pickup station.', 403);
+        }
+
+        return $user;
+    }
+
+    public static function requireDriver(): array
+    {
+        $user = self::authenticate();
+        if (($user['role'] ?? '') !== 'driver') {
+            Response::error('Driver access required.', 403, ['code' => 'forbidden']);
+        }
+        if (!\App\Helpers\PlatformFeatures::load(\App\Config\Database::pdo())['driver_module_enabled']) {
+            Response::error('Driver logistics module is not enabled.', 403);
+        }
+        return $user;
+    }
+
     public static function requireSuperAdmin(): array
     {
         $user = self::authenticate();
@@ -88,7 +123,25 @@ final class AuthMiddleware
     }
 
     /**
-     * @return array<string,mixed>|null
+     * Require super_admin or at least one of the given RBAC permissions.
+     *
+     * @param list<string> $permissions
+     * @return array<string,mixed>
+     */
+    public static function requireAnyPermission(array $permissions): array
+    {
+        $user = self::requireAdmin();
+        if (($user['role'] ?? '') === 'super_admin') {
+            return $user;
+        }
+        if (!\App\Helpers\StaffPermission::userHasAny((int) $user['id'], (string) $user['role'], $permissions)) {
+            Response::error('You do not have permission to perform this action.', 403, ['code' => 'forbidden']);
+        }
+        return $user;
+    }
+
+    /**
+     * @return array<string,mixed>
      */
     public static function getUser(): ?array
     {
@@ -120,7 +173,8 @@ final class AuthMiddleware
         }
 
         $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo
+            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
+                    assigned_pickup_station_id
              FROM users WHERE id = ?'
         );
         $stmt->execute([$userId]);

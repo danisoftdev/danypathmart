@@ -1,0 +1,5 @@
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS analytics_enabled TINYINT(1) NOT NULL DEFAULT 0;
+
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS google_analytics_id VARCHAR(32) DEFAULT NULL;
+
+ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS uptime_monitor_url VARCHAR(500) DEFAULT NULL;

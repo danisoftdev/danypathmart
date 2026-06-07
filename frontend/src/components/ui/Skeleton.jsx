@@ -67,14 +67,24 @@ export function AdminTableSkeleton({ rows = 5, cols = 5 }) {
 /** Product detail page (image + info columns). */
 export function ProductDetailSkeleton() {
   return (
-    <div className="mx-auto grid max-w-5xl gap-8 px-4 py-10 md:grid-cols-2">
-      <SkeletonBlock className="aspect-square w-full rounded-xl" />
-      <div className="space-y-4">
-        <SkeletonBlock className="h-8 w-2/3" />
-        <SkeletonBlock className="h-8 w-1/3" />
-        <SkeletonBlock className="h-5 w-24 rounded-full" />
-        <SkeletonBlock className="h-24 w-full" />
-        <SkeletonBlock className="h-12 w-full" />
+    <div className="mx-auto max-w-6xl px-4 py-10">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
+        <div className="mx-auto w-full max-w-[360px] lg:mx-0">
+          <div className="flex gap-2">
+            <div className="hidden w-12 shrink-0 flex-col gap-1.5 md:flex">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <SkeletonBlock key={i} className="h-12 w-12 rounded-md" />
+              ))}
+            </div>
+            <SkeletonBlock className="h-[280px] w-full flex-1 rounded-xl md:h-[320px]" />
+          </div>
+        </div>
+        <div className="space-y-4">
+          <SkeletonBlock className="h-8 w-2/3" />
+          <SkeletonBlock className="h-8 w-1/3" />
+          <SkeletonBlock className="h-32 w-full rounded-2xl" />
+          <SkeletonBlock className="h-12 w-full" />
+        </div>
       </div>
     </div>
   );

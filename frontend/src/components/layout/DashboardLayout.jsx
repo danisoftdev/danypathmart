@@ -1,138 +1,116 @@
-import { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { resolveImageUrl } from '../../lib/currency';
-import { MenuIcon, CloseIcon, UserIcon } from '../icons';
+import { isAdminUser, isDriverUser, isStationStaffUser } from '../../lib/permissions';
+import UserAvatar from '../brand/UserAvatar';
 
 const NAV = [
-  { to: '/dashboard', end: true, label: 'My Orders', icon: BoxIcon },
-  { to: '/dashboard/settings', end: false, label: 'Settings', icon: GearIcon },
+  { to: '/dashboard', end: true, label: 'Overview', icon: '🏠' },
+  { to: '/dashboard/orders', end: false, label: 'Orders', icon: '📦' },
+  { to: '/dashboard/quotes', end: false, label: 'Quotes', icon: '📋' },
+  { to: '/dashboard/wishlist', end: false, label: 'Wishlist', icon: '♥' },
+  { to: '/dashboard/wallet', end: false, label: 'Wallet', icon: '💰' },
+  { to: '/dashboard/notifications', end: false, label: 'Notifications', icon: '🔔' },
+  { to: '/dashboard/addresses', end: false, label: 'Addresses', icon: '📍' },
+  { to: '/dashboard/security', end: false, label: 'Security', icon: '🔒' },
+  { to: '/dashboard/settings', end: false, label: 'Settings', icon: '⚙️' },
 ];
-
-function BoxIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8" />
-    </svg>
-  );
-}
-
-function GearIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z" />
-    </svg>
-  );
-}
-
-function LogoutIcon({ className = 'h-5 w-5' }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
-    </svg>
-  );
-}
 
 export default function DashboardLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
 
   const doLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const SidebarContent = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-black/5 px-5 py-5 dark:border-white/10">
-        <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-brand-green/10 text-brand-green">
-          {user?.profile_photo ? (
-            <img src={resolveImageUrl(user.profile_photo)} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <UserIcon className="h-6 w-6" />
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{user?.name || 'My account'}</p>
-          <p className="truncate text-xs text-black/50 dark:text-white/50">{user?.email}</p>
-        </div>
-      </div>
+  if (isStationStaffUser(user)) {
+    return <Navigate to="/station" replace />;
+  }
 
-      <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV.map(({ to, end, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            onClick={() => setOpen(false)}
-            className={({ isActive }) =>
-              [
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition',
-                isActive
-                  ? 'bg-brand-green text-white'
-                  : 'text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5',
-              ].join(' ')
-            }
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </NavLink>
-        ))}
-      </nav>
+  if (isDriverUser(user)) {
+    return <Navigate to="/driver" replace />;
+  }
 
-      <div className="border-t border-black/5 px-3 py-4 dark:border-white/10">
-        <button
-          type="button"
-          onClick={doLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-red transition hover:bg-brand-red/10"
-        >
-          <LogoutIcon className="h-5 w-5" />
-          Logout
-        </button>
-      </div>
-    </div>
-  );
+  if (isAdminUser(user)) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8">
-      {/* Mobile top bar */}
-      <div className="mb-4 flex items-center justify-between lg:hidden">
-        <h1 className="text-lg font-bold">My account</h1>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="rounded-lg border border-black/10 p-2 dark:border-white/15"
-          aria-label="Open menu"
-        >
-          <MenuIcon className="h-5 w-5" />
-        </button>
+    <section className="mx-auto max-w-6xl px-4 py-6 pb-24 md:py-8">
+      {/* Mobile account header */}
+      <div className="mb-6 flex items-center gap-4 rounded-2xl border border-black/8 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1E1E1E] lg:hidden">
+        <UserAvatar user={user} className="h-14 w-14" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-bold">{user?.name || 'My account'}</p>
+          <p className="truncate text-xs text-muted">{user?.email}</p>
+        </div>
+        <Link to="/shop" className="shrink-0 rounded-xl bg-brand-green px-3 py-2 text-xs font-bold text-white">
+          Shop
+        </Link>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[16rem_1fr]">
-        {/* Desktop sidebar */}
-        <aside className="hidden rounded-2xl border border-black/5 bg-white shadow-sm lg:block dark:border-white/10 dark:bg-[#161616]">
-          {SidebarContent}
-        </aside>
-
-        {/* Mobile slide-over */}
-        {open && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-            <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl dark:bg-[#161616]">
-              <div className="flex justify-end p-3">
-                <button type="button" onClick={() => setOpen(false)} aria-label="Close menu">
-                  <CloseIcon className="h-5 w-5" />
-                </button>
-              </div>
-              {SidebarContent}
+      <div className="grid gap-6 lg:grid-cols-[15rem_1fr]">
+        <aside className="hidden lg:block">
+          <div className="sticky top-24 overflow-hidden rounded-2xl border border-black/8 bg-white shadow-sm dark:border-white/10 dark:bg-[#1E1E1E]">
+            <div className="border-b border-black/5 bg-brand-green/5 px-4 py-5 dark:border-white/10">
+              <p className="text-xs font-bold uppercase tracking-wide text-brand-green">Account center</p>
+              <p className="mt-1 truncate text-sm font-bold">{user?.name}</p>
+            </div>
+            <nav className="space-y-0.5 p-2">
+              {NAV.map(({ to, end, label, icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    [
+                      'flex min-h-[44px] items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition',
+                      isActive
+                        ? 'bg-brand-green text-white shadow-sm'
+                        : 'text-[#111111]/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5',
+                    ].join(' ')
+                  }
+                >
+                  <span aria-hidden>{icon}</span>
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
+            <div className="border-t border-black/5 p-2 dark:border-white/10">
+              <button
+                type="button"
+                onClick={doLogout}
+                className="flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-brand-red transition hover:bg-brand-red/10"
+              >
+                <span aria-hidden>🚪</span>
+                Logout
+              </button>
             </div>
           </div>
-        )}
+        </aside>
 
-        <main className="min-w-0">
+        {/* Mobile horizontal nav */}
+        <nav className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide lg:hidden" aria-label="Account sections">
+          {NAV.map(({ to, end, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                [
+                  'shrink-0 rounded-full px-4 py-2 text-sm font-bold transition',
+                  isActive ? 'bg-brand-green text-white' : 'bg-white text-[#111111]/70 dark:bg-[#1E1E1E] dark:text-white/70',
+                ].join(' ')
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <main className="min-w-0 lg:col-start-2">
           <Outlet />
         </main>
       </div>
