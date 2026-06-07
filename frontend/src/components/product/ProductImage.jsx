@@ -1,18 +1,23 @@
 import { useState } from 'react';
-import { resolveImageUrl } from '../../lib/currency';
+import { PRODUCT_FALLBACK_IMAGE, resolveProductImageUrl } from '../../lib/productImages';
 
 /**
- * Product image with a graceful brand-coloured fallback when the file is
- * missing (placeholder paths are used until real uploads land).
+ * Product image — uses the company logo when no photo is set or the file fails to load.
  */
-export default function ProductImage({ src, alt, className = '' }) {
+export default function ProductImage({ src, alt, className = '', fit = 'cover', priority = false }) {
   const [errored, setErrored] = useState(false);
-  const url = resolveImageUrl(src);
+  const url = resolveProductImageUrl(src);
+  const showFallback = !url || errored;
+  const objectClass = fit === 'contain' ? 'object-contain' : 'object-cover';
 
-  if (!url || errored) {
+  if (showFallback) {
     return (
-      <div className={`flex items-center justify-center bg-brand-green/10 ${className}`}>
-        <span className="text-2xl font-extrabold tracking-wider text-brand-green/40">DPM</span>
+      <div className={`flex items-center justify-center bg-brand-green/5 ${className}`}>
+        <img
+          src={PRODUCT_FALLBACK_IMAGE}
+          alt={alt || 'DanyPathMart'}
+          className="h-[55%] w-[55%] max-h-24 max-w-24 object-contain opacity-90"
+        />
       </div>
     );
   }
@@ -21,9 +26,10 @@ export default function ProductImage({ src, alt, className = '' }) {
     <img
       src={url}
       alt={alt}
-      loading="lazy"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : undefined}
       onError={() => setErrored(true)}
-      className={className}
+      className={`${objectClass} ${className}`}
     />
   );
 }

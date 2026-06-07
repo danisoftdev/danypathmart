@@ -23,12 +23,48 @@ final class ProductPresenter
             'name'        => $r['name'],
             'slug'        => $r['slug'],
             'price'       => (float) $r['price'],
+            'cost_price'  => (float) ($r['cost_price'] ?? 0),
+            'compare_at_price' => isset($r['compare_at_price']) && $r['compare_at_price'] !== null
+                ? (float) $r['compare_at_price']
+                : null,
+            'rating_avg'  => isset($r['rating_avg']) && $r['rating_avg'] !== null ? (float) $r['rating_avg'] : null,
+            'rating_count' => (int) ($r['rating_count'] ?? 0),
+            'badge_label' => $r['badge_label'] ?? null,
+            'display_badges' => ShopPromoService::displayBadges($r),
+            'is_featured' => (bool) ($r['is_featured'] ?? 0),
+            'is_flash_deal' => (bool) ($r['is_flash_deal'] ?? 0),
             'images'      => self::decodeJson($r['images'] ?? null),
             'tags'        => self::decodeJson($r['tags'] ?? null),
             'is_preorder' => (bool) ($r['is_preorder'] ?? 0),
+            'requires_custom_proof' => (bool) ($r['requires_custom_proof'] ?? 0),
             'stock_qty'   => (int) ($r['stock_qty'] ?? 0),
             'category_id' => isset($r['category_id']) ? (int) $r['category_id'] : null,
+            'category_name' => $r['category_name'] ?? null,
+            'category_slug' => $r['category_slug'] ?? null,
+            'origin_country' => $r['origin_country'] ?? null,
+            'shop_id'     => isset($r['shop_id']) && $r['shop_id'] !== null ? (int) $r['shop_id'] : null,
+            'listing_status' => $r['listing_status'] ?? 'none',
+            'shop'        => self::shopFromRow($r),
+            'shop_promo'  => !empty($r['shop_id']) ? ShopPromoService::promoMeta($r) : null,
         ];
+    }
+
+    /** @param array<string,mixed> $r */
+    private static function shopFromRow(array $r): ?array
+    {
+        if (empty($r['shop_id'])) {
+            return null;
+        }
+        if (!empty($r['shop_name']) && !empty($r['shop_slug'])) {
+            return [
+                'id'       => (int) $r['shop_id'],
+                'name'     => (string) $r['shop_name'],
+                'slug'     => (string) $r['shop_slug'],
+                'logo_url' => $r['shop_logo'] ?? null,
+            ];
+        }
+
+        return null;
     }
 
     /**

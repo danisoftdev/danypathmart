@@ -10,15 +10,6 @@ export function useOrders() {
   });
 }
 
-/** Supported display currencies + their GHS rate (public). */
-export function useCurrencies() {
-  return useQuery({
-    queryKey: ['currencies'],
-    queryFn: async () => (await api.get('/public/currencies')).data.data,
-    staleTime: 5 * 60_000,
-  });
-}
-
 export function useUpdateProfile() {
   return useMutation({
     mutationFn: async (payload) => (await api.put('/users/profile', payload)).data,
@@ -62,16 +53,6 @@ export function useConfirmEmailChange() {
     mutationFn: async (otp) => (await api.post('/users/email/confirm-change', { otp })).data,
     onSuccess: (data) => {
       if (data.user) useAuthStore.getState().setUser(data.user);
-    },
-  });
-}
-
-export function useSetCurrency() {
-  return useMutation({
-    mutationFn: async (currency) => (await api.put('/users/currency', { currency })).data,
-    onSuccess: (data) => {
-      const u = useAuthStore.getState().user;
-      if (u) useAuthStore.getState().setUser({ ...u, preferred_currency: data.preferred_currency });
     },
   });
 }

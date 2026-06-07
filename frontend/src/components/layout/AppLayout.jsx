@@ -1,15 +1,30 @@
 import { Outlet } from 'react-router-dom';
+import { SearchProvider } from '../../context/SearchProvider';
 import Navbar from './Navbar';
+import StoreAnnouncementBar from '../store/StoreAnnouncementBar';
+import StoreCategoryNav from '../store/StoreCategoryNav';
+import BottomNav from './BottomNav';
 import Footer from './Footer';
+import SearchOverlay from '../search/SearchOverlay';
+import ScrollToTop from '../ui/ScrollToTop';
+import AdminNotificationWatcher from '../notifications/AdminNotificationWatcher';
 
 export default function AppLayout() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <Outlet />
-      </main>
-      <Footer />
-    </div>
+    <SearchProvider>
+      <div className="flex min-h-screen flex-col bg-[#FFF9F3] dark:bg-[#121212]">
+        <StoreAnnouncementBar />
+        <Navbar />
+        <StoreCategoryNav />
+        <AdminNotificationWatcher />
+        <main className="flex-1 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
+          <Outlet />
+        </main>
+        <Footer />
+        <BottomNav />
+        <SearchOverlay />
+        <ScrollToTop />
+      </div>
+    </SearchProvider>
   );
 }

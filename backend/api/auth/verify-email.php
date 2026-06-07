@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\AuthTokens;
+use App\Helpers\NotificationService;
 use App\Helpers\OTPService;
 use App\Helpers\Response;
 
@@ -50,6 +51,14 @@ $pdo->prepare("UPDATE users SET status = 'verified' WHERE id = ?")->execute([$us
 $user['status'] = 'verified';
 
 $tokens = AuthTokens::issueFor($user);
+
+NotificationService::notifyAdmins(
+    $pdo,
+    'Customer verified — ' . (string) $user['name'],
+    (string) $user['email'] . ' verified their email and can shop.',
+    '/admin/users',
+    'admin_auth'
+);
 
 Response::success([
     'message' => 'Email verified successfully.',

@@ -1,0 +1,57 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * P1 pilot smoke test — hits API health and public endpoints.
+ *
+ * Usage:
+ *   php backend/scripts/pilot-smoke-test.php
+ *   php backend/scripts/pilot-smoke-test.php https://danypathmart.store/api
+ */
+
+$base = $argv[1] ?? (getenv('APP_URL') ?: 'http://localhost:8000');
+$base = rtrim($base, '/');
+
+$paths = [
+    'GET /health'                  => '/health',
+    'GET /public/company-info'     => '/public/company-info',
+    'GET /public/checkout-policies'=> '/public/checkout-policies',
+    'GET /products'                => '/products?per_page=1',
+];
+
+echo "DanyPathMart P1 smoke test\nBase: {$base}\n" . str_repeat('-', 50) . "\n";
+
+$failed = 0;
+foreach ($paths as $label => $path) {
+    $url = $base . $path;
+    $ctx = stream_context_create(['http' => ['timeout' => 15, 'ignore_errors' => true]]);
+    $body = @file_get_contents($url, false, $ctx);
+    $code = 0;
+    if (isset($http_response_header[0]) && preg_match('/\d{3}/', $http_response_header[0], $m)) {
+        $code = (int) $m[0];
+    }
+    $ok = $body !== false && $code >= 200 && $code < 300;
+    if (!$ok) {
+        $failed++;
+    }
+    echo ($ok ? '  OK ' : ' FAIL ') . "{$label} → HTTP {$code}\n";
+    if ($ok && str_contains($path, 'company-info') && $body !== false) {
+        $json = json_decode($body, true);
+        $email = $json['company']['email'] ?? $json['data']['company']['email'] ?? null;
+        echo "       company email: " . ($email ?: '(missing)') . "\n";
+    }
+}
+
+if (is_file(__DIR__ . '/../.env')) {
+    echo "\nLocal env pre-flight:\n";
+    passthru('php ' . escapeshellarg(__DIR__ . '/check-production-env.php'));
+    echo "\nP1 launch readiness (database):\n";
+    passthru('php ' . escapeshellarg(__DIR__ . '/launch-readiness-cli.php'), $readyCode);
+    if (isset($readyCode) && $readyCode !== 0) {
+        $failed++;
+    }
+}
+
+echo "\n" . ($failed === 0 ? "Smoke endpoints OK.\n" : "{$failed} endpoint(s) failed.\n");
+exit($failed > 0 ? 1 : 0);

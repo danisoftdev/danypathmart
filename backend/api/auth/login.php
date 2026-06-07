@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\AuthTokens;
+use App\Helpers\NotificationService;
 use App\Helpers\Response;
 use App\Middleware\RateLimiter;
 
@@ -33,7 +34,7 @@ $stmt->execute([$email]);
 $user = $stmt->fetch();
 
 // Uniform failure message to avoid user enumeration.
-if ($user === false || !password_verify($password, (string) $user['password_hash'])) {
+if ($user === false || empty($user['password_hash']) || !password_verify($password, (string) $user['password_hash'])) {
     Response::error('Invalid email or password', 401);
 }
 
@@ -64,4 +65,16 @@ if ((int) $user['totp_enabled'] === 1) {
 }
 
 $tokens = AuthTokens::issueFor($user);
+
+if (($user['role'] ?? '') === 'customer') {
+    NotificationService::notifyAdmins(
+        $pdo,
+        'Customer sign-in — ' . (string) $user['name'],
+        (string) $user['email'] . ' signed in.'
+        . "\nIP: " . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+        '/admin/users',
+        'admin_auth'
+    );
+}
+
 Response::success(['message' => 'Logged in successfully.'] + $tokens);

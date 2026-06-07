@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Config\Env;
 use App\Helpers\OrderService;
 use App\Helpers\Response;
+use App\Helpers\ShopBillingService;
 
 /*
  * Paystack webhook. Paystack signs the raw request body with HMAC-SHA512 using
@@ -45,6 +46,14 @@ $channel = isset($data['channel']) ? (string) $data['channel'] : null;
 $orderId = (int) ($data['metadata']['order_id'] ?? 0);
 
 $pdo = Database::pdo();
+
+$meta = is_array($data['metadata'] ?? null) ? $data['metadata'] : [];
+$billingType = (string) ($meta['billing_type'] ?? '');
+
+if ($reference !== '' && in_array($billingType, ['shop_registration', 'shop_renewal'], true)) {
+    ShopBillingService::confirmFromWebhook($pdo, $reference, $data);
+    Response::json(['success' => true], 200);
+}
 
 if ($orderId <= 0 && $reference !== '') {
     $stmt = $pdo->prepare('SELECT id FROM orders WHERE payment_ref = ?');

@@ -1,10 +1,10 @@
 -- =============================================================================
 -- DanyPathMart — MySQL 8 Schema (18 Tables)
 -- SDA Youth Insignias & Materials E-Commerce Platform
--- Developed & Owned by danysoftdev · danypathmart.com
+-- Developed & Owned by danysoftdev · danypathmart.store
 -- -----------------------------------------------------------------------------
 -- Engine:  InnoDB | Charset: utf8mb4 / utf8mb4_unicode_ci
--- Import:  phpMyAdmin -> select danypathmart_db -> Import -> this file
+-- Import:  phpMyAdmin -> select database danypathmart -> Import -> this file
 -- =============================================================================
 
 SET NAMES utf8mb4;
@@ -41,7 +41,7 @@ CREATE TABLE users (
     name                VARCHAR(120)    NOT NULL,
     username            VARCHAR(60)     NOT NULL,
     email               VARCHAR(190)    NOT NULL,
-    password_hash       VARCHAR(255)    NOT NULL,
+    password_hash       VARCHAR(255)    DEFAULT NULL,
     phone               VARCHAR(30)     DEFAULT NULL,
     role                ENUM('super_admin','staff','customer') NOT NULL DEFAULT 'customer',
     status              ENUM('unverified','verified','disabled') NOT NULL DEFAULT 'unverified',
@@ -430,5 +430,116 @@ CREATE TABLE image_search_alerts (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =============================================================================
--- End of schema — 18 tables
+-- 19. admin_broadcasts
+-- =============================================================================
+CREATE TABLE admin_broadcasts (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    title            VARCHAR(160)    NOT NULL,
+    body             TEXT            NOT NULL,
+    link_url         VARCHAR(255)    DEFAULT NULL,
+    category         ENUM('new_arrival','restock','out_of_stock','system','custom') NOT NULL DEFAULT 'custom',
+    send_email       TINYINT(1)      NOT NULL DEFAULT 1,
+    recipient_count  INT             NOT NULL DEFAULT 0,
+    sent_by          BIGINT UNSIGNED DEFAULT NULL,
+    created_at       TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_broadcasts_sent_by (sent_by),
+    CONSTRAINT fk_broadcasts_user FOREIGN KEY (sent_by)
+        REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 20. user_notifications
+-- =============================================================================
+CREATE TABLE user_notifications (
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id      BIGINT UNSIGNED NOT NULL,
+    broadcast_id BIGINT UNSIGNED DEFAULT NULL,
+    title        VARCHAR(160)    NOT NULL,
+    body         TEXT            NOT NULL,
+    link_url     VARCHAR(255)    DEFAULT NULL,
+    category     VARCHAR(40)     NOT NULL DEFAULT 'custom',
+    is_read      TINYINT(1)      NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_user_notifications_user (user_id),
+    KEY idx_user_notifications_read (user_id, is_read),
+    CONSTRAINT fk_user_notifications_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_user_notifications_broadcast FOREIGN KEY (broadcast_id)
+        REFERENCES admin_broadcasts (id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 21. wishlists
+-- =============================================================================
+CREATE TABLE wishlists (
+    user_id    BIGINT UNSIGNED NOT NULL,
+    product_id BIGINT UNSIGNED NOT NULL,
+    created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, product_id),
+    KEY idx_wishlists_product (product_id),
+    CONSTRAINT fk_wishlists_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_wishlists_product FOREIGN KEY (product_id)
+        REFERENCES products (id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 22. contact_messages
+-- =============================================================================
+CREATE TABLE contact_messages (
+    id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id    BIGINT UNSIGNED DEFAULT NULL,
+    name       VARCHAR(120)    NOT NULL,
+    email      VARCHAR(190)    NOT NULL,
+    subject    VARCHAR(200)    DEFAULT NULL,
+    message    TEXT            NOT NULL,
+    is_read    TINYINT(1)      NOT NULL DEFAULT 0,
+    created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_contact_messages_read (is_read),
+    KEY idx_contact_messages_created (created_at),
+    KEY idx_contact_messages_user (user_id),
+    CONSTRAINT fk_contact_messages_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- 23. oauth_identities / oauth_states / oauth_tickets
+-- =============================================================================
+CREATE TABLE oauth_identities (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id          BIGINT UNSIGNED NOT NULL,
+    provider         ENUM('google','microsoft','apple') NOT NULL,
+    provider_user_id VARCHAR(255)    NOT NULL,
+    email            VARCHAR(190)      DEFAULT NULL,
+    created_at       TIMESTAMP         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_oauth_provider_user (provider, provider_user_id),
+    KEY idx_oauth_user (user_id),
+    CONSTRAINT fk_oauth_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE oauth_states (
+    state      VARCHAR(64) NOT NULL,
+    provider   VARCHAR(20) NOT NULL,
+    expires_at DATETIME    NOT NULL,
+    PRIMARY KEY (state),
+    KEY idx_oauth_states_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE oauth_tickets (
+    ticket     VARCHAR(64)     NOT NULL,
+    user_id    BIGINT UNSIGNED NOT NULL,
+    expires_at DATETIME        NOT NULL,
+    PRIMARY KEY (ticket),
+    KEY idx_oauth_tickets_expires (expires_at),
+    CONSTRAINT fk_oauth_tickets_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =============================================================================
+-- End of schema — 25 tables
 -- =============================================================================

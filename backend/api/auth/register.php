@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\Mailer;
+use App\Helpers\NotificationService;
 use App\Helpers\OTPService;
 use App\Helpers\Response;
 use App\Helpers\Validator;
@@ -83,6 +84,14 @@ $userId = (int) $pdo->lastInsertId();
 
 $otp = OTPService::issue($userId, 'registration');
 Mailer::send($email, $name, 'Verify your DanyPathMart account', Mailer::otpEmail($otp, 'registration'));
+
+NotificationService::notifyAdmins(
+    $pdo,
+    'New registration — ' . $name,
+    $email . ' registered (email verification pending).',
+    '/admin/users',
+    'admin_auth'
+);
 
 Response::success([
     'message'  => 'Account created. Check your email for the 6-digit verification code.',
