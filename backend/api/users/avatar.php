@@ -10,6 +10,10 @@ use App\Middleware\AuthMiddleware;
 $user = AuthMiddleware::authenticate();
 $pdo = Database::pdo();
 
+if (in_array($user['role'] ?? '', ['super_admin', 'staff'], true)) {
+    Response::error('Admin accounts use the official site logo.', 403, ['code' => 'admin_logo_locked']);
+}
+
 $file = $_FILES['avatar'] ?? null;
 if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
     Response::error('No image uploaded.', 422, ['code' => 'no_file']);

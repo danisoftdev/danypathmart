@@ -1,30 +1,25 @@
 import { useState } from 'react';
-import {
-  PERMISSION_GROUPS,
-  PERMISSION_LABELS,
-  emptyPermissions,
-} from '../../lib/permissions';
+import { emptyPermissions } from '../../lib/permissions';
 import { useCreateStaff, useUpdateStaffPermissions } from '../../hooks/admin';
+import PermissionGrid from './PermissionGrid';
+import { usePermissionCatalog } from '../../hooks/admin';
 
-function Toggle({ checked, onChange }) {
+function Shell({ title, children, onClose }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={[
-        'relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition',
-        checked ? 'bg-brand-green' : 'bg-black/15 dark:bg-white/20',
-      ].join(' ')}
-    >
-      <span
-        className={[
-          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
-          checked ? 'translate-x-5' : 'translate-x-0.5',
-        ].join(' ')}
-      />
-    </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 dark:bg-[#1c1c1c]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <h2 className="text-lg font-bold">{title}</h2>
+          <button type="button" onClick={onClose} className="text-2xl leading-none text-black/40 dark:text-white/40">
+            &times;
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -32,6 +27,7 @@ export default function AddEditStaffModal({ staff, onClose }) {
   const isEdit = !!staff;
   const createStaff = useCreateStaff();
   const updatePerms = useUpdateStaffPermissions();
+  const { groups, labels } = usePermissionCatalog();
 
   const [form, setForm] = useState({
     name: staff?.name || '',
@@ -47,7 +43,6 @@ export default function AddEditStaffModal({ staff, onClose }) {
   const [createdPassword, setCreatedPassword] = useState('');
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const togglePerm = (key) => (val) => setPermissions((p) => ({ ...p, [key]: val }));
 
   const pending = createStaff.isPending || updatePerms.isPending;
 
@@ -81,7 +76,6 @@ export default function AddEditStaffModal({ staff, onClose }) {
     }
   };
 
-  // Success screen after creation (shows the temp password once).
   if (createdPassword) {
     return (
       <Shell onClose={() => onClose(true)} title="Staff account created">
@@ -89,6 +83,14 @@ export default function AddEditStaffModal({ staff, onClose }) {
           A welcome email has been sent to <strong>{form.email}</strong>. Share the temporary
           password below if needed:
         </p>
+        {createStaff.data?.staff?.staff_id && (
+          <dl className="mt-4 space-y-2 rounded-xl border border-black/10 p-4 text-sm dark:border-white/10">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Staff ID</dt>
+              <dd className="font-mono font-bold text-brand-green">{createStaff.data.staff.staff_id}</dd>
+            </div>
+          </dl>
+        )}
         <div className="mt-4 rounded-lg border border-black/10 bg-black/[0.03] p-4 text-center dark:border-white/15 dark:bg-white/[0.04]">
           <code className="text-lg font-bold text-brand-green">{createdPassword}</code>
         </div>
@@ -96,11 +98,7 @@ export default function AddEditStaffModal({ staff, onClose }) {
           The staff member should change this password and set up 2FA on first login.
         </p>
         <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={() => onClose(true)}
-            className="rounded-lg bg-brand-green px-5 py-2 text-sm font-semibold text-white"
-          >
+          <button type="button" onClick={() => onClose(true)} className="btn-primary px-5 py-2 text-sm">
             Done
           </button>
         </div>
@@ -116,21 +114,10 @@ export default function AddEditStaffModal({ staff, onClose }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Full name">
-          <input
-            value={form.name}
-            onChange={set('name')}
-            disabled={isEdit}
-            className="modal-input"
-          />
+          <input value={form.name} onChange={set('name')} disabled={isEdit} className="modal-input" />
         </Field>
         <Field label="Email">
-          <input
-            type="email"
-            value={form.email}
-            onChange={set('email')}
-            disabled={isEdit}
-            className="modal-input"
-          />
+          <input type="email" value={form.email} onChange={set('email')} disabled={isEdit} className="modal-input" />
         </Field>
         <Field label="Username (optional)">
           <input
@@ -145,7 +132,7 @@ export default function AddEditStaffModal({ staff, onClose }) {
           <input
             value={form.role_name}
             onChange={set('role_name')}
-            placeholder="e.g. Order Manager"
+            placeholder="e.g. Delivery driver"
             className="modal-input"
           />
         </Field>
@@ -164,41 +151,18 @@ export default function AddEditStaffModal({ staff, onClose }) {
       <h3 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-black/50 dark:text-white/50">
         Permissions
       </h3>
-      <div className="space-y-5">
-        {PERMISSION_GROUPS.map((group) => (
-          <div key={group.title}>
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-brand-gold">
-              {group.title}
-            </p>
-            <div className="space-y-2">
-              {group.keys.map((key) => (
-                <div
-                  key={key}
-                  className="flex items-center justify-between rounded-lg border border-black/5 px-3 py-2 dark:border-white/10"
-                >
-                  <span className="text-sm">{PERMISSION_LABELS[key]}</span>
-                  <Toggle checked={!!permissions[key]} onChange={togglePerm(key)} />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      <PermissionGrid
+        permissions={permissions}
+        onChange={setPermissions}
+        groups={groups}
+        labels={labels}
+      />
 
       <div className="mt-6 flex justify-end gap-3">
-        <button
-          type="button"
-          onClick={() => onClose(false)}
-          className="rounded-lg border border-black/15 px-5 py-2 text-sm dark:border-white/15"
-        >
+        <button type="button" onClick={() => onClose(false)} className="btn-ghost">
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={pending}
-          className="rounded-lg bg-brand-green px-5 py-2 text-sm font-semibold text-white transition hover:bg-opacity-90 disabled:opacity-50"
-        >
+        <button type="button" onClick={submit} disabled={pending} className="btn-primary">
           {pending ? 'Saving...' : isEdit ? 'Save permissions' : 'Create staff'}
         </button>
       </div>
@@ -212,24 +176,5 @@ function Field({ label, children }) {
       <span className="mb-1 block font-medium">{label}</span>
       {children}
     </label>
-  );
-}
-
-function Shell({ title, children, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 dark:bg-[#1c1c1c]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between">
-          <h2 className="text-lg font-bold">{title}</h2>
-          <button type="button" onClick={onClose} className="text-2xl leading-none text-black/40 dark:text-white/40">
-            &times;
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }

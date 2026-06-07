@@ -18,7 +18,7 @@ final class Database
 
         Env::load();
         $host = Env::get('DB_HOST', '127.0.0.1');
-        $name = Env::get('DB_NAME', 'danypathmart_db');
+        $name = Env::get('DB_NAME', 'danypathmart');
         $user = Env::get('DB_USER', 'root');
         $pass = Env::get('DB_PASS', '');
         $port = Env::get('DB_PORT', '3306');

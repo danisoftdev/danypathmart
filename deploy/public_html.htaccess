@@ -1,0 +1,16 @@
+# DanyPathMart — place this file as public_html/.htaccess on Hostinger
+# (SPA fallback for React; API and uploads are under /api/)
+
+RewriteEngine On
+RewriteBase /
+
+# Do not rewrite API or static upload paths
+RewriteRule ^api/ - [L]
+
+# Serve existing files/directories as-is
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# React router: all other routes -> index.html
+RewriteRule . /index.html [L]

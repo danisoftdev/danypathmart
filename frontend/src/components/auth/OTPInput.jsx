@@ -52,8 +52,23 @@ export default function OTPInput({ length = 6, onComplete, disabled = false }) {
     }
   };
 
+  const handlePaste = (event) => {
+    event.preventDefault();
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, length);
+    if (!pasted) return;
+    const chars = pasted.split('');
+    setVals((prev) => {
+      const next = [...prev];
+      chars.forEach((c, i) => {
+        next[i] = c;
+      });
+      return next;
+    });
+    refs.current[Math.min(chars.length, length - 1)]?.focus();
+  };
+
   return (
-    <div className="flex justify-center gap-2">
+    <div className="flex justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
       {vals.map((digit, index) => (
         <input
           key={index}
@@ -66,9 +81,14 @@ export default function OTPInput({ length = 6, onComplete, disabled = false }) {
           maxLength={1}
           value={digit}
           disabled={disabled}
+          aria-label={`Digit ${index + 1} of ${length}`}
           onChange={(e) => handleChange(index, e)}
           onKeyDown={(e) => handleKeyDown(index, e)}
-          className="h-14 w-12 rounded-lg border-2 border-gray-200 bg-white text-center text-2xl font-bold text-black outline-none transition focus:border-brand-green disabled:opacity-60 dark:border-gray-700 dark:bg-[#1c1c1c] dark:text-white"
+          className={`h-14 w-11 rounded-xl border-2 bg-white text-center text-2xl font-bold text-[#111111] shadow-sm outline-none transition sm:h-16 sm:w-14 sm:text-3xl dark:bg-[#1E1E1E] dark:text-white ${
+            digit
+              ? 'border-brand-green ring-2 ring-brand-green/20'
+              : 'border-[#E5E7EB] focus:border-brand-green focus:ring-4 focus:ring-brand-green/15 dark:border-white/15'
+          } disabled:opacity-60`}
         />
       ))}
     </div>

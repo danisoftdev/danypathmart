@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Config\Env;
 use App\Helpers\ImageSearchService;
 use App\Helpers\Mailer;
+use App\Helpers\NotificationService;
 use App\Helpers\ProductPresenter;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
@@ -109,7 +110,7 @@ $insert = $pdo->prepare(
 $insert->execute([$user['id'] ?? null, $relPath, json_encode($labels)]);
 $alertId = (int) $pdo->lastInsertId();
 
-$adminEmail = (string) Env::get('ADMIN_EMAIL', 'admin@danypathmart.com');
+$adminEmail = (string) Env::get('ADMIN_EMAIL', 'admin@danypathmart.store');
 $appUrl = rtrim((string) Env::get('APP_URL', ''), '/');
 Mailer::adminImageAlert($adminEmail, [
     'user_label' => $user ? ($user['name'] . ' (' . $user['email'] . ')') : 'Guest',
@@ -118,6 +119,14 @@ Mailer::adminImageAlert($adminEmail, [
     'image_path' => $absPath,
     'link'       => $appUrl . '/admin/image-alerts/' . $alertId,
 ]);
+
+NotificationService::notifyAdmins(
+    $pdo,
+    'Image search — no match',
+    ($user ? $user['name'] . ' (' . $user['email'] . ')' : 'Guest') . ' uploaded a photo with no product match.',
+    '/admin/image-alerts',
+    'admin_alert'
+);
 
 Response::success([
     'found'    => false,

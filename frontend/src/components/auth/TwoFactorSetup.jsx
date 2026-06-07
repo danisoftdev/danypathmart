@@ -72,14 +72,14 @@ export default function TwoFactorSetup({ onComplete }) {
   };
 
   if (step === 'loading') {
-    return <p className="py-8 text-center text-sm text-gray-500">Preparing your authenticator...</p>;
+    return <p className="py-8 text-center text-sm text-muted">Preparing your authenticator...</p>;
   }
 
   if (step === 'done') {
     return (
       <div>
         <h2 className="mb-1 text-xl font-bold">Save your backup codes</h2>
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mb-4 text-sm text-muted">
           Store these somewhere safe. Each code works once if you lose your device.
         </p>
         <div className="grid grid-cols-2 gap-2 rounded-lg bg-black/5 p-4 font-mono text-sm dark:bg-white/10">
@@ -105,7 +105,7 @@ export default function TwoFactorSetup({ onComplete }) {
   return (
     <div>
       <h2 className="mb-1 text-xl font-bold">Set up two-factor authentication</h2>
-      <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mb-4 text-sm text-muted">
         Scan this QR code with Google Authenticator, Authy or 1Password.
       </p>
 
@@ -122,7 +122,7 @@ export default function TwoFactorSetup({ onComplete }) {
       )}
 
       {secret && (
-        <p className="mb-5 break-all text-center text-xs text-gray-500 dark:text-gray-400">
+        <p className="mb-5 break-all text-center text-xs text-muted">
           Can&apos;t scan? Enter this key: <span className="font-mono font-semibold">{secret}</span>
         </p>
       )}

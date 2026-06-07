@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Config\Env;
+use App\Helpers\PaymentSettings;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
 
@@ -26,9 +27,17 @@ if ($order['payment_status'] === 'paid') {
     Response::error('This order has already been paid.', 409, ['code' => 'already_paid']);
 }
 
-$amount = (int) round((float) $order['total'] * 100); // pesewas
+$paymentSettings = PaymentSettings::get($pdo);
+if (!$paymentSettings['paystack_enabled']) {
+    Response::error('Card and mobile money payments are not available right now.', 503, [
+        'code' => 'paystack_disabled',
+    ]);
+}
+
+$amountDue = \App\Helpers\OrderService::amountDue($order);
+$amount = (int) round($amountDue * 100); // pesewas
 if ($amount <= 0) {
-    Response::error('Order total is invalid.', 422);
+    Response::error('This order has no remaining balance to pay online.', 422, ['code' => 'nothing_due']);
 }
 
 $secret = (string) Env::get('PAYSTACK_SECRET_KEY', '');

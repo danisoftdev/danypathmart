@@ -3,6 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { useWebAuthn } from '../../hooks/useWebAuthn';
 import { homePathForUser } from '../../lib/permissions';
+import FormField, { AuthAlert } from '../../components/auth/FormField';
+import SocialAuthButtons, { SocialAuthSetupHint } from '../../components/auth/SocialAuthButtons';
+
+const REMEMBER_KEY = 'dpm_remember_email';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -13,7 +17,11 @@ export default function LoginPage() {
 
   const notice = location.state?.reset ? 'Password changed. Please log in.' : '';
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState(() => {
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    return { email: saved || '', password: '' };
+  });
+  const [remember, setRemember] = useState(() => !!localStorage.getItem(REMEMBER_KEY));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [bioLoading, setBioLoading] = useState(false);
@@ -23,6 +31,9 @@ export default function LoginPage() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (remember) localStorage.setItem(REMEMBER_KEY, form.email);
+    else localStorage.removeItem(REMEMBER_KEY);
+
     setLoading(true);
     try {
       const res = await login(form.email, form.password);
@@ -54,71 +65,119 @@ export default function LoginPage() {
       if (err?.name === 'NotAllowedError') {
         setError('Biometric prompt was cancelled.');
       } else {
-        setError(err.response?.data?.message || 'Could not sign in with a passkey.');
+        setError(err.response?.data?.message || 'Could not sign in with biometrics.');
       }
     } finally {
       setBioLoading(false);
     }
   };
 
+  const passkeyLogin = async () => {
+    setError('');
+    setBioLoading(true);
+    try {
+      const data = await loginWithBiometric();
+      setSession(data);
+      navigate(homePathForUser(data.user));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not sign in with passkey.');
+    } finally {
+      setBioLoading(false);
+    }
+  };
+
   return (
-    <form onSubmit={submit} className="auth-card">
-      <h1 className="mb-1 text-2xl font-bold">Welcome back</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Log in to your DanyPathMart account.</p>
+    <form onSubmit={submit} className="auth-card-lg">
+      <div className="mb-8 text-center sm:text-left">
+        <h1 className="text-2xl font-extrabold sm:text-3xl">Welcome back</h1>
+        <p className="mt-2 text-base text-muted">Sign in to track orders, save favourites, and shop club essentials across Ghana.</p>
+      </div>
 
-      {notice && (
-        <div className="mb-4 rounded-lg bg-brand-green/10 px-3 py-2 text-sm font-medium text-brand-green">
-          {notice}
-        </div>
-      )}
+      {notice && <AuthAlert type="success">{notice}</AuthAlert>}
+      {error && <AuthAlert type="error">{error}</AuthAlert>}
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-brand-red/10 px-3 py-2 text-sm text-brand-red">{error}</div>
-      )}
+      <FormField label="Email address" required>
+        <input
+          type="email"
+          className="input-field min-h-[48px] text-base"
+          value={form.email}
+          onChange={set('email')}
+          autoComplete="email"
+          placeholder="you@example.com"
+        />
+      </FormField>
 
-      <label className="mb-3 block">
-        <span className="mb-1 block text-sm font-medium">Email</span>
-        <input type="email" className="input-field" value={form.email} onChange={set('email')} autoComplete="email" />
-      </label>
-
-      <label className="mb-2 block">
-        <span className="mb-1 block text-sm font-medium">Password</span>
+      <FormField label="Password" required>
         <input
           type="password"
-          className="input-field"
+          className="input-field min-h-[48px] text-base"
           value={form.password}
           onChange={set('password')}
           autoComplete="current-password"
+          placeholder="Your password"
         />
-      </label>
+      </FormField>
 
-      <div className="mb-5 text-right">
-        <Link to="/forgot-password" className="text-sm font-medium text-brand-green">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex min-h-[44px] cursor-pointer items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 accent-brand-green"
+          />
+          Remember me
+        </label>
+        <Link to="/forgot-password" className="text-sm font-semibold text-brand-green hover:underline">
           Forgot password?
         </Link>
       </div>
 
-      <button type="submit" className="btn-primary w-full" disabled={loading}>
-        {loading ? 'Logging in...' : 'Log in'}
+      <button type="submit" className="btn-primary min-h-[48px] w-full text-base" disabled={loading}>
+        {loading ? 'Signing in...' : 'Sign in with email'}
       </button>
 
+      <div className="mt-6">
+        <SocialAuthButtons mode="login" />
+      </div>
+
       {isSupported && (
-        <>
-          <div className="my-4 flex items-center gap-3 text-xs text-gray-400">
-            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-            OR
-            <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+        <div className="mt-6 space-y-3">
+          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-subtle">
+            <span className="h-px flex-1 bg-[#E5E7EB] dark:bg-white/15" />
+            Device sign-in
+            <span className="h-px flex-1 bg-[#E5E7EB] dark:bg-white/15" />
           </div>
-          <button type="button" onClick={biometricLogin} className="btn-ghost w-full" disabled={bioLoading}>
-            {bioLoading ? 'Waiting for device...' : 'Login with Face ID / Fingerprint / Passkey'}
+          <button
+            type="button"
+            onClick={passkeyLogin}
+            disabled={bioLoading}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-green/30 bg-brand-green/5 text-sm font-bold text-brand-green transition hover:bg-brand-green/10 disabled:opacity-60"
+          >
+            <span aria-hidden>🔑</span>
+            {bioLoading ? 'Waiting for device...' : 'Sign in with passkey'}
           </button>
-        </>
+          <button
+            type="button"
+            onClick={biometricLogin}
+            disabled={bioLoading}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl border-2 border-black/10 text-sm font-bold transition hover:bg-black/5 disabled:opacity-60 dark:border-white/15 dark:hover:bg-white/5"
+          >
+            <span aria-hidden>👆</span>
+            Face ID / Fingerprint
+          </button>
+        </div>
       )}
 
-      <p className="mt-4 text-center text-sm text-gray-500 dark:text-gray-400">
-        New here?{' '}
-        <Link to="/register" className="font-semibold text-brand-green">Create an account</Link>
+      <p className="mt-8 text-center text-sm text-muted">
+        New to DanyPathMart?{' '}
+        <Link to="/register" className="font-bold text-brand-green hover:underline">
+          Create an account
+        </Link>
       </p>
+      <div className="mt-4">
+        <SocialAuthSetupHint />
+      </div>
     </form>
   );
 }

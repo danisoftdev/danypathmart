@@ -1,75 +1,144 @@
 import ProductImage from '../product/ProductImage';
 import { formatPrice } from '../../lib/currency';
+import { useCheckoutPolicies, useAirLabels } from '../../hooks/checkout';
+import CheckoutLegalNotice from './CheckoutLegalNotice';
 
-function Row({ label, value, strong }) {
+function ShippingCard({ icon, title, amount, detail }) {
   return (
-    <div className={`flex justify-between ${strong ? 'text-base font-bold' : 'text-sm'}`}>
-      <span className={strong ? '' : 'text-black/60 dark:text-white/60'}>{label}</span>
-      <span>{value}</span>
+    <div className="flex items-start gap-3 rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#1E1E1E]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-green/10 text-lg">
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold">{title}</p>
+        {detail && <p className="mt-0.5 text-xs text-muted">{detail}</p>}
+      </div>
+      <span className="shrink-0 font-bold">{amount}</span>
     </div>
   );
 }
 
-export default function OrderSummary({ items, quote, isLoading, onBack, onContinue }) {
+export default function OrderSummary({ items, quote, isLoading, onBack, onContinue, groupOrder = false, pickupMode = false, pickupStation = null }) {
+  const { data: policies } = useCheckoutPolicies();
+  const labels = useAirLabels();
   return (
     <div>
-      <h2 className="mb-4 text-lg font-semibold">Order summary</h2>
+      <div className="mb-6">
+        <h2 className="text-xl font-extrabold">Order summary</h2>
+        <p className="mt-1 text-sm text-muted">
+          {pickupMode ? 'Review items and pickup details before payment.' : 'Review items and shipping before payment.'}
+        </p>
+      </div>
+
+      {pickupMode && pickupStation && (
+        <div className="mb-4 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 text-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-brand-green">Pickup at</p>
+          <p className="mt-1 font-bold">{pickupStation.name}</p>
+          <p className="text-muted">{pickupStation.city}, {pickupStation.region}</p>
+        </div>
+      )}
 
       <ul className="space-y-3">
-        {items.map((item) => (
-          <li key={item.id} className="flex items-center gap-3">
+        {items.map((item, idx) => (
+          <li
+            key={item.key ?? `${item.id}-${idx}`}
+            className="flex items-center gap-4 rounded-2xl border border-black/8 bg-white p-3 dark:border-white/10 dark:bg-[#1E1E1E]"
+          >
             <ProductImage
               src={item.image}
               alt={item.name}
-              className="h-14 w-14 flex-shrink-0 rounded-lg object-cover"
+              className="h-16 w-16 shrink-0 rounded-xl object-cover"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{item.name}</p>
-              <p className="text-xs text-black/60 dark:text-white/60">
-                {item.qty} &times; {formatPrice(item.price)}
+              <p className="line-clamp-2 font-bold leading-snug">{item.name}</p>
+              {groupOrder && (item.recipient_name || item.size_label) && (
+                <p className="mt-0.5 text-xs font-semibold text-brand-green">
+                  {[item.recipient_name, item.size_label && `Size ${item.size_label}`]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
+              <p className="mt-0.5 text-sm text-muted">
+                Qty {item.qty} × {formatPrice(item.price)}
                 {item.is_preorder && (
-                  <span className="ml-2 font-semibold text-brand-gold">PRE-ORDER</span>
+                  <span className="ml-2 rounded bg-brand-gold px-1.5 py-0.5 text-[10px] font-black text-black">
+                    {labels.cartBadge}
+                  </span>
                 )}
               </p>
             </div>
-            <span className="text-sm font-semibold">{formatPrice(item.price * item.qty)}</span>
+            <span className="shrink-0 font-extrabold">{formatPrice(item.price * item.qty)}</span>
           </li>
         ))}
       </ul>
 
-      <div className="my-5 border-t border-black/10 dark:border-white/10" />
+      <div className="my-6 border-t border-black/5 dark:border-white/10" />
 
       {isLoading || !quote ? (
-        <p className="text-sm text-black/60 dark:text-white/60">Calculating shipping...</p>
+        <div className="rounded-2xl border border-dashed border-brand-green/30 bg-brand-green/5 p-6 text-center">
+          <p className="font-semibold text-brand-green">Calculating shipping…</p>
+        </div>
       ) : (
-        <div className="space-y-2">
-          <Row label="Subtotal" value={formatPrice(quote.subtotal)} />
-          <Row label="International shipping" value={formatPrice(quote.intl_shipping_cost)} />
-          <Row
-            label={`Local delivery (${quote.local_delivery_percent}%)`}
-            value={formatPrice(quote.local_delivery_cost)}
+        <div className="space-y-3">
+          <ShippingCard icon="🛍️" title="Subtotal" amount={formatPrice(quote.subtotal)} />
+          {quote.intl_shipping_cost > 0 && (
+            <ShippingCard
+              icon="✈️"
+              title={labels.intlShippingTitle}
+              amount={formatPrice(quote.intl_shipping_cost)}
+              detail={labels.intlShippingDetail}
+            />
+          )}
+          <ShippingCard
+            icon={pickupMode ? '📍' : '🚚'}
+            title={pickupMode ? 'Pickup & handling' : labels.localDeliveryTitle}
+            amount={formatPrice(quote.local_delivery_cost)}
+            detail={
+              pickupMode
+                ? (quote.local_delivery_cost > 0 ? 'Station handling fee' : 'No handling fee')
+                : (quote.local_delivery_percent > 0 ? `${quote.local_delivery_percent}% of subtotal` : undefined)
+            }
           />
-          <div className="my-2 border-t border-black/10 dark:border-white/10" />
-          <Row label="Total" value={formatPrice(quote.total)} strong />
-          <p className="pt-1 text-xs text-black/50 dark:text-white/50">
-            You will be charged {formatPrice(quote.total)} in Ghana Cedis (GHS).
-          </p>
+
+          {quote.discount_amount > 0 && (
+            <ShippingCard
+              icon="🎉"
+              title={quote.discount_label || 'Loyalty discount'}
+              amount={`−${formatPrice(quote.discount_amount)}`}
+              detail="Repeat club order benefit"
+            />
+          )}
+
+          <div className="rounded-2xl bg-gradient-to-br from-brand-green to-[#1a5c38] p-5 text-white">
+            <p className="text-sm font-medium text-white/80">Total due at payment</p>
+            <p className="mt-1 text-3xl font-extrabold">{formatPrice(quote.total)}</p>
+            <p className="mt-2 text-xs text-white/70">Charged in Ghana Cedis (GHS) via Paystack</p>
+          </div>
+
+          {policies?.exchange_summary && (
+            <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/10 p-4 text-sm">
+              <p className="font-bold text-[#111111] dark:text-white">Sizing &amp; exchanges</p>
+              <p className="mt-1 text-muted">{policies.exchange_summary}</p>
+            </div>
+          )}
+
+          <CheckoutLegalNotice policies={policies} />
         </div>
       )}
 
-      <div className="mt-6 flex justify-between">
+      <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-lg border border-black/15 px-5 py-2.5 font-medium dark:border-white/15"
+          className="min-h-[48px] rounded-xl border-2 border-black/10 px-6 font-bold dark:border-white/15"
         >
-          Back
+          ← Back
         </button>
         <button
           type="button"
           disabled={isLoading || !quote}
           onClick={onContinue}
-          className="rounded-lg bg-brand-green px-6 py-2.5 font-semibold text-white transition hover:bg-opacity-90 disabled:opacity-50"
+          className="btn-primary min-h-[48px] px-8"
         >
           Continue to payment
         </button>

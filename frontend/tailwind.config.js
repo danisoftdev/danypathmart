@@ -12,8 +12,10 @@ export default {
         'brand-orange': '#F97316',
         'brand-purple': '#7C3AED',
         'brand-rose': '#F43F5E',
-        'brand-light': '#FFFBF5',
-        'brand-dark': '#111111',
+        'brand-light': '#FFF9F3',
+        'brand-dark': '#121212',
+        'brand-surface': '#FFFFFF',
+        'brand-surface-dark': '#1E1E1E',
       },
       keyframes: {
         'pulse-ring': {

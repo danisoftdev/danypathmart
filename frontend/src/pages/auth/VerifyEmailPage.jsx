@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../lib/api';
 import OTPInput from '../../components/auth/OTPInput';
+import { AuthAlert } from '../../components/auth/FormField';
 import { useAuthStore } from '../../store/authStore';
+import { homePathForUser } from '../../lib/permissions';
 
 export default function VerifyEmailPage() {
   const location = useLocation();
@@ -32,7 +34,7 @@ export default function VerifyEmailPage() {
     try {
       const { data } = await api.post('/auth/verify-email', { user_id: userId, otp: code });
       setSession(data);
-      navigate('/dashboard');
+      navigate(homePathForUser(data.user));
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid verification code.');
       submittedRef.current = false;
@@ -48,6 +50,7 @@ export default function VerifyEmailPage() {
       await api.post('/auth/resend-otp', { user_id: userId });
       setInfo('A new code has been sent to your email.');
       setCountdown(60);
+      submittedRef.current = false;
     } catch (err) {
       setError(err.response?.data?.message || 'Could not resend the code.');
     }
@@ -55,38 +58,51 @@ export default function VerifyEmailPage() {
 
   if (!userId) {
     return (
-      <div className="auth-card text-center">
-        <h1 className="mb-2 text-xl font-bold">Verification link expired</h1>
-        <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-          Please register again to receive a new code.
-        </p>
-        <Link to="/register" className="btn-primary inline-block">Go to register</Link>
+      <div className="auth-card-lg text-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-gold/20 text-2xl">✉</div>
+        <h1 className="text-xl font-bold">Verification link expired</h1>
+        <p className="mt-2 text-sm text-muted">Please register again to receive a new code.</p>
+        <Link to="/register" className="btn-primary mt-6 inline-block min-h-[48px] px-8 leading-[48px]">
+          Go to register
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="auth-card text-center">
-      <h1 className="mb-1 text-2xl font-bold">Verify your email</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        Enter the 6-digit code we sent to {email ? <strong>{email}</strong> : 'your email'}.
+    <div className="auth-card-lg text-center">
+      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-green/10 text-3xl text-brand-green">
+        ✉
+      </div>
+      <h1 className="text-2xl font-extrabold">Check your email</h1>
+      <p className="mx-auto mt-2 max-w-sm text-base text-muted">
+        Enter the 6-digit code we sent to{' '}
+        {email ? <strong className="text-[#111111] dark:text-white">{email}</strong> : 'your inbox'}.
       </p>
 
-      {error && (
-        <div className="mb-4 rounded-lg bg-brand-red/10 px-3 py-2 text-sm text-brand-red">{error}</div>
-      )}
-      {info && (
-        <div className="mb-4 rounded-lg bg-brand-emerald/10 px-3 py-2 text-sm text-brand-emerald">{info}</div>
-      )}
+      {error && <div className="mt-4 text-left"><AuthAlert type="error">{error}</AuthAlert></div>}
+      {info && <div className="mt-4 text-left"><AuthAlert type="success">{info}</AuthAlert></div>}
 
-      <OTPInput onComplete={verify} disabled={submitting} />
+      <div className="my-8">
+        <OTPInput onComplete={verify} disabled={submitting} />
+        {submitting && <p className="mt-4 text-sm font-medium text-brand-green">Verifying...</p>}
+      </div>
 
-      <div className="mt-6 text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm text-muted">You can paste the full code from your email.</p>
+
+      <div className="mt-6 rounded-2xl bg-[#FFF9F3] px-4 py-4 dark:bg-[#121212]">
         {countdown > 0 ? (
-          <span>Resend code in {countdown}s</span>
+          <p className="text-sm text-muted">
+            Resend code in{' '}
+            <span className="font-mono text-base font-bold text-brand-green">{countdown}s</span>
+          </p>
         ) : (
-          <button type="button" onClick={resend} className="font-semibold text-brand-green">
-            Resend code
+          <button
+            type="button"
+            onClick={resend}
+            className="text-sm font-bold text-brand-green hover:underline"
+          >
+            Resend verification code
           </button>
         )}
       </div>
