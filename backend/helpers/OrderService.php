@@ -595,7 +595,7 @@ final class OrderService
         }
 
         $itemsStmt = $pdo->prepare(
-            'SELECT oi.quantity, oi.unit_price, oi.is_preorder, oi.estimated_arrival, p.name
+            'SELECT oi.quantity, oi.unit_price, oi.is_preorder, oi.estimated_arrival, p.name, p.images
              FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id
              WHERE oi.order_id = ? ORDER BY oi.id ASC'
         );

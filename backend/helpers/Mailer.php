@@ -104,6 +104,84 @@ final class Mailer
         }
     }
 
+    /** Public site origin (frontend) — used for brand assets and app links in email. */
+    private static function siteOrigin(): string
+    {
+        Env::load();
+        return rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+    }
+
+    /** API base URL — used for uploaded product images served from /uploads. */
+    private static function apiOrigin(): string
+    {
+        Env::load();
+        return rtrim((string) Env::get('APP_URL', 'http://localhost:8000'), '/');
+    }
+
+    /** Absolute URL for images embedded in HTML email. */
+    private static function resolveEmailImageUrl(?string $url): ?string
+    {
+        if ($url === null || trim($url) === '') {
+            return null;
+        }
+        $url = trim($url);
+        if (preg_match('#^https?://#i', $url)) {
+            return $url;
+        }
+        $path = $url[0] === '/' ? $url : '/' . $url;
+        if (str_starts_with($path, '/brand/')) {
+            return self::siteOrigin() . $path;
+        }
+        return self::apiOrigin() . $path;
+    }
+
+    private static function siteLogoUrl(): string
+    {
+        return self::siteOrigin() . '/brand/logo.png';
+    }
+
+    /** Branded header with site logo (linked to storefront). */
+    private static function emailLogoHeader(): string
+    {
+        $home = htmlspecialchars(self::siteOrigin(), ENT_QUOTES);
+        $logo = htmlspecialchars(self::siteLogoUrl(), ENT_QUOTES);
+        return '<div style="text-align:center;margin-bottom:24px;">'
+            . '<a href="' . $home . '" style="text-decoration:none;display:inline-block;">'
+            . '<img src="' . $logo . '" alt="DanyPathMart" width="160" height="auto" '
+            . 'style="max-width:160px;height:auto;display:block;margin:0 auto;" />'
+            . '</a></div>';
+    }
+
+    /** First product image from JSON column, or site logo as fallback. */
+    private static function orderItemImageUrl(array $item): string
+    {
+        $imagesRaw = $item['images'] ?? null;
+        if (is_string($imagesRaw) && $imagesRaw !== '') {
+            $decoded = json_decode($imagesRaw, true);
+            if (is_array($decoded)) {
+                foreach ($decoded as $img) {
+                    if (is_string($img) && trim($img) !== '') {
+                        $resolved = self::resolveEmailImageUrl($img);
+                        if ($resolved !== null) {
+                            return $resolved;
+                        }
+                    }
+                }
+            }
+        }
+        return self::siteLogoUrl();
+    }
+
+    private static function orderItemImageCell(array $item, string $alt): string
+    {
+        $src = htmlspecialchars(self::orderItemImageUrl($item), ENT_QUOTES);
+        $safeAlt = htmlspecialchars($alt, ENT_QUOTES);
+        return '<td style="padding:8px 6px;border-bottom:1px solid #eee;width:56px;">'
+            . '<img src="' . $src . '" alt="' . $safeAlt . '" width="48" height="48" '
+            . 'style="width:48px;height:48px;object-fit:cover;border-radius:8px;display:block;" />'
+            . '</td>';
+    }
+
     private static function devDump(string $to, string $subject, string $html): void
     {
         $dir = dirname(__DIR__) . '/storage/mail';
@@ -141,10 +219,7 @@ final class Mailer
         return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;'
             . 'font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:24px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span>'
-            . '</div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:32px 24px;text-align:center;">'
             . '<h1 style="color:#111111;font-size:22px;margin:0 0 12px;">' . $heading . '</h1>'
             . '<p style="color:#444;font-size:15px;line-height:1.5;margin:0 0 24px;">' . $intro . '</p>'
@@ -223,9 +298,7 @@ final class Mailer
         $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;'
             . 'font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:24px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:32px 24px;">'
             . '<h1 style="color:#111;font-size:22px;margin:0 0 12px;">Your staff account is ready</h1>'
             . '<p style="color:#444;font-size:15px;line-height:1.5;margin:0 0 16px;">'
@@ -260,9 +333,7 @@ final class Mailer
         $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;'
             . 'font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:24px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:32px 24px;">'
             . '<h1 style="color:#111;font-size:22px;margin:0 0 12px;">Reset your password</h1>'
             . '<p style="color:#444;font-size:15px;line-height:1.5;margin:0 0 20px;">'
@@ -316,7 +387,7 @@ final class Mailer
     ): bool {
         $safeTitle = htmlspecialchars($title, ENT_QUOTES);
         $safeBody = nl2br(htmlspecialchars($body, ENT_QUOTES));
-        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $appUrl = self::siteOrigin();
         $cta = $linkUrl
             ? '<div style="text-align:center;margin:20px 0 0;">'
                 . '<a href="' . htmlspecialchars($appUrl . $linkUrl, ENT_QUOTES) . '" '
@@ -326,9 +397,7 @@ final class Mailer
 
         $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:20px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
             . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">' . $safeTitle . '</h1>'
             . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0;">' . $safeBody . '</p>'
@@ -489,12 +558,13 @@ final class Mailer
             $name = htmlspecialchars((string) ($item['name'] ?? 'Product'), ENT_QUOTES);
             $qty = (int) ($item['quantity'] ?? 1);
             $rows .= '<tr>'
+                . self::orderItemImageCell($item, (string) ($item['name'] ?? 'Product'))
                 . '<td style="padding:8px 6px;border-bottom:1px solid #eee;color:#222;">' . $name . '</td>'
                 . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;color:#222;">' . $qty . '</td>'
                 . '</tr>';
         }
 
-        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $appUrl = self::siteOrigin();
         $trackLink = $appUrl . '/dashboard/orders/' . (int) $order['id'];
         $paymentRef = trim((string) ($order['payment_ref'] ?? ''));
         $refLine = $paymentRef !== ''
@@ -504,9 +574,7 @@ final class Mailer
 
         return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:600px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:20px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
             . '<h1 style="color:#111;font-size:22px;margin:0 0 6px;">' . $statusLabel . '</h1>'
             . '<p style="color:#444;font-size:14px;margin:0 0 4px;">Tracking reference: <strong>' . $tracking . '</strong></p>'
@@ -514,6 +582,7 @@ final class Mailer
             . $noteBlock
             . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px;">'
             . '<thead><tr>'
+            . '<th style="padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;width:56px;"></th>'
             . '<th style="text-align:left;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Item</th>'
             . '<th style="text-align:center;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Qty</th>'
             . '</tr></thead><tbody>' . $rows . '</tbody></table>'
@@ -548,6 +617,7 @@ final class Mailer
                 : '';
             $lineTotal = (float) $item['unit_price'] * (int) $item['quantity'];
             $rows .= '<tr>'
+                . self::orderItemImageCell($item, (string) ($item['name'] ?? 'Product'))
                 . '<td style="padding:8px 6px;border-bottom:1px solid #eee;color:#222;">' . $name . $badge . '</td>'
                 . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;color:#222;">' . (int) $item['quantity'] . '</td>'
                 . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;color:#222;">' . $money($lineTotal) . '</td>'
@@ -560,7 +630,7 @@ final class Mailer
                 . '</div>'
             : '';
 
-        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $appUrl = self::siteOrigin();
         $trackLink = $appUrl . '/order/' . (int) $order['id'];
 
         $totals = ''
@@ -572,15 +642,14 @@ final class Mailer
         return '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;'
             . 'font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:600px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:20px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
             . '<h1 style="color:#111;font-size:22px;margin:0 0 6px;">Thank you for your order!</h1>'
             . '<p style="color:#444;font-size:14px;margin:0 0 16px;">Order <strong>#' . (int) $order['id'] . '</strong> is confirmed and now processing.</p>'
             . $preNotice
             . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px;">'
             . '<thead><tr>'
+            . '<th style="padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;width:56px;"></th>'
             . '<th style="text-align:left;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Item</th>'
             . '<th style="text-align:center;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Qty</th>'
             . '<th style="text-align:right;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Total</th>'
