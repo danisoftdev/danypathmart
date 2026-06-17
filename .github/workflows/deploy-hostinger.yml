@@ -82,43 +82,48 @@ jobs:
           chmod 600 ~/.ssh/hostinger_deploy
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          {
-            echo "SSH_PORT=$SSH_PORT"
-            echo "SSH_HOST=$SSH_HOST"
-            echo "SSH_USER=$SSH_USER"
-            echo "WEB_ROOT=$WEB_ROOT"
-            echo "REMOTE=${SSH_USER}@${SSH_HOST}"
-            echo "RSYNC_SSH=ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
-            echo "SSH_CMD=ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
-            echo "SCP_CMD=scp -P ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
-          } >> "$GITHUB_ENV"
+          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
+          echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
+          echo "SSH_USER=$SSH_USER" >> "$GITHUB_ENV"
+          echo "WEB_ROOT=$WEB_ROOT" >> "$GITHUB_ENV"
+          echo "REMOTE=${SSH_USER}@${SSH_HOST}" >> "$GITHUB_ENV"
+
+      - name: Test SSH connection
+        run: |
+          ssh -p "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+            "$REMOTE" "echo SSH_OK && test -d '$WEB_ROOT' && echo WEB_ROOT_OK"
 
       - name: Deploy frontend (dist)
         run: |
-          rsync -avz --delete -e "$RSYNC_SSH" \
-            frontend/dist/ "$REMOTE:$WEB_ROOT/"
+          rsync -avz --delete \
+            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
+            frontend/dist/ "${REMOTE}:${WEB_ROOT}/"
 
       - name: Deploy SPA .htaccess
         run: |
-          $SCP_CMD deploy/public_html.htaccess "$REMOTE:$WEB_ROOT/.htaccess"
+          scp -P "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+            deploy/public_html.htaccess "${REMOTE}:${WEB_ROOT}/.htaccess"
 
       - name: Deploy database migrations
         run: |
-          rsync -avz -e "$RSYNC_SSH" \
-            database/ "$REMOTE:$WEB_ROOT/database/"
+          rsync -avz \
+            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
+            database/ "${REMOTE}:${WEB_ROOT}/database/"
 
       - name: Deploy backend (API)
         run: |
-          rsync -avz -e "$RSYNC_SSH" \
+          rsync -avz \
+            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
             --exclude '.env' \
             --exclude '.env.*' \
             --exclude 'uploads/' \
             --exclude 'storage/mail/' \
-            backend/ "$REMOTE:$WEB_ROOT/api/"
+            backend/ "${REMOTE}:${WEB_ROOT}/api/"
 
       - name: Post-deploy (migrations + env check)
         run: |
-          $SSH_CMD "$REMOTE" "bash -s" -- "$WEB_ROOT" < deploy/remote-post-deploy.sh
+          ssh -p "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+            "$REMOTE" "bash -s" -- "$WEB_ROOT" < deploy/remote-post-deploy.sh
 
       - name: Deployment summary
         run: |
@@ -126,3 +131,4 @@ jobs:
           echo "Branch: ${{ github.ref_name }}"
           echo "Remote: $REMOTE"
           echo "Web root: $WEB_ROOT"
+          echo "SSH port: $SSH_PORT"
