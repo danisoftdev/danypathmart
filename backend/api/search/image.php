@@ -22,6 +22,18 @@ if (!$limit['allowed']) {
     ]);
 }
 
+$pdo = Database::pdo();
+if (class_exists(ImageSearchService::class) && method_exists(ImageSearchService::class, 'isStoreEnabled')) {
+    if (!ImageSearchService::isStoreEnabled($pdo)) {
+        Response::error('Image search is not enabled for this store.', 403, ['code' => 'image_search_disabled']);
+    }
+}
+if (!ImageSearchService::isConfigured()) {
+    Response::error('Image search is temporarily unavailable. Please try text search.', 503, [
+        'code' => 'vision_unavailable',
+    ]);
+}
+
 // 2. Validate the uploaded file.
 $file = $_FILES['image'] ?? null;
 if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
@@ -54,7 +66,6 @@ if (!move_uploaded_file($file['tmp_name'], $absPath)) {
 }
 
 $user = AuthMiddleware::optional();
-$pdo = Database::pdo();
 
 // 5. Detect labels (Vision). Dev-only override to exercise matching locally.
 $labels = ImageSearchService::detectLabels($absPath);

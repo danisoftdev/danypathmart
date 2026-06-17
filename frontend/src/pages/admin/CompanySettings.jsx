@@ -62,7 +62,18 @@ const EMPTY = {
   shop_renewal_fee_ghs: 0,
   shop_renewal_period: 'yearly',
   shop_renewal_grace_days: 7,
+  image_search_enabled: false,
+  vision_api_configured: false,
 };
+
+const TABS = [
+  { id: 'storefront', label: 'Storefront & footer' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'features', label: 'Features & modules' },
+];
+
+/** Read-only API fields — do not send back on save. */
+const READ_ONLY_KEYS = new Set(['vision_api_configured', 'id', 'updated_at', 'updated_by', 'weekly_orders_export_last_sent']);
 
 function ToggleField({ label, hint, checked, onChange, disabled }) {
   return (
@@ -117,11 +128,13 @@ function Section({ title, children }) {
 export default function CompanySettings() {
   const user = useAuthStore((s) => s.user);
   const canManageShopFees = hasPermission(user, 'manage_shop_fees');
+  const canManageImageSearch = hasPermission(user, 'manage_image_search');
   const { data, isLoading, error: fetchError } = useCompanySettings();
   const update = useUpdateCompanySettings();
   const [draft, setDraft] = useState(null);
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+  const [tab, setTab] = useState('storefront');
 
   const form = draft ?? (data ? { ...EMPTY, ...data, usd_to_ghs_rate: data.usd_to_ghs_rate ?? 0 } : EMPTY);
 
@@ -136,7 +149,10 @@ export default function CompanySettings() {
     setToast('');
     if (!form.company_name.trim()) return setError('Company name is required.');
     try {
-      await update.mutateAsync({ ...form, usd_to_ghs_rate: rate });
+      const payload = Object.fromEntries(
+        Object.entries(form).filter(([key]) => !READ_ONLY_KEYS.has(key))
+      );
+      await update.mutateAsync({ ...payload, usd_to_ghs_rate: rate });
       setDraft(null);
       setToast('Company settings saved.');
       setTimeout(() => setToast(''), 3000);
@@ -150,10 +166,21 @@ export default function CompanySettings() {
   }
 
   if (!data) {
+    const status = fetchError?.response?.status;
+    const apiMessage = fetchError?.response?.data?.message;
+    const apiCode = fetchError?.response?.data?.code;
+    const detail = apiMessage
+      || (apiCode === 'deploy_incomplete'
+        ? 'Backend deploy is incomplete — merge to main and run GitHub Deploy, or git pull on the server so api/helpers/CompanySettingsService.php exists.'
+        : null)
+      || (status === 401 ? 'Session expired — log in again (2FA required).' : null)
+      || (status === 403 ? 'You need view_company_settings permission.' : null)
+      || (status === 500 ? 'Internal server error — deploy latest API files and run migrations on the server.' : null)
+      || (status ? `HTTP ${status}` : fetchError?.message);
     return (
       <AdminPageError
         message="Could not load company settings."
-        detail={fetchError?.response?.data?.message}
+        detail={detail}
       />
     );
   }
@@ -175,7 +202,26 @@ export default function CompanySettings() {
         <p className="mb-4 rounded-xl bg-brand-green/10 px-4 py-3 text-sm font-bold text-brand-green">{toast}</p>
       )}
 
+      <div className="mb-6 flex flex-wrap gap-2 border-b border-black/8 pb-1 dark:border-white/10">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`rounded-t-lg px-4 py-2.5 text-sm font-semibold transition ${
+              tab === t.id
+                ? 'border border-b-0 border-black/10 bg-white text-brand-green dark:border-white/15 dark:bg-[#1E1E1E]'
+                : 'text-muted hover:text-brand-green'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
+        {tab === 'storefront' && (
+          <>
         <Section title="Basic info">
           <Field label="Company name">
             <input className="modal-input" value={form.company_name} onChange={(e) => set('company_name', e.target.value)} />
@@ -210,6 +256,9 @@ export default function CompanySettings() {
         </Section>
 
         <Section title="Social">
+          <p className="-mt-2 text-xs text-muted">
+            Shown in the site footer under <strong>Connect</strong> — save here, then check the homepage footer.
+          </p>
           <SocialField icon={FacebookIcon} label="Facebook" value={form.facebook || ''} onChange={(v) => set('facebook', v)} placeholder="https://facebook.com/..." />
           <SocialField icon={InstagramIcon} label="Instagram" value={form.instagram || ''} onChange={(v) => set('instagram', v)} placeholder="https://instagram.com/..." />
           <SocialField icon={TwitterIcon} label="Twitter / X" value={form.twitter || ''} onChange={(v) => set('twitter', v)} placeholder="https://x.com/..." />
@@ -290,7 +339,11 @@ export default function CompanySettings() {
             </>
           )}
         </Section>
+          </>
+        )}
 
+        {tab === 'features' && (
+          <>
         <Section title="Club loyalty">
           <p className="-mt-2 text-xs text-muted">
             Light, on-brand perks for returning clubs — no points or gamification.
@@ -586,6 +639,40 @@ export default function CompanySettings() {
           </Field>
         </Section>
 
+        {canManageImageSearch && (
+          <Section title="Image search">
+            <p className="-mt-2 text-xs text-muted">
+              Lets customers search by photo (Google Cloud Vision). Requires{' '}
+              <code className="text-[11px]">GOOGLE_VISION_API_KEY</code> in the API{' '}
+              <code className="text-[11px]">.env</code> with billing enabled. The camera icon appears on the storefront
+              only when both this toggle and the API are ready.
+            </p>
+            <ToggleField
+              label="Enable image search"
+              hint={
+                form.vision_api_configured
+                  ? 'Vision API key detected on the server.'
+                  : 'Server key not detected yet — you can save this toggle now; customers will see search once Vision is configured.'
+              }
+              checked={!!form.image_search_enabled}
+              onChange={(v) => set('image_search_enabled', v)}
+            />
+            {form.image_search_enabled && form.vision_api_configured && (
+              <p className="text-xs font-semibold text-brand-green">Live on storefront — camera search is available.</p>
+            )}
+            {form.image_search_enabled && !form.vision_api_configured && (
+              <p className="text-xs font-semibold text-brand-gold">
+                Saved as enabled — storefront will activate automatically when Vision billing and API key are ready.
+              </p>
+            )}
+          </Section>
+        )}
+
+          </>
+        )}
+
+        {tab === 'payments' && (
+          <>
         <Section title="Group & institutional buying">
           <ToggleField
             label="Quote / proforma requests"
@@ -662,6 +749,8 @@ export default function CompanySettings() {
             onChange={(v) => set('pay_before_delivery', v)}
           />
         </Section>
+          </>
+        )}
       </div>
 
       <div className="mt-6">

@@ -40,6 +40,7 @@ export const PERMISSION_KEYS = [
   'export_reports',
   'view_image_alerts',
   'manage_image_alerts',
+  'manage_image_search',
   'manage_custom_proofs',
   'view_employees',
   'manage_employee_profiles',
@@ -87,6 +88,7 @@ export const PERMISSION_LABELS = {
   export_reports: 'Export reports & data',
   view_image_alerts: 'View image alerts',
   manage_image_alerts: 'Manage image alerts',
+  manage_image_search: 'Enable image search (Google Vision)',
   manage_custom_proofs: 'Custom proof approvals',
   view_employees: 'View employee profiles',
   manage_employee_profiles: 'Manage employee profiles',
@@ -131,7 +133,7 @@ export const PERMISSION_GROUPS = [
     ],
   },
   { title: 'Reports & exports', keys: ['view_reports', 'export_reports'] },
-  { title: 'Image alerts', keys: ['view_image_alerts', 'manage_image_alerts'] },
+  { title: 'Image search & alerts', keys: ['manage_image_search', 'view_image_alerts', 'manage_image_alerts'] },
   { title: 'Custom proofs', keys: ['manage_custom_proofs'] },
 ];
 

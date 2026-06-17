@@ -27,7 +27,18 @@ try {
     $policies['checkout_legal_ready'] = false;
 }
 
+$imageSearchAvailable = false;
+try {
+    if (class_exists(\App\Helpers\ImageSearchService::class)
+        && method_exists(\App\Helpers\ImageSearchService::class, 'isAvailable')) {
+        $imageSearchAvailable = \App\Helpers\ImageSearchService::isAvailable($pdo);
+    }
+} catch (\Throwable) {
+    $imageSearchAvailable = false;
+}
+
 Response::success(array_merge(
     $policies,
-    PlatformFeatures::publicFlags($pdo)
+    PlatformFeatures::publicFlags($pdo),
+    ['image_search_available' => $imageSearchAvailable]
 ));

@@ -323,6 +323,19 @@ try {
 }
 
 if (($user['role'] ?? '') === 'super_admin'
+    || StaffPermission::userHasAny((int) $user['id'], (string) $user['role'], ['manage_image_search'])) {
+    try {
+        $imageSearchEnabled = boolFlag($body['image_search_enabled'] ?? false);
+        $pdo->prepare(
+            'UPDATE company_settings SET image_search_enabled = ? WHERE id = 1'
+        )->execute([$imageSearchEnabled]);
+        $fields['image_search_enabled'] = (bool) $imageSearchEnabled;
+    } catch (\Throwable) {
+        // Migration 050 not applied yet.
+    }
+}
+
+if (($user['role'] ?? '') === 'super_admin'
     || StaffPermission::userHasAny((int) $user['id'], (string) $user['role'], ['manage_shop_fees'])) {
     try {
         $shopBillingEnabled = boolFlag($body['shop_billing_enabled'] ?? false);

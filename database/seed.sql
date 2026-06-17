@@ -91,7 +91,8 @@ VALUES (
         'view_company_settings', true,
         'edit_company_settings', true,
         'view_image_alerts', true,
-        'manage_image_alerts', true
+        'manage_image_alerts', true,
+        'manage_image_search', true
     ),
     @admin_id
 );
