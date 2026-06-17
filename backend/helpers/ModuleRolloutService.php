@@ -149,9 +149,7 @@ final class ModuleRolloutService
 
 
     /** @return array{modules:list<array<string,mixed>>,phase1_ready:bool} */
-
-    public static function status(PDO $pdo): array
-
+    public static function status(PDO $pdo, ?array $launchResult = null): array
     {
 
         $flags = PlatformFeatures::load($pdo);
@@ -232,14 +230,15 @@ final class ModuleRolloutService
 
 
 
-        $p1 = LaunchReadinessService::evaluate($pdo);
-
-        $p2 = $p1['p2'] ?? LaunchReadinessService::evaluateP2($pdo, (bool) ($p1['ready'] ?? false));
-
-
+        if ($launchResult !== null) {
+            $p1 = $launchResult;
+            $p2 = $launchResult['p2'] ?? LaunchReadinessService::evaluateP2($pdo, (bool) ($launchResult['ready'] ?? false));
+        } else {
+            $p1 = LaunchReadinessService::evaluate($pdo);
+            $p2 = $p1['p2'] ?? LaunchReadinessService::evaluateP2($pdo, (bool) ($p1['ready'] ?? false));
+        }
 
         return [
-
             'modules'      => $modules,
 
             'phase1_ready' => ($p1['ready'] ?? false) && ($p2['ready'] ?? false),

@@ -19,8 +19,7 @@ use App\Middleware\PermissionMiddleware;
 
 
 AuthMiddleware::requireAdmin();
-
-PermissionMiddleware::require('edit_company_settings');
+AuthMiddleware::requireSuperAdmin();
 
 
 

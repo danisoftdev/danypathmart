@@ -9,12 +9,22 @@
 3. Import `database/seed.sql` (super admin + defaults — **change password before production**).
 4. Run all migrations:
    ```bash
-   php backend/scripts/migrate-all.php
+   php backend/scripts/migrate-production.php
    ```
+   On Hostinger (from `public_html/api`):
+   ```bash
+   php scripts/migrate-production.php
+   ```
+   Requires `database/migrations/` at `public_html/database/migrations/` **or** repo root `database/migrations/`.
 
 ## Existing database (already on schema + seed)
 
 Run only step 4. Safe to re-run: duplicate column/table errors are skipped.
+
+**Production one-liner** (after uploading `database/` folder):
+```bash
+cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-production.php
+```
 
 ## Migration files (numeric order)
 
@@ -52,8 +62,11 @@ Run only step 4. Safe to re-run: duplicate column/table errors are skipped.
 | `046_ops_monitoring_p5.sql` | P5 | Analytics toggle, GA ID, uptime monitor URL |
 | `047_shop_billing_m6.sql` | M6 | Shop registration & renewal billing |
 | `048_remove_sample_catalog.sql` | — | Remove seed sample products & demo hero banners |
+| `049_marketplace_product_columns.sql` | M4 | `products.shop_id`, `listing_status`, shop commission settings |
 
 `migrate-all.php` also runs post-hooks: job role catalog sync, workforce employee backfill.
+
+`migrate-production.php` runs `migrate-all.php` + `migrate-phase-m4.php` (idempotent column guards).
 
 ## Legacy per-phase scripts
 

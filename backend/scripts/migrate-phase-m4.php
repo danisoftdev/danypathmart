@@ -32,9 +32,15 @@ function columnExists(PDO $pdo, string $table, string $column): bool
 
 $pdo = Database::pdo();
 
-$sql = file_get_contents(__DIR__ . '/../../database/migrations/035_marketplace_m4.sql');
-if ($sql !== false) {
-    foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+$m4Sql = null;
+foreach ([__DIR__ . '/../../database/migrations/035_marketplace_m4.sql', __DIR__ . '/../database/migrations/035_marketplace_m4.sql'] as $candidate) {
+    if (is_file($candidate)) {
+        $m4Sql = file_get_contents($candidate);
+        break;
+    }
+}
+if ($m4Sql !== false && $m4Sql !== null) {
+    foreach (array_filter(array_map('trim', explode(';', $m4Sql))) as $statement) {
         if ($statement === '') {
             continue;
         }

@@ -62,21 +62,7 @@ export default function HomePage() {
   }, [products, recentlyViewed]);
 
   const loading = isLoading || popularLoading || featuredLoading || flashLoading;
-
-  if (!loading && products.length === 0) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-10">
-        <div className="mt-8">
-          <EmptyState
-            title="No products yet"
-            message="Check back soon — new items are added regularly."
-            actionLabel="Browse shop"
-            actionTo="/shop"
-          />
-        </div>
-      </div>
-    );
-  }
+  const hasProducts = products.length > 0;
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-4 pb-6 md:space-y-10 md:py-6">
@@ -94,7 +80,14 @@ export default function HomePage() {
 
       <SectionDivider />
 
-      {loading ? (
+      {!loading && !hasProducts ? (
+        <EmptyState
+          title="No products yet"
+          message="Browse by category above or check back soon — new items are added regularly."
+          actionLabel="Browse shop"
+          actionTo="/shop"
+        />
+      ) : loading ? (
         <>
           <HomeSectionSkeleton title="Flash deals" />
           <HomeSectionSkeleton title="Featured" />

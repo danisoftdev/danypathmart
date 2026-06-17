@@ -191,5 +191,6 @@ export function usePlatformFeatures() {
     marketplaceEnabled: !!data?.marketplace_enabled,
     shopApplicationsOpen: !!data?.shop_applications_open,
     shopReferralEnabled: !!data?.shop_referral_commission_enabled,
+    imageSearchAvailable: !!data?.image_search_available,
   };
 }

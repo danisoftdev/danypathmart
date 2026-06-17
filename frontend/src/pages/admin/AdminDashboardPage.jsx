@@ -11,8 +11,6 @@ import {
 } from '../../hooks/admin';
 import { formatPrice } from '../../lib/currency';
 import { hasAnyPermission, hasPermission, isAdminUser } from '../../lib/permissions';
-
-const CAN_PILOT = ['view_company_settings', 'edit_company_settings'];
 import { ADMIN_QUICK_ACTIONS } from '../../components/admin/AdminQuickBar';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminStatCard from '../../components/admin/AdminStatCard';
@@ -71,8 +69,8 @@ export default function AdminDashboardPage() {
   const staffQuery = useStaff(isSuperAdmin);
   const { data: inboxUnread = 0 } = useContactInboxCount(true);
   const { data: careersUnread = 0 } = useCareerApplicationsCount(true);
-  const canPilot = user && hasAnyPermission(user, CAN_PILOT);
-  const { data: launchReady } = useLaunchReadiness(!!canPilot);
+  const canPilot = isSuperAdmin;
+  const { data: launchReady } = useLaunchReadiness(isSuperAdmin);
 
   const alertData = alertsQuery.data;
   const reportData = reportsQuery.data;

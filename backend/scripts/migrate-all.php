@@ -45,11 +45,27 @@ function tableExists(PDO $pdo, string $table): bool
     return (int) $stmt->fetchColumn() > 0;
 }
 
+/** Hostinger: public_html/database/migrations — dev repo: database/migrations */
+function migrationsDir(): ?string
+{
+    foreach ([
+        __DIR__ . '/../../database/migrations',
+        __DIR__ . '/../database/migrations',
+    ] as $candidate) {
+        $resolved = realpath($candidate);
+        if ($resolved !== false && is_dir($resolved)) {
+            return $resolved;
+        }
+    }
+
+    return null;
+}
+
 /** @return list<string> */
 function sortedMigrationSqlFiles(): array
 {
-    $dir = realpath(__DIR__ . '/../../database/migrations');
-    if ($dir === false) {
+    $dir = migrationsDir();
+    if ($dir === null) {
         return [];
     }
 
@@ -139,12 +155,20 @@ if ($users === false) {
     exit(1);
 }
 
-$files = sortedMigrationSqlFiles();
-if ($files === []) {
+$migrationsDir = migrationsDir();
+if ($migrationsDir === null) {
     fwrite(STDERR, "ERROR: No migration SQL files found.\n");
+    fwrite(STDERR, "Upload database/migrations to public_html/database/migrations on the server.\n");
     exit(1);
 }
 
+$files = sortedMigrationSqlFiles();
+if ($files === []) {
+    fwrite(STDERR, "ERROR: No migration SQL files in {$migrationsDir}\n");
+    exit(1);
+}
+
+echo "Migrations dir: {$migrationsDir}\n";
 echo 'Found ' . count($files) . " migration file(s).\n";
 
 foreach ($files as $file) {

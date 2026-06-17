@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SearchIcon } from '../icons';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useAutocomplete, useCategories } from '../../hooks/catalog';
+import { usePlatformFeatures } from '../../hooks/checkout';
 import AutocompleteDropdown, { SearchExplorePanel } from './AutocompleteDropdown';
 import ImageSearchButton from './ImageSearchButton';
 import {
@@ -21,6 +22,11 @@ const SIZE_CLASS = {
   lg: 'py-3 pl-12 pr-[8.5rem] text-base md:text-[15px]',
 };
 
+const SIZE_CLASS_NO_IMAGE = {
+  md: 'py-2.5 pl-11 pr-[4.75rem] text-base',
+  lg: 'py-3 pl-12 pr-[5.5rem] text-base md:text-[15px]',
+};
+
 export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }) {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
@@ -34,6 +40,7 @@ export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }
   const debounced = useDebounce(query, 300);
   const { data, isFetching } = useAutocomplete(debounced);
   const { data: catData } = useCategories();
+  const { imageSearchAvailable } = usePlatformFeatures();
   const allCategories = flatten(catData?.data ?? []);
 
   const products = data?.products ?? [];
@@ -148,13 +155,15 @@ export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }
           aria-expanded={open}
           aria-autocomplete="list"
           autoFocus={autoFocus}
-          className={`w-full rounded-full border border-black/12 bg-[#F3F4F6] font-medium text-[#111111] shadow-inner outline-none transition placeholder:text-[#6B7280] focus:border-brand-green focus:bg-white focus:ring-2 focus:ring-brand-green/25 dark:border-white/15 dark:bg-[#2A2A2A] dark:text-white dark:focus:bg-[#1E1E1E] ${SIZE_CLASS[size]}`}
+          className={`w-full rounded-full border border-black/12 bg-[#F3F4F6] font-medium text-[#111111] shadow-inner outline-none transition placeholder:text-[#6B7280] focus:border-brand-green focus:bg-white focus:ring-2 focus:ring-brand-green/25 dark:border-white/15 dark:bg-[#2A2A2A] dark:text-white dark:focus:bg-[#1E1E1E] ${imageSearchAvailable ? SIZE_CLASS[size] : SIZE_CLASS_NO_IMAGE[size]}`}
         />
-        <ImageSearchButton
-          ref={imageBtnRef}
-          onClose={close}
-          buttonClassName="absolute right-[4.75rem] flex h-9 w-9 items-center justify-center rounded-full text-brand-green transition hover:bg-black/5 dark:hover:bg-white/10"
-        />
+        {imageSearchAvailable && (
+          <ImageSearchButton
+            ref={imageBtnRef}
+            onClose={close}
+            buttonClassName="absolute right-[4.75rem] flex h-9 w-9 items-center justify-center rounded-full text-brand-green transition hover:bg-black/5 dark:hover:bg-white/10"
+          />
+        )}
         <button
           type="submit"
           aria-label="Search"
@@ -177,7 +186,8 @@ export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }
               setRecentSearches([]);
             }}
             onSelectCategory={selectCategory}
-            onImageSearch={openImagePicker}
+            onImageSearch={imageSearchAvailable ? openImagePicker : undefined}
+            showImageSearch={imageSearchAvailable}
           />
         </div>
       )}
@@ -193,7 +203,8 @@ export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }
           onSelectProduct={selectProduct}
           onSelectCategory={selectCategory}
           onSelectSuggestion={selectSuggestion}
-          onImageSearch={openImagePicker}
+          onImageSearch={imageSearchAvailable ? openImagePicker : undefined}
+          showImageSearch={imageSearchAvailable}
         />
       )}
     </div>

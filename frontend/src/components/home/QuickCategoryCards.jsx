@@ -32,7 +32,7 @@ function CategoryAvatar({ category, index }) {
 }
 
 export default function QuickCategoryCards({ categories = [] }) {
-  const topLevel = categories.filter((c) => !c.parent_id);
+  const topLevel = categories.filter((c) => c.parent_id == null || c.parent_id === 0 || c.parent_id === '0');
 
   if (topLevel.length === 0) return null;
 

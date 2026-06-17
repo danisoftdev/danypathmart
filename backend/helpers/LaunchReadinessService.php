@@ -980,11 +980,24 @@ final class LaunchReadinessService
     /** @return list<array<string,mixed>> */
     private static function checkCompany(PDO $pdo): array
     {
-        $row = $pdo->query(
-            'SELECT company_name, email, phone, whatsapp_support, address, business_hours, return_policy,
-                    paystack_enabled, wallet_checkout_enabled
-             FROM company_settings ORDER BY id ASC LIMIT 1'
-        )->fetch();
+        try {
+            $row = $pdo->query(
+                'SELECT company_name, email, phone, whatsapp_support, address, business_hours, return_policy,
+                        paystack_enabled, wallet_checkout_enabled
+                 FROM company_settings ORDER BY id ASC LIMIT 1'
+            )->fetch();
+        } catch (\Throwable $e) {
+            return [
+                self::item(
+                    'company_schema',
+                    'Company settings schema',
+                    'fail',
+                    'Run php scripts/migrate-all.php (migration 008+). ' . $e->getMessage(),
+                    true,
+                    '/admin/company-settings'
+                ),
+            ];
+        }
 
         if ($row === false) {
             return [self::item('company_row', 'Company settings', 'fail', 'No company_settings row.', true, '/admin/company-settings')];

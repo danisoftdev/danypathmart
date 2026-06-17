@@ -20,6 +20,7 @@ export function SearchExplorePanel({
   onClearRecent,
   onSelectCategory,
   onImageSearch,
+  showImageSearch = true,
 }) {
   return (
     <div className="overflow-hidden rounded-2xl border border-black/8 bg-white shadow-xl dark:border-white/10 dark:bg-[#1E1E1E]">
@@ -88,6 +89,7 @@ export function SearchExplorePanel({
         </div>
       )}
 
+      {showImageSearch && onImageSearch && (
       <button
         type="button"
         onClick={onImageSearch}
@@ -96,6 +98,7 @@ export function SearchExplorePanel({
         <CameraIcon className="h-5 w-5" />
         Search by image
       </button>
+      )}
     </div>
   );
 }
@@ -111,6 +114,7 @@ export default function AutocompleteDropdown({
   onSelectCategory,
   onSelectSuggestion,
   onImageSearch,
+  showImageSearch = true,
 }) {
   const catStart = products.length;
   const sugStart = products.length + categories.length;
@@ -207,6 +211,7 @@ export default function AutocompleteDropdown({
             <div className="px-4 py-6 text-center text-sm text-muted">No matches found.</div>
           )}
 
+          {showImageSearch && onImageSearch && (
           <button
             type="button"
             onClick={onImageSearch}
@@ -215,6 +220,7 @@ export default function AutocompleteDropdown({
             <CameraIcon className="h-4 w-4" />
             Search by image instead
           </button>
+          )}
         </>
       )}
     </div>

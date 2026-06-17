@@ -15,7 +15,7 @@ const NAV_GROUPS = [
     label: 'Overview',
     items: [
       { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
-      { to: '/admin/launch-readiness', label: 'Launch readiness', permissions: ['view_company_settings', 'edit_company_settings'], icon: '🚀' },
+      { to: '/admin/launch-readiness', label: 'Launch readiness', superAdminOnly: true, icon: '🚀' },
       { to: '/admin/reports', label: 'Reports', permission: 'view_reports', icon: '📈' },
     ],
   },

@@ -2,6 +2,7 @@
 
 - **Day-of-launch checklist:** [LAUNCH.md](./LAUNCH.md) (P0 → P2)
 - **Database migrations:** [database/MIGRATIONS.md](./database/MIGRATIONS.md)
+- **Auto-deploy (GitHub Actions → Hostinger):** [DEPLOY-AUTO.md](./DEPLOY-AUTO.md)
 
 ---
 

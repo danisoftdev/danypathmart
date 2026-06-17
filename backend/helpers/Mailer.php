@@ -10,6 +10,13 @@ use PHPMailer\PHPMailer\PHPMailer;
 
 final class Mailer
 {
+    private static ?string $lastError = null;
+
+    public static function lastError(): ?string
+    {
+        return self::$lastError;
+    }
+
     public static function send(
         string $toEmail,
         string $toName,
@@ -29,17 +36,8 @@ final class Mailer
 
         $mail = new PHPMailer(true);
         try {
-            $mail->isSMTP();
-            $mail->Host = $host;
-            $mail->Port = Env::int('SMTP_PORT', 587);
-            $mail->SMTPAuth = true;
-            $mail->Username = (string) Env::get('SMTP_USER', '');
-            $mail->Password = (string) Env::get('SMTP_PASS', '');
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->CharSet = 'UTF-8';
-
-            $fromEmail = (string) Env::get('SMTP_USER', 'noreply@danypathmart.store');
-            $mail->setFrom($fromEmail, (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+            self::$lastError = null;
+            self::configureSmtp($mail);
             $mail->addAddress($toEmail, $toName);
 
             $mail->isHTML(true);
@@ -50,7 +48,8 @@ final class Mailer
             $mail->send();
             return true;
         } catch (PHPMailerException $e) {
-            error_log('Mailer error: ' . $mail->ErrorInfo);
+            self::$lastError = $mail->ErrorInfo !== '' ? $mail->ErrorInfo : $e->getMessage();
+            error_log('Mailer error: ' . self::$lastError);
             return false;
         }
     }
@@ -81,15 +80,8 @@ final class Mailer
 
         $mail = new PHPMailer(true);
         try {
-            $mail->isSMTP();
-            $mail->Host = $host;
-            $mail->Port = Env::int('SMTP_PORT', 587);
-            $mail->SMTPAuth = true;
-            $mail->Username = (string) Env::get('SMTP_USER', '');
-            $mail->Password = (string) Env::get('SMTP_PASS', '');
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->CharSet = 'UTF-8';
-            $mail->setFrom((string) Env::get('SMTP_USER', 'noreply@danypathmart.store'), (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+            self::$lastError = null;
+            self::configureSmtp($mail);
             $mail->addAddress($toEmail, $toName);
             $mail->isHTML(true);
             $mail->Subject = $subject;
@@ -99,7 +91,8 @@ final class Mailer
             $mail->send();
             return true;
         } catch (PHPMailerException $e) {
-            error_log('Mailer CSV attachment error: ' . $mail->ErrorInfo);
+            self::$lastError = $mail->ErrorInfo !== '' ? $mail->ErrorInfo : $e->getMessage();
+            error_log('Mailer CSV attachment error: ' . self::$lastError);
             return false;
         }
     }
@@ -182,6 +175,37 @@ final class Mailer
             . '</td>';
     }
 
+    private static function configureSmtp(PHPMailer $mail): void
+    {
+        Env::load();
+        $port = Env::int('SMTP_PORT', 587);
+        $mail->isSMTP();
+        $mail->Host = (string) Env::get('SMTP_HOST', '');
+        $mail->Port = $port;
+        $mail->SMTPAuth = true;
+        $mail->Username = (string) Env::get('SMTP_USER', '');
+        // Gmail App Passwords are often copied with spaces — strip them.
+        $mail->Password = str_replace(' ', '', (string) Env::get('SMTP_PASS', ''));
+
+        $encryption = strtolower(trim((string) Env::get('SMTP_ENCRYPTION', '')));
+        if ($encryption === 'ssl' || $encryption === 'smtps') {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } elseif ($encryption === 'tls' || $encryption === 'starttls') {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        } elseif ($port === 465) {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        } else {
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        }
+
+        $mail->CharSet = 'UTF-8';
+        $fromEmail = trim((string) Env::get('SMTP_FROM_EMAIL', ''));
+        if ($fromEmail === '') {
+            $fromEmail = (string) Env::get('SMTP_USER', 'noreply@danypathmart.store');
+        }
+        $mail->setFrom($fromEmail, (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+    }
+
     private static function devDump(string $to, string $subject, string $html): void
     {
         $dir = dirname(__DIR__) . '/storage/mail';
@@ -258,15 +282,8 @@ final class Mailer
 
         $mail = new PHPMailer(true);
         try {
-            $mail->isSMTP();
-            $mail->Host = $host;
-            $mail->Port = Env::int('SMTP_PORT', 587);
-            $mail->SMTPAuth = true;
-            $mail->Username = (string) Env::get('SMTP_USER', '');
-            $mail->Password = (string) Env::get('SMTP_PASS', '');
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->CharSet = 'UTF-8';
-            $mail->setFrom((string) Env::get('SMTP_USER', 'noreply@danypathmart.store'), (string) Env::get('SMTP_FROM_NAME', 'DanyPathMart'));
+            self::$lastError = null;
+            self::configureSmtp($mail);
             $mail->addAddress($toEmail, 'DanyPathMart Admin');
 
             $imgTag = '';
@@ -283,7 +300,8 @@ final class Mailer
             $mail->send();
             return true;
         } catch (PHPMailerException $e) {
-            error_log('Mailer image-alert error: ' . $mail->ErrorInfo);
+            self::$lastError = $mail->ErrorInfo !== '' ? $mail->ErrorInfo : $e->getMessage();
+            error_log('Mailer image-alert error: ' . self::$lastError);
             return false;
         }
     }

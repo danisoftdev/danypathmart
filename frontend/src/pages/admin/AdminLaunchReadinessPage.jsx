@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useLaunchReadiness } from '../../hooks/admin';
 import { useApplyPilotPreset, useEnableModule } from '../../hooks/pilot';
-import { hasAnyPermission, hasPermission } from '../../lib/permissions';
 import { useAuthStore } from '../../store/authStore';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminStatCard from '../../components/admin/AdminStatCard';
@@ -162,11 +161,11 @@ function ModuleRolloutCard({ module: mod, onEnable, enabling, canEdit }) {
 
 export default function AdminLaunchReadinessPage() {
   const user = useAuthStore((s) => s.user);
-  const canView = hasAnyPermission(user, ['view_company_settings', 'edit_company_settings']);
-  const { data, isLoading, isError, error, refetch, isFetching } = useLaunchReadiness(canView);
+  const isSuperAdmin = user?.role === 'super_admin';
+  const { data, isLoading, isError, error, refetch, isFetching } = useLaunchReadiness(isSuperAdmin);
   const pilotPreset = useApplyPilotPreset();
   const enableModule = useEnableModule();
-  const canEditSettings = hasPermission(user, 'edit_company_settings');
+  const canEditSettings = isSuperAdmin;
   const [pilotMsg, setPilotMsg] = useState('');
   const [growthMsg, setGrowthMsg] = useState('');
   const [enablingId, setEnablingId] = useState(null);
@@ -212,7 +211,7 @@ export default function AdminLaunchReadinessPage() {
   const [manualP5, toggleP5] = useManualChecks(MANUAL_P5_KEY);
   const [manualOps, toggleOps] = useManualChecks(MANUAL_OPS_KEY);
 
-  if (user && !canView) {
+  if (user && !isSuperAdmin) {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
