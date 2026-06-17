@@ -225,6 +225,7 @@ You do **not** need to SSH or upload files manually for normal updates.
 - Confirm public key is in Hostinger SSH keys
 - Test: `ssh -p 65002 -i ~/.ssh/hostinger_deploy u161582953@82.25.113.25`
 - Check `HOSTINGER_WEB_ROOT` path exists on server
+- **`Bad port '-i'`** — `HOSTINGER_SSH_PORT` secret is missing or empty. Set it to **`65002`** in GitHub → Settings → Secrets → Actions, then re-run the workflow.
 
 ### Frontend build failed
 

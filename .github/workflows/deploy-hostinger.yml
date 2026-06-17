@@ -53,45 +53,63 @@ jobs:
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/hostinger_deploy
-          chmod 600 ~/.ssh/hostinger_deploy
-          ssh-keyscan -p "${{ secrets.HOSTINGER_SSH_PORT }}" -H "${{ secrets.HOSTINGER_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Deploy frontend (dist)
         env:
-          SSH_OPTS: -p ${{ secrets.HOSTINGER_SSH_PORT }} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new
-          REMOTE: ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
           WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
-          rsync -avz --delete -e "ssh $SSH_OPTS" \
+          set -euo pipefail
+          missing=0
+          for var in SSH_KEY SSH_HOST SSH_USER WEB_ROOT; do
+            if [ -z "${!var}" ]; then
+              echo "::error::GitHub secret HOSTINGER_${var#SSH_} is not set (see DEPLOY-AUTO.md)."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          if [ -z "${SSH_PORT}" ]; then
+            echo "::warning::HOSTINGER_SSH_PORT is empty — using Hostinger default 65002."
+            SSH_PORT=65002
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/hostinger_deploy
+          chmod 600 ~/.ssh/hostinger_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          {
+            echo "SSH_PORT=$SSH_PORT"
+            echo "SSH_HOST=$SSH_HOST"
+            echo "SSH_USER=$SSH_USER"
+            echo "WEB_ROOT=$WEB_ROOT"
+            echo "REMOTE=${SSH_USER}@${SSH_HOST}"
+            echo "RSYNC_SSH=ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
+            echo "SSH_CMD=ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
+            echo "SCP_CMD=scp -P ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new"
+          } >> "$GITHUB_ENV"
+
+      - name: Deploy frontend (dist)
+        run: |
+          rsync -avz --delete -e "$RSYNC_SSH" \
             frontend/dist/ "$REMOTE:$WEB_ROOT/"
 
       - name: Deploy SPA .htaccess
-        env:
-          SSH_OPTS: -p ${{ secrets.HOSTINGER_SSH_PORT }} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new
-          REMOTE: ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}
-          WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
-          scp $SSH_OPTS deploy/public_html.htaccess "$REMOTE:$WEB_ROOT/.htaccess"
+          $SCP_CMD deploy/public_html.htaccess "$REMOTE:$WEB_ROOT/.htaccess"
 
       - name: Deploy database migrations
-        env:
-          SSH_OPTS: -p ${{ secrets.HOSTINGER_SSH_PORT }} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new
-          REMOTE: ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}
-          WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
-          rsync -avz -e "ssh $SSH_OPTS" \
+          rsync -avz -e "$RSYNC_SSH" \
             database/ "$REMOTE:$WEB_ROOT/database/"
 
       - name: Deploy backend (API)
-        env:
-          SSH_OPTS: -p ${{ secrets.HOSTINGER_SSH_PORT }} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new
-          REMOTE: ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}
-          WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
-          rsync -avz -e "ssh $SSH_OPTS" \
+          rsync -avz -e "$RSYNC_SSH" \
             --exclude '.env' \
             --exclude '.env.*' \
             --exclude 'uploads/' \
@@ -99,14 +117,12 @@ jobs:
             backend/ "$REMOTE:$WEB_ROOT/api/"
 
       - name: Post-deploy (migrations + env check)
-        env:
-          SSH_OPTS: -p ${{ secrets.HOSTINGER_SSH_PORT }} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new
-          REMOTE: ${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}
-          WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
-          ssh $SSH_OPTS "$REMOTE" "bash -s" -- "$WEB_ROOT" < deploy/remote-post-deploy.sh
+          $SSH_CMD "$REMOTE" "bash -s" -- "$WEB_ROOT" < deploy/remote-post-deploy.sh
 
       - name: Deployment summary
         run: |
           echo "Deployed to Hostinger from commit ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
+          echo "Remote: $REMOTE"
+          echo "Web root: $WEB_ROOT"
