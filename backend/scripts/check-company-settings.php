@@ -26,6 +26,7 @@ spl_autoload_register(static function (string $class): void {
 
 use App\Config\Database;
 use App\Config\Env;
+use App\Helpers\CompanySettingsService;
 
 Env::load();
 $pdo = Database::pdo();
@@ -78,6 +79,15 @@ if ($origin !== '') {
         echo "    facebook in API: " . (!empty($co['facebook']) ? 'set' : 'empty') . "\n";
         echo "    whatsapp_group in API: " . (!empty($co['whatsapp_group']) ? 'set' : 'empty') . "\n";
     }
+}
+
+try {
+    $settings = CompanySettingsService::loadForAdmin($pdo);
+    echo "\nOK  CompanySettingsService::loadForAdmin — " . count($settings) . " keys\n";
+    echo "    company_name: " . ($settings['company_name'] ?? '') . "\n";
+} catch (\Throwable $e) {
+    echo "\nFAIL: CompanySettingsService::loadForAdmin — " . $e->getMessage() . "\n";
+    exit(1);
 }
 
 echo "\nAdmin API requires JWT — test in browser after login.\n";
