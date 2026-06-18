@@ -60,39 +60,70 @@ jobs:
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
       - name: Validate Hostinger secrets
+        env:
+          SECRET_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SECRET_SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
+          SECRET_SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
+          SECRET_WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
           set -euo pipefail
+          trim() {
+            printf '%s' "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+          }
+
           require_single_line() {
             local name="$1"
-            local value="$2"
-            if [ -z "$value" ]; then
+            local raw="$2"
+            if [ -z "$raw" ]; then
               echo "::error::GitHub secret $name is not set (see DEPLOY-AUTO.md)."
               exit 1
             fi
-            if printf '%s' "$value" | grep -q $'\n'; then
-              echo "::error::GitHub secret $name must be one line only."
-              echo "::error::If this is HOSTINGER_WEB_ROOT or HOSTINGER_SSH_HOST, remove the SSH private key from that secret — it belongs only in HOSTINGER_SSH_KEY."
+            if printf '%s' "$raw" | grep -q $'\n'; then
+              echo "::error::GitHub secret $name has multiple lines."
+              if printf '%s' "$raw" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
+                echo "::error::You pasted the PRIVATE KEY into $name. Delete this secret and recreate it."
+                echo "::error::Private key goes ONLY in HOSTINGER_SSH_KEY."
+              fi
+              if [ "$name" = "HOSTINGER_SSH_HOST" ]; then
+                echo "::error::HOSTINGER_SSH_HOST must be exactly: 82.25.113.25"
+              fi
+              if [ "$name" = "HOSTINGER_WEB_ROOT" ]; then
+                echo "::error::HOSTINGER_WEB_ROOT must be exactly: /home/u161582953/domains/danypathmart.store/public_html"
+              fi
               exit 1
             fi
           }
 
-          require_single_line HOSTINGER_SSH_HOST '${{ secrets.HOSTINGER_SSH_HOST }}'
-          require_single_line HOSTINGER_SSH_USER '${{ secrets.HOSTINGER_SSH_USER }}'
-          require_single_line HOSTINGER_WEB_ROOT '${{ secrets.HOSTINGER_WEB_ROOT }}'
+          require_single_line HOSTINGER_SSH_HOST "$SECRET_SSH_HOST"
+          require_single_line HOSTINGER_SSH_USER "$SECRET_SSH_USER"
+          require_single_line HOSTINGER_WEB_ROOT "$SECRET_WEB_ROOT"
 
-          SSH_PORT='${{ secrets.HOSTINGER_SSH_PORT }}'
+          SSH_HOST="$(trim "$SECRET_SSH_HOST")"
+          SSH_USER="$(trim "$SECRET_SSH_USER")"
+          WEB_ROOT="$(trim "$SECRET_WEB_ROOT")"
+          SSH_PORT="$(trim "$SECRET_SSH_PORT")"
+
           if [ -z "$SSH_PORT" ]; then
             echo "::warning::HOSTINGER_SSH_PORT is empty — using Hostinger default 65002."
             SSH_PORT=65002
           fi
-          require_single_line HOSTINGER_SSH_PORT "$SSH_PORT"
+
+          if ! printf '%s' "$SSH_HOST" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
+            echo "::error::HOSTINGER_SSH_HOST must be the server IP only (e.g. 82.25.113.25). Current value does not look like an IP."
+            exit 1
+          fi
+
+          if ! printf '%s' "$WEB_ROOT" | grep -q '^/home/'; then
+            echo "::error::HOSTINGER_WEB_ROOT must be an absolute path starting with /home/ (no trailing slash)."
+            exit 1
+          fi
 
           {
-            echo "SSH_HOST=${{ secrets.HOSTINGER_SSH_HOST }}"
+            echo "SSH_HOST=$SSH_HOST"
             echo "SSH_PORT=$SSH_PORT"
-            echo "SSH_USER=${{ secrets.HOSTINGER_SSH_USER }}"
-            echo "WEB_ROOT=${{ secrets.HOSTINGER_WEB_ROOT }}"
-            echo "REMOTE=${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}"
+            echo "SSH_USER=$SSH_USER"
+            echo "WEB_ROOT=$WEB_ROOT"
+            echo "REMOTE=${SSH_USER}@${SSH_HOST}"
           } >> "$GITHUB_ENV"
 
       - name: Start SSH agent
