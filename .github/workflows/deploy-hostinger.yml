@@ -54,7 +54,6 @@ jobs:
 
       - name: Configure SSH
         env:
-          SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
           SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
           SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
           SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
@@ -62,12 +61,20 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for var in SSH_KEY SSH_HOST SSH_USER WEB_ROOT; do
+          for var in SSH_HOST SSH_USER WEB_ROOT; do
             if [ -z "${!var}" ]; then
-              echo "::error::GitHub secret HOSTINGER_${var#SSH_} is not set (see DEPLOY-AUTO.md)."
+              case "$var" in
+                SSH_HOST) echo "::error::GitHub secret HOSTINGER_SSH_HOST is not set (see DEPLOY-AUTO.md)." ;;
+                SSH_USER) echo "::error::GitHub secret HOSTINGER_SSH_USER is not set (see DEPLOY-AUTO.md)." ;;
+                WEB_ROOT) echo "::error::GitHub secret HOSTINGER_WEB_ROOT is not set (see DEPLOY-AUTO.md)." ;;
+              esac
               missing=1
             fi
           done
+          if [ -z "${{ secrets.HOSTINGER_SSH_KEY }}" ]; then
+            echo "::error::GitHub secret HOSTINGER_SSH_KEY is not set (see DEPLOY-AUTO.md)."
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
@@ -78,7 +85,8 @@ jobs:
           fi
 
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/hostinger_deploy
+          # Multiline private keys must NOT go in step env: (breaks GITHUB_ENV). Inject in script body.
+          printf '%s\n' "${{ secrets.HOSTINGER_SSH_KEY }}" | tr -d '\r' > ~/.ssh/hostinger_deploy
           chmod 600 ~/.ssh/hostinger_deploy
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
