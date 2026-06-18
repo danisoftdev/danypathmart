@@ -100,15 +100,43 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.HOSTINGER_SSH_KEY }}
 
+      - name: Verify SSH agent
+        run: |
+          if ! ssh-add -l; then
+            echo "::error::SSH agent has no key. Re-save HOSTINGER_SSH_KEY with the full private key from:"
+            echo "::error::  type C:\\Users\\user\\.ssh\\hostinger_deploy"
+            echo "::error::Include -----BEGIN OPENSSH PRIVATE KEY----- and -----END OPENSSH PRIVATE KEY-----"
+            exit 1
+          fi
+
       - name: Add Hostinger to known_hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 700 ~/.ssh
+          if ! ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::warning::ssh-keyscan failed — continuing (StrictHostKeyChecking=accept-new on first connect)"
+          fi
 
       - name: Test SSH connection
         run: |
-          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
-            "$REMOTE" "echo SSH_OK && test -d '$WEB_ROOT' && echo WEB_ROOT_OK"
+          set -e
+          echo "Connecting to $REMOTE on port $SSH_PORT ..."
+          if ssh -p "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=20 \
+            -o StrictHostKeyChecking=accept-new \
+            "$REMOTE" "echo SSH_OK && test -d '$WEB_ROOT' && echo WEB_ROOT_OK"; then
+            echo "SSH and WEB_ROOT verified."
+          else
+            code=$?
+            echo "::error::SSH failed (exit $code). Usually exit 255 = authentication failed."
+            echo "::error::1) Add the PUBLIC key to Hostinger hPanel → SSH Access → SSH keys"
+            echo "::error::   (type C:\\Users\\user\\.ssh\\hostinger_deploy.pub on your PC)"
+            echo "::error::2) HOSTINGER_SSH_KEY = private key only (hostinger_deploy, not .pub)"
+            echo "::error::3) HOSTINGER_SSH_PORT = 65002"
+            echo "::error::4) Test on PC: ssh -p 65002 -i C:\\Users\\user\\.ssh\\hostinger_deploy u161582953@82.25.113.25 echo OK"
+            exit "$code"
+          fi
 
       - name: Deploy frontend (dist)
         run: |
