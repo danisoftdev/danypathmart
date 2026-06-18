@@ -270,11 +270,12 @@ export default function ShopApplyPage() {
             />
             {form.referred_by_shop_code.trim().length >= 2 && referrerCheck?.valid && (
               <p className="mt-1 text-xs font-bold text-brand-green">
-                Referred by {referrerCheck.shop_name}
+                Referred by {referrerCheck.referrer_name || referrerCheck.shop_name}
+                {referrerCheck.referrer_type === 'promoter' ? ' (promoter)' : ' (shop)'}
               </p>
             )}
             {form.referred_by_shop_code.trim().length >= 2 && referrerCheck && !referrerCheck.valid && (
-              <p className="mt-1 text-xs text-brand-red">Shop code not found.</p>
+              <p className="mt-1 text-xs text-brand-red">Referral code not found.</p>
             )}
           </label>
         )}

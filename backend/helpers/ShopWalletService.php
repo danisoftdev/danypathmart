@@ -83,6 +83,46 @@ final class ShopWalletService
         self::adjust($pdo, $shopId, 'available', $amount, 'referral_bonus', $orderId, null, $note);
     }
 
+    public static function creditReferralPending(PDO $pdo, int $shopId, float $amount, int $earningId, string $note): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+        self::adjust($pdo, $shopId, 'pending', $amount, 'subscription_referral_pending', null, null, $note);
+    }
+
+    public static function releaseReferralPending(PDO $pdo, int $shopId, float $amount, int $earningId): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+        $pdo->beginTransaction();
+        try {
+            self::adjust($pdo, $shopId, 'pending', -$amount, 'subscription_referral_release', null, null, 'Released after shop approval');
+            self::adjust($pdo, $shopId, 'available', $amount, 'subscription_referral_available', null, null, 'Referral commission available');
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            $pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    public static function reverseReferralPending(PDO $pdo, int $shopId, float $amount, int $earningId): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+        self::adjust($pdo, $shopId, 'pending', -$amount, 'subscription_referral_reversed', null, null, 'Reversed — application rejected');
+    }
+
+    public static function reverseReferralAvailable(PDO $pdo, int $shopId, float $amount, int $earningId): void
+    {
+        if ($amount <= 0) {
+            return;
+        }
+        self::adjust($pdo, $shopId, 'available', -$amount, 'subscription_referral_reversed', null, null, 'Clawed back — application rejected');
+    }
+
     public static function releasePendingToAvailable(PDO $pdo, int $shopId, float $amount, int $orderId): void
     {
         if ($amount <= 0) {

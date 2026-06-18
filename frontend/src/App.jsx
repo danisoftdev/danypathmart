@@ -63,6 +63,7 @@ import ShopProductsPage from './pages/seller/ShopProductsPage';
 import ShopOrdersPage from './pages/seller/ShopOrdersPage';
 import ShopWalletPage from './pages/seller/ShopWalletPage';
 import ShopSettingsPage from './pages/seller/ShopSettingsPage';
+import PromoterDashboardPage from './pages/promoter/PromoterDashboardPage';
 import AdminShippingPage from './pages/admin/AdminShippingPage';
 import AdminLaunchReadinessPage from './pages/admin/AdminLaunchReadinessPage';
 import ContactPage from './pages/ContactPage';
@@ -157,6 +158,7 @@ export default function App() {
           <Route path="/careers/drivers" element={<DriverSignupPage />} />
           <Route path="/careers/apply/:jobId" element={<JobApplyPage />} />
           <Route path="/sell" element={<ShopApplyPage />} />
+          <Route path="/promoter" element={<PromoterDashboardPage />} />
           <Route path="/stores/:slug" element={<StorePage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />

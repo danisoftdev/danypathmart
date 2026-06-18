@@ -25,6 +25,7 @@ final class CompanySettingsService
         $settings = array_merge($settings, self::loadHr($pdo));
         $settings = array_merge($settings, self::loadOps($pdo));
         $settings = array_merge($settings, self::loadImageSearch($pdo));
+        $settings = array_merge($settings, self::loadSubscriptionReferral($pdo));
         $settings = array_merge($settings, self::loadShopBilling($pdo));
 
         return $settings;
@@ -267,6 +268,25 @@ final class CompanySettingsService
             'image_search_enabled'   => $enabled,
             'vision_api_configured'  => $configured,
         ];
+    }
+
+    /** @return array<string,mixed> */
+    private static function loadSubscriptionReferral(PDO $pdo): array
+    {
+        $defaults = ['subscription_referral_percent' => 15.0, 'subscription_referral_sources' => 'both'];
+        try {
+            $row = $pdo->query(
+                'SELECT subscription_referral_percent, subscription_referral_sources FROM company_settings ORDER BY id ASC LIMIT 1'
+            )->fetch();
+            if ($row !== false) {
+                $defaults['subscription_referral_percent'] = max(0.0, min(100.0, (float) ($row['subscription_referral_percent'] ?? 15)));
+                $src = (string) ($row['subscription_referral_sources'] ?? 'both');
+                $defaults['subscription_referral_sources'] = in_array($src, ['both', 'promoter', 'shop'], true) ? $src : 'both';
+            }
+        } catch (\Throwable) {
+        }
+
+        return $defaults;
     }
 
     /** @return array<string,mixed> */

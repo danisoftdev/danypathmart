@@ -950,3 +950,47 @@ export function useCreateStationStaff() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-station-staff'] }),
   });
 }
+
+export function useAdminPromoters(enabled = true) {
+  return useQuery({
+    queryKey: ['admin-promoters'],
+    queryFn: async () => (await api.get('/admin/promoters')).data.promoters,
+    enabled,
+    ...adminQuery,
+  });
+}
+
+export function useCreatePromoter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/promoters', payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-promoters'] }),
+  });
+}
+
+export function useUpdatePromoterStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status }) => (await api.post(`/admin/promoters/${id}/status`, { status })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-promoters'] }),
+  });
+}
+
+export function useAdminPromoterWithdrawals(status = '', enabled = true) {
+  return useQuery({
+    queryKey: ['admin-promoter-withdrawals', status],
+    queryFn: async () =>
+      (await api.get('/admin/promoter-withdrawals', { params: status ? { status } : {} })).data.withdrawals,
+    enabled,
+    ...adminQuery,
+  });
+}
+
+export function useProcessPromoterWithdrawal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, action, admin_note }) =>
+      (await api.post(`/admin/promoter-withdrawals/${id}/process`, { action, admin_note })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-promoter-withdrawals'] }),
+  });
+}

@@ -63,6 +63,7 @@ cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-productio
 | `047_shop_billing_m6.sql` | M6 | Shop registration & renewal billing |
 | `048_remove_sample_catalog.sql` | — | Remove seed sample products & demo hero banners |
 | `049_marketplace_product_columns.sql` | M4 | `products.shop_id`, `listing_status`, shop commission settings |
+| `051_subscription_referral_promoters.sql` | M6 | Promoters, subscription referral earnings, shop application referrer fields |
 
 `migrate-all.php` also runs post-hooks: job role catalog sync, workforce employee backfill.
 

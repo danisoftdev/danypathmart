@@ -286,6 +286,24 @@ try {
     // Phase M5 migration not applied yet.
 }
 
+if (($user['role'] ?? '') === 'super_admin') {
+    try {
+        $subPercent = isset($body['subscription_referral_percent'])
+            ? max(0.0, min(100.0, round((float) $body['subscription_referral_percent'], 2))) : 15.0;
+        $subSources = trim((string) ($body['subscription_referral_sources'] ?? 'both'));
+        if (!in_array($subSources, ['both', 'promoter', 'shop'], true)) {
+            $subSources = 'both';
+        }
+        $pdo->prepare(
+            'UPDATE company_settings SET subscription_referral_percent = ?, subscription_referral_sources = ? WHERE id = 1'
+        )->execute([$subPercent, $subSources]);
+        $fields['subscription_referral_percent'] = $subPercent;
+        $fields['subscription_referral_sources'] = $subSources;
+    } catch (\Throwable) {
+        // Migration 051 not applied yet.
+    }
+}
+
 try {
     $leaveEnabled = boolFlag($body['leave_requests_enabled'] ?? false);
     $leaveDays = isset($body['default_annual_leave_days'])

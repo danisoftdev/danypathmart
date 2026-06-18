@@ -42,9 +42,25 @@ final class ShopReferralService
         ];
     }
 
-    /** @return array{valid:bool,shop_name?:string,referral_code?:string} */
+    /** @return array{valid:bool,shop_name?:string,referral_code?:string,referrer_type?:string,referrer_name?:string} */
     public static function validateCode(PDO $pdo, string $code): array
     {
+        if (SubscriptionReferralService::settings($pdo)['enabled']) {
+            $unified = SubscriptionReferralService::validateCode($pdo, $code);
+            if (!$unified['valid']) {
+                return ['valid' => false];
+            }
+
+            return [
+                'valid'          => true,
+                'shop_name'      => $unified['referrer_name'] ?? '',
+                'referrer_name'  => $unified['referrer_name'] ?? '',
+                'referrer_type'  => $unified['referrer_type'] ?? 'shop',
+                'referral_code'  => $unified['referral_code'] ?? '',
+                'shop_slug'      => $unified['shop_slug'] ?? null,
+            ];
+        }
+
         $shop = self::resolveShop($pdo, $code);
         if ($shop === null) {
             return ['valid' => false];
@@ -158,6 +174,10 @@ final class ShopReferralService
 
     private static function processOrder(PDO $pdo, int $orderId): void
     {
+        if (SubscriptionReferralService::settings($pdo)['enabled']) {
+            return;
+        }
+
         $settings = self::settings($pdo);
         if (!$settings['enabled']) {
             return;
@@ -320,10 +340,11 @@ final class ShopReferralService
 
         return [
             'referral_code'   => $code,
-            'share_url'       => '/stores/' . $slug,
+            'share_url'       => '/sell?ref=' . urlencode($code),
             'referral_apply_hint' => "Tell new sellers to enter {$code} when they apply",
-            'program'         => $program,
+            'program'         => SubscriptionReferralService::settings($pdo),
             'referred_shops'  => $referred,
+            'subscription_referrals' => SubscriptionReferralService::referralsForShop($pdo, $shopId),
         ];
     }
 }

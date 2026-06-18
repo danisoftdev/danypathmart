@@ -74,3 +74,7 @@ ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit_cbm_cost DECIMAL(12,2) NOT
 
 -- --- image search toggle (company settings) ---
 ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS image_search_enabled TINYINT(1) NOT NULL DEFAULT 0;
+
+-- --- subscription referral + promoters (migration 051) ---
+-- Full schema: database/migrations/051_subscription_referral_promoters.sql
+-- On server: cd public_html/api && php scripts/migrate-production.php

@@ -8,8 +8,8 @@ use App\Helpers\ShopApplicationService;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
 
-AuthMiddleware::requireAdmin();
-PermissionMiddleware::requireAny(['manage_marketplace', 'edit_company_settings']);
+$user = AuthMiddleware::requireAdmin();
+PermissionMiddleware::requireAny(['approve_shop_applications', 'manage_marketplace', 'edit_company_settings']);
 
 $id = (int) ($_GET['id'] ?? 0);
 if ($id <= 0) {
@@ -21,7 +21,7 @@ $body = Response::body();
 $note = trim((string) ($body['admin_note'] ?? ''));
 
 try {
-    $shop = ShopApplicationService::approve($pdo, $id, null, $note !== '' ? $note : null);
+    $shop = ShopApplicationService::approve($pdo, $id, (int) $user['id'], $note !== '' ? $note : null);
 } catch (\InvalidArgumentException $e) {
     Response::error($e->getMessage(), 422);
 } catch (\Throwable) {

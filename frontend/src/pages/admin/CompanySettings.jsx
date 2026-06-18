@@ -49,6 +49,8 @@ const EMPTY = {
   driver_module_enabled: false,
   station_repack_module_enabled: false,
   shop_referral_commission_enabled: false,
+  subscription_referral_percent: 15,
+  subscription_referral_sources: 'both',
   shop_referral_bonus_amount: 50,
   shop_referral_sales_target: 10,
   shop_referral_count_on: 'collected',
@@ -127,6 +129,7 @@ function Section({ title, children }) {
 
 export default function CompanySettings() {
   const user = useAuthStore((s) => s.user);
+  const isSuperAdmin = user?.role === 'super_admin';
   const canManageShopFees = hasPermission(user, 'manage_shop_fees');
   const canManageImageSearch = hasPermission(user, 'manage_image_search');
   const { data, isLoading, error: fetchError } = useCompanySettings();
@@ -539,13 +542,39 @@ export default function CompanySettings() {
             onChange={(v) => set('station_repack_module_enabled', v)}
           />
           <ToggleField
-            label="Shop referral commission"
-            hint="Bonus when a referred shop hits qualifying sales (Phase M5)."
+            label="Subscription referral program"
+            hint="Promoters and shops earn a % of the first registration fee when they refer a new shop. Renewals and product sales do not pay referrers."
             checked={!!form.shop_referral_commission_enabled}
             onChange={(v) => set('shop_referral_commission_enabled', v)}
             disabled={!form.marketplace_enabled}
           />
-          {form.shop_referral_commission_enabled && form.marketplace_enabled && (
+          {form.shop_referral_commission_enabled && form.marketplace_enabled && isSuperAdmin && (
+            <>
+              <Field label="Registration referral %" hint="Super admin only — % of first subscription payment paid to referrer once.">
+                <input
+                  className="modal-input w-32"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.subscription_referral_percent ?? 15}
+                  onChange={(e) => set('subscription_referral_percent', Number(e.target.value) || 0)}
+                />
+              </Field>
+              <Field label="Who can refer new shops">
+                <select
+                  className="modal-input"
+                  value={form.subscription_referral_sources || 'both'}
+                  onChange={(e) => set('subscription_referral_sources', e.target.value)}
+                >
+                  <option value="both">Promoters and shop owners</option>
+                  <option value="promoter">Promoters only</option>
+                  <option value="shop">Shop owners only</option>
+                </select>
+              </Field>
+            </>
+          )}
+          {false && form.shop_referral_commission_enabled && form.marketplace_enabled && (
             <>
               <Field label="Referral bonus (GHS)" hint="One-time credit to the referring shop’s wallet.">
                 <input

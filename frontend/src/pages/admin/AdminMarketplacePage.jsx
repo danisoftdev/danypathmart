@@ -4,10 +4,15 @@ import {
   useAdminShopApplications,
   useAdminShopBilling,
   useAdminShopWithdrawals,
+  useAdminPromoterWithdrawals,
   useAdminShops,
+  useAdminPromoters,
+  useCreatePromoter,
+  useUpdatePromoterStatus,
   useApproveShopApplication,
   useMarketplaceListings,
   useProcessShopWithdrawal,
+  useProcessPromoterWithdrawal,
   useRejectShopApplication,
   useModerateListingBadge,
   useReviewMarketplaceListing,
@@ -28,6 +33,7 @@ import { resolveProductImageUrl } from '../../lib/productImages';
 const TABS = [
   { id: 'applications', label: 'Applications', perm: 'ops' },
   { id: 'shops', label: 'Shops', perm: 'ops' },
+  { id: 'promoters', label: 'Promoters', perm: 'ops' },
   { id: 'listings', label: 'Listings', perm: 'ops' },
   { id: 'withdrawals', label: 'Withdrawals', perm: 'ops' },
   { id: 'billing', label: 'Billing', perm: 'billing' },
@@ -127,7 +133,10 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
           {app.referred_by_shop_code && (
             <div>
               <dt className="text-xs font-bold uppercase text-muted">Referred by</dt>
-              <dd className="font-semibold">{app.referred_by_shop_code}</dd>
+              <dd className="font-semibold">
+                {app.referred_by_shop_code}
+                {app.referred_by_type ? ` (${app.referred_by_type})` : ''}
+              </dd>
             </div>
           )}
           {(app.bank_name || app.momo_number) && (
@@ -183,7 +192,8 @@ export default function AdminMarketplacePage() {
   const canViewBilling = hasAnyPermission(user, ['view_shop_billing', 'manage_shop_fees', 'waive_shop_fees']);
   const canManageFees = hasPermission(user, 'manage_shop_fees');
   const canWaiveFees = hasPermission(user, 'waive_shop_fees');
-  const canOps = hasAnyPermission(user, ['manage_marketplace', 'edit_company_settings']);
+  const canOps = hasAnyPermission(user, ['manage_marketplace', 'approve_shop_applications', 'edit_company_settings', 'manage_promoters']);
+  const canManagePromoters = hasAnyPermission(user, ['manage_promoters', 'edit_company_settings']);
   const canAccess = canOps || canViewBilling;
   const canReviewListings = hasAnyPermission(user, ['manage_marketplace', 'approve_shop_listings', 'add_edit_products']);
 
@@ -192,6 +202,7 @@ export default function AdminMarketplacePage() {
   const [tab, setTab] = useState(() => (canOps ? 'applications' : 'billing'));
   const [listingFilter, setListingFilter] = useState('pending');
   const [withdrawFilter, setWithdrawFilter] = useState('requested');
+  const [withdrawKind, setWithdrawKind] = useState('shop');
   const [selectedApp, setSelectedApp] = useState(null);
   const [alert, setAlert] = useState('');
   const [alertType, setAlertType] = useState('success');
@@ -204,8 +215,16 @@ export default function AdminMarketplacePage() {
   );
   const { data: withdrawals = [], isLoading: withdrawalsLoading } = useAdminShopWithdrawals(
     withdrawFilter,
-    canAccess && tab === 'withdrawals'
+    canAccess && tab === 'withdrawals' && withdrawKind === 'shop'
   );
+  const { data: promoterWithdrawals = [], isLoading: promoterWithdrawalsLoading } = useAdminPromoterWithdrawals(
+    withdrawFilter === 'all' ? '' : withdrawFilter,
+    canAccess && tab === 'withdrawals' && withdrawKind === 'promoter' && canManagePromoters
+  );
+  const { data: promoters = [], isLoading: promotersLoading } = useAdminPromoters(canAccess && tab === 'promoters' && canManagePromoters);
+  const createPromoter = useCreatePromoter();
+  const updatePromoterStatus = useUpdatePromoterStatus();
+  const [promoterForm, setPromoterForm] = useState({ name: '', email: '', password: '', display_name: '', code: '' });
 
   const approveApp = useApproveShopApplication();
   const rejectApp = useRejectShopApplication();
@@ -213,6 +232,7 @@ export default function AdminMarketplacePage() {
   const reviewListing = useReviewMarketplaceListing();
   const moderateBadge = useModerateListingBadge();
   const processWithdrawal = useProcessShopWithdrawal();
+  const processPromoterWithdrawal = useProcessPromoterWithdrawal();
   const { data: billingData, isLoading: billingLoading } = useAdminShopBilling(canAccess && tab === 'billing' && canViewBilling);
   const updateBilling = useUpdateShopBillingSettings();
   const waiveAppFee = useWaiveShopApplicationFee();
@@ -222,10 +242,10 @@ export default function AdminMarketplacePage() {
   const applications = appData?.data ?? [];
   const newCount = appData?.new_count ?? 0;
 
-  const pendingWithdrawals = useMemo(
-    () => (withdrawFilter === 'requested' ? withdrawals.length : null),
-    [withdrawFilter, withdrawals.length]
-  );
+  const pendingWithdrawals = useMemo(() => {
+    if (withdrawFilter !== 'requested') return null;
+    return withdrawKind === 'promoter' ? promoterWithdrawals.length : withdrawals.length;
+  }, [withdrawFilter, withdrawKind, withdrawals.length, promoterWithdrawals.length]);
 
   if (!canAccess) {
     return <Navigate to="/admin/dashboard" replace />;
@@ -557,6 +577,69 @@ export default function AdminMarketplacePage() {
         </>
       )}
 
+      {tab === 'promoters' && canManagePromoters && (
+        <>
+          <form
+            className="admin-panel mb-6 grid gap-3 md:grid-cols-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setAlert('');
+              try {
+                await createPromoter.mutateAsync(promoterForm);
+                setPromoterForm({ name: '', email: '', password: '', display_name: '', code: '' });
+                setAlert('Promoter created.');
+                setAlertType('success');
+              } catch (err) {
+                setAlert(err.response?.data?.message || 'Could not create promoter.');
+                setAlertType('error');
+              }
+            }}
+          >
+            <h3 className="md:col-span-2 text-sm font-bold uppercase text-muted">Add promoter</h3>
+            <input className="input-field" placeholder="Display name" value={promoterForm.display_name} onChange={(e) => setPromoterForm((f) => ({ ...f, display_name: e.target.value, name: e.target.value }))} required />
+            <input className="input-field" placeholder="Email" type="email" value={promoterForm.email} onChange={(e) => setPromoterForm((f) => ({ ...f, email: e.target.value }))} required />
+            <input className="input-field" placeholder="Password (8+)" type="password" value={promoterForm.password} onChange={(e) => setPromoterForm((f) => ({ ...f, password: e.target.value }))} required />
+            <input className="input-field" placeholder="Code (optional)" value={promoterForm.code} onChange={(e) => setPromoterForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))} />
+            <button type="submit" className="btn-primary px-4 py-2 text-sm md:col-span-2" disabled={createPromoter.isPending}>Create promoter</button>
+          </form>
+          {promotersLoading ? (
+            <AdminTableSkeleton rows={4} cols={4} />
+          ) : (
+            <div className="admin-panel overflow-x-auto">
+              <table className="admin-table w-full text-sm">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Code</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {promoters.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.display_name}</td>
+                      <td><CopyableText value={p.code} /></td>
+                      <td>{p.email}</td>
+                      <td><StatusBadge status={p.status} /></td>
+                      <td>
+                        {p.status !== 'active' && (
+                          <button type="button" className="text-xs font-bold text-brand-green" onClick={() => updatePromoterStatus.mutateAsync({ id: p.id, status: 'active' })}>Activate</button>
+                        )}
+                        {p.status === 'active' && (
+                          <button type="button" className="text-xs font-bold text-brand-red" onClick={() => updatePromoterStatus.mutateAsync({ id: p.id, status: 'suspended' })}>Suspend</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
       {tab === 'billing' && canViewBilling && (
         <>
           {billingLoading ? (
@@ -726,6 +809,24 @@ export default function AdminMarketplacePage() {
       {tab === 'withdrawals' && (
         <>
           <div className="mb-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setWithdrawKind('shop')}
+              className={withdrawKind === 'shop' ? 'admin-mobile-pill-active' : 'admin-mobile-pill'}
+            >
+              Shop payouts
+            </button>
+            {canManagePromoters && (
+              <button
+                type="button"
+                onClick={() => setWithdrawKind('promoter')}
+                className={withdrawKind === 'promoter' ? 'admin-mobile-pill-active' : 'admin-mobile-pill'}
+              >
+                Promoter payouts
+              </button>
+            )}
+          </div>
+          <div className="mb-3 flex flex-wrap gap-2">
             {['requested', 'paid', 'rejected', 'all'].map((s) => (
               <button
                 key={s}
@@ -738,58 +839,117 @@ export default function AdminMarketplacePage() {
               </button>
             ))}
           </div>
-          {withdrawalsLoading ? (
-            <AdminTableSkeleton rows={5} cols={5} />
-          ) : withdrawals.length === 0 ? (
-            <p className="text-sm text-muted">No withdrawal requests.</p>
-          ) : (
-            <div className="admin-panel overflow-x-auto">
-              <table className="admin-table w-full min-w-[720px] text-sm">
-                <thead>
-                  <tr>
-                    <th>Shop</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                    <th>Requested</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {withdrawals.map((w) => (
-                    <tr key={w.id}>
-                      <td className="font-semibold">{w.shop_name}</td>
-                      <td>{formatPrice(w.amount)}</td>
-                      <td className="uppercase">{w.payout_method}</td>
-                      <td><StatusBadge status={w.status} /></td>
-                      <td className="text-xs text-muted">{formatWhen(w.requested_at)}</td>
-                      <td>
-                        {w.status === 'requested' && (
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              className="btn-primary px-2 py-1 text-xs"
-                              disabled={processWithdrawal.isPending}
-                              onClick={() => processWithdrawal.mutateAsync({ id: w.id, action: 'pay' })}
-                            >
-                              Mark paid
-                            </button>
-                            <button
-                              type="button"
-                              className="rounded-lg border border-brand-red px-2 py-1 text-xs font-bold text-brand-red"
-                              disabled={processWithdrawal.isPending}
-                              onClick={() => processWithdrawal.mutateAsync({ id: w.id, action: 'reject' })}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        )}
-                      </td>
+          {withdrawKind === 'shop' && (
+            withdrawalsLoading ? (
+              <AdminTableSkeleton rows={5} cols={5} />
+            ) : withdrawals.length === 0 ? (
+              <p className="text-sm text-muted">No shop withdrawal requests.</p>
+            ) : (
+              <div className="admin-panel overflow-x-auto">
+                <table className="admin-table w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr>
+                      <th>Shop</th>
+                      <th>Amount</th>
+                      <th>Method</th>
+                      <th>Status</th>
+                      <th>Requested</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {withdrawals.map((w) => (
+                      <tr key={w.id}>
+                        <td className="font-semibold">{w.shop_name}</td>
+                        <td>{formatPrice(w.amount)}</td>
+                        <td className="uppercase">{w.payout_method}</td>
+                        <td><StatusBadge status={w.status} /></td>
+                        <td className="text-xs text-muted">{formatWhen(w.requested_at)}</td>
+                        <td>
+                          {w.status === 'requested' && (
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                className="btn-primary px-2 py-1 text-xs"
+                                disabled={processWithdrawal.isPending}
+                                onClick={() => processWithdrawal.mutateAsync({ id: w.id, action: 'pay' })}
+                              >
+                                Mark paid
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-brand-red px-2 py-1 text-xs font-bold text-brand-red"
+                                disabled={processWithdrawal.isPending}
+                                onClick={() => processWithdrawal.mutateAsync({ id: w.id, action: 'reject' })}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
+          )}
+          {withdrawKind === 'promoter' && canManagePromoters && (
+            promoterWithdrawalsLoading ? (
+              <AdminTableSkeleton rows={5} cols={5} />
+            ) : promoterWithdrawals.length === 0 ? (
+              <p className="text-sm text-muted">No promoter withdrawal requests.</p>
+            ) : (
+              <div className="admin-panel overflow-x-auto">
+                <table className="admin-table w-full min-w-[720px] text-sm">
+                  <thead>
+                    <tr>
+                      <th>Promoter</th>
+                      <th>Code</th>
+                      <th>Amount</th>
+                      <th>Method</th>
+                      <th>Status</th>
+                      <th>Requested</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promoterWithdrawals.map((w) => (
+                      <tr key={w.id}>
+                        <td className="font-semibold">{w.promoter_name}</td>
+                        <td className="font-mono text-xs">{w.promoter_code}</td>
+                        <td>{formatPrice(w.amount)}</td>
+                        <td className="uppercase">{w.payout_method}</td>
+                        <td><StatusBadge status={w.status} /></td>
+                        <td className="text-xs text-muted">{formatWhen(w.requested_at)}</td>
+                        <td>
+                          {w.status === 'requested' && (
+                            <div className="flex gap-1">
+                              <button
+                                type="button"
+                                className="btn-primary px-2 py-1 text-xs"
+                                disabled={processPromoterWithdrawal.isPending}
+                                onClick={() => processPromoterWithdrawal.mutateAsync({ id: w.id, action: 'pay' })}
+                              >
+                                Mark paid
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-lg border border-brand-red px-2 py-1 text-xs font-bold text-brand-red"
+                                disabled={processPromoterWithdrawal.isPending}
+                                onClick={() => processPromoterWithdrawal.mutateAsync({ id: w.id, action: 'reject' })}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )
           )}
         </>
       )}

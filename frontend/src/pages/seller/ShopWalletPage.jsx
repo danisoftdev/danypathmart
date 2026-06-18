@@ -60,6 +60,11 @@ export default function ShopWalletPage() {
             <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#1E1E1E]">
               <p className="text-xs font-bold uppercase text-muted">Available</p>
               <p className="mt-1 text-xl font-extrabold text-brand-green">{formatPrice(wallet.balance_available ?? 0)}</p>
+              {data?.breakdown && (
+                <p className="mt-2 text-xs text-muted">
+                  Sales {formatPrice(data.breakdown.sales_total ?? 0)} · Referrals {formatPrice(data.breakdown.referral_total ?? 0)}
+                </p>
+              )}
             </div>
             <div className="rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#1E1E1E]">
               <p className="text-xs font-bold uppercase text-muted">Reserved</p>

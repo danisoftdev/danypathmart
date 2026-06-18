@@ -9,7 +9,7 @@ use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
 
 AuthMiddleware::requireAdmin();
-PermissionMiddleware::requireAny(['manage_marketplace', 'edit_company_settings']);
+PermissionMiddleware::requireAny(['approve_shop_applications', 'manage_marketplace', 'edit_company_settings']);
 
 $status = isset($_GET['status']) ? trim((string) $_GET['status']) : null;
 $pdo = Database::pdo();

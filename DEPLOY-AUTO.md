@@ -234,9 +234,18 @@ You do **not** need to SSH or upload files manually for normal updates.
 
 ### Migrations failed
 
-- SSH in: `cd $WEB_ROOT/api && php scripts/migrate-all.php`
+- SSH in: `cd $WEB_ROOT/api && php scripts/migrate-production.php`
 - Confirm `.env` DB credentials match hPanel MySQL
 - Ensure `schema.sql` was imported once
+- **Migration 051** (promoters + subscription referral): included in `migrate-production.php` after deploy
+
+### After deploy — subscription referral program
+
+1. SSH: `cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-production.php`
+2. Admin → **Company settings** → enable **Subscription referral program**, set **%** (super admin)
+3. Admin → **Marketplace** → **Promoters** → create promoter accounts
+4. Grant staff **`approve_shop_applications`** if they should approve new shops (not auto-live)
+5. Promoters log in at `/promoter`; shop owners share codes from seller dashboard
 
 ### `check-production-env.php` failed
 

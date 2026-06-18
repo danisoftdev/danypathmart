@@ -216,6 +216,16 @@ final class ShopBillingService
 
     public static function markRegistrationPaid(PDO $pdo, int $applicationId, string $reference): void
     {
+        $amountGhs = 0.0;
+        $payStmt = $pdo->prepare(
+            'SELECT amount_ghs FROM shop_billing_payments WHERE paystack_ref = ? AND payment_type = ? LIMIT 1'
+        );
+        $payStmt->execute([$reference, 'registration']);
+        $amt = $payStmt->fetchColumn();
+        if ($amt !== false) {
+            $amountGhs = (float) $amt;
+        }
+
         $pdo->prepare(
             'UPDATE shop_billing_payments SET status = ?, paid_at = NOW() WHERE paystack_ref = ?'
         )->execute(['paid', $reference]);
@@ -223,6 +233,10 @@ final class ShopBillingService
         $pdo->prepare(
             'UPDATE shop_applications SET registration_fee_paid = 1, registration_payment_ref = ?, status = ? WHERE id = ?'
         )->execute([$reference, 'new', $applicationId]);
+
+        if ($amountGhs > 0) {
+            SubscriptionReferralService::payOnRegistration($pdo, $applicationId, $amountGhs, $reference);
+        }
     }
 
     public static function markRenewalPaid(PDO $pdo, int $shopId, string $reference): void

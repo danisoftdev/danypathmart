@@ -122,6 +122,21 @@ final class AuthMiddleware
         return $user;
     }
 
+    /** @return array{user:array<string,mixed>,promoter:array<string,mixed>,promoter_id:int} */
+    public static function requirePromoter(): array
+    {
+        $user = self::authenticate();
+        if (($user['role'] ?? '') !== 'promoter') {
+            Response::error('Promoter access required.', 403, ['code' => 'forbidden']);
+        }
+        $promoter = \App\Helpers\PromoterService::findByUserId(\App\Config\Database::pdo(), (int) $user['id']);
+        if ($promoter === null || ($promoter['status'] ?? '') !== 'active') {
+            Response::error('Your promoter account is not active.', 403);
+        }
+
+        return ['user' => $user, 'promoter' => $promoter, 'promoter_id' => (int) $promoter['id']];
+    }
+
     /**
      * Require super_admin or at least one of the given RBAC permissions.
      *

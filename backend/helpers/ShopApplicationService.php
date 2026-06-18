@@ -40,22 +40,32 @@ final class ShopApplicationService
         }
 
         $logoUrl = self::nullable($input['logo_url'] ?? null);
-        $referredCode = self::nullable($input['referred_by_shop_code'] ?? null);
-        $referrerId = null;
-        if ($referredCode !== null && ShopReferralService::settings($pdo)['enabled']) {
-            $referrerId = ShopReferralService::resolveReferrerId($pdo, $referredCode);
-            if ($referrerId === null) {
-                throw new \InvalidArgumentException('Referring shop code was not found. Check the code or slug and try again.');
+        $referredCode = self::nullable($input['referred_by_shop_code'] ?? $input['referral_code'] ?? null);
+        $referrerType = null;
+        $referrerShopId = null;
+        $referrerPromoterId = null;
+
+        if ($referredCode !== null && SubscriptionReferralService::settings($pdo)['enabled']) {
+            $resolved = SubscriptionReferralService::resolveReferrer($pdo, $referredCode);
+            if ($resolved === null) {
+                throw new \InvalidArgumentException('Referral code was not found. Check the code and try again.');
             }
+            $referrerType = $resolved['type'];
+            if ($referrerType === 'shop') {
+                $referrerShopId = $resolved['id'];
+            } else {
+                $referrerPromoterId = $resolved['id'];
+            }
+            $referredCode = $resolved['code'];
         }
 
         try {
             $pdo->prepare(
                 'INSERT INTO shop_applications
                     (user_id, business_name, contact_name, email, phone, city, description, logo_url,
-                     referred_by_shop_code, referred_by_shop_id,
+                     referred_by_shop_code, referred_by_shop_id, referred_by_type, referred_by_promoter_id,
                      bank_name, bank_account_name, bank_account_number, momo_number)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             )->execute([
                 $userId,
                 $businessName,
@@ -66,7 +76,9 @@ final class ShopApplicationService
                 self::nullable($input['description'] ?? null),
                 $logoUrl,
                 $referredCode,
-                $referrerId,
+                $referrerShopId,
+                $referrerType,
+                $referrerPromoterId,
                 self::nullable($input['bank_name'] ?? null),
                 self::nullable($input['bank_account_name'] ?? null),
                 self::nullable($input['bank_account_number'] ?? null),
@@ -143,8 +155,11 @@ final class ShopApplicationService
         if ($app === null) {
             throw new \InvalidArgumentException('Application not found.');
         }
-        if ($app['status'] !== 'new') {
+        if (!in_array($app['status'], ['new', 'pending_payment'], true)) {
             throw new \InvalidArgumentException('Application already reviewed.');
+        }
+        if ($app['status'] === 'pending_payment') {
+            throw new \InvalidArgumentException('Registration fee must be paid or waived before approval.');
         }
 
         if (ShopBillingService::registrationRequired($pdo) && !ShopBillingService::applicationRegistrationPaid($app)) {
@@ -179,18 +194,21 @@ final class ShopApplicationService
                 ShopService::addOwner($pdo, (int) $shop['id'], $ownerId);
             }
 
-            $referrerId = $app['referred_by_shop_id'] ?? null;
-            if ($referrerId === null && !empty($app['referred_by_shop_code'])) {
-                $referrerId = ShopReferralService::resolveReferrerId($pdo, (string) $app['referred_by_shop_code']);
+            $referrerShopId = $app['referred_by_shop_id'] ?? null;
+            if ($referrerShopId === null && ($app['referred_by_type'] ?? '') === 'shop' && !empty($app['referred_by_shop_code'])) {
+                $referrerShopId = ShopReferralService::resolveReferrerId($pdo, (string) $app['referred_by_shop_code']);
             }
-            ShopReferralService::registerReferredShop($pdo, (int) $shop['id'], $referrerId !== null ? (int) $referrerId : null);
+            if ($referrerShopId !== null) {
+                ShopReferralService::registerReferredShop($pdo, (int) $shop['id'], (int) $referrerShopId);
+            }
             ShopReferralService::ensureReferralCode($pdo, (int) $shop['id']);
 
             $pdo->prepare(
-                'UPDATE shop_applications SET status = ?, shop_id = ?, admin_note = ?, reviewed_at = NOW() WHERE id = ?'
-            )->execute(['approved', $shop['id'], $note, $applicationId]);
+                'UPDATE shop_applications SET status = ?, shop_id = ?, admin_note = ?, reviewed_at = NOW(), reviewed_by = ? WHERE id = ?'
+            )->execute(['approved', $shop['id'], $note, $adminUserId, $applicationId]);
 
             ShopBillingService::createSubscriptionOnApprove($pdo, (int) $shop['id']);
+            SubscriptionReferralService::releaseOnApprove($pdo, $applicationId);
 
             $pdo->commit();
         } catch (\Throwable $e) {
@@ -214,6 +232,8 @@ final class ShopApplicationService
         $pdo->prepare(
             'UPDATE shop_applications SET status = ?, admin_note = ?, reviewed_at = NOW() WHERE id = ?'
         )->execute(['rejected', $note, $applicationId]);
+
+        SubscriptionReferralService::reverseOnReject($pdo, $applicationId);
     }
 
     private static function nullable(mixed $value): ?string
@@ -243,6 +263,10 @@ final class ShopApplicationService
             'referred_by_shop_code' => $row['referred_by_shop_code'] ?? null,
             'referred_by_shop_id'   => isset($row['referred_by_shop_id']) && $row['referred_by_shop_id'] !== null
                 ? (int) $row['referred_by_shop_id'] : null,
+            'referred_by_type'      => $row['referred_by_type'] ?? null,
+            'referred_by_promoter_id' => isset($row['referred_by_promoter_id']) && $row['referred_by_promoter_id'] !== null
+                ? (int) $row['referred_by_promoter_id'] : null,
+            'referral_commission_paid' => !empty($row['referral_commission_paid'] ?? null),
             'bank_name'           => $row['bank_name'],
             'bank_account_name'   => $row['bank_account_name'],
             'bank_account_number' => $row['bank_account_number'],

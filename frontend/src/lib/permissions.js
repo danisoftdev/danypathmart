@@ -30,7 +30,9 @@ export const PERMISSION_KEYS = [
   'manage_delivery_runs',
   'manage_station_staff',
   'manage_marketplace',
+  'approve_shop_applications',
   'approve_shop_listings',
+  'manage_promoters',
   'view_shop_billing',
   'manage_shop_fees',
   'waive_shop_fees',
@@ -78,7 +80,9 @@ export const PERMISSION_LABELS = {
   manage_delivery_runs: 'Delivery runs & drivers',
   manage_station_staff: 'Station staff & repack accounts',
   manage_marketplace: 'Manage marketplace & shops',
+  approve_shop_applications: 'Approve new shop applications',
   approve_shop_listings: 'Approve shop product listings',
+  manage_promoters: 'Manage promoter accounts',
   view_shop_billing: 'View shop registration & renewal payments',
   manage_shop_fees: 'Set shop registration fee & renewal (month/year)',
   waive_shop_fees: 'Waive shop fees & grant billing extensions',
@@ -119,7 +123,7 @@ export const PERMISSION_GROUPS = [
     ],
   },
   { title: 'Careers', keys: ['manage_careers'] },
-  { title: 'Marketplace', keys: ['manage_marketplace', 'approve_shop_listings', 'view_shop_billing', 'manage_shop_fees', 'waive_shop_fees'] },
+  { title: 'Marketplace', keys: ['manage_marketplace', 'approve_shop_applications', 'approve_shop_listings', 'manage_promoters', 'view_shop_billing', 'manage_shop_fees', 'waive_shop_fees'] },
   {
     title: 'Storefront content',
     keys: ['view_hero_banners', 'manage_hero_banners', 'view_legal_policies', 'manage_legal_policies'],
@@ -168,7 +172,12 @@ function isStationStaffUser(user) {
   return !!user && user.role === 'station_staff';
 }
 
+function isPromoterUser(user) {
+  return !!user && user.role === 'promoter';
+}
+
 function homePathForUser(user) {
+  if (isPromoterUser(user)) return '/promoter';
   if (isStationStaffUser(user)) return '/station';
   if (isDriverUser(user)) return '/driver';
   return isAdminUser(user) ? '/admin' : '/dashboard';
@@ -176,6 +185,7 @@ function homePathForUser(user) {
 
 function accountPathForUser(user) {
   if (!user) return '/login';
+  if (isPromoterUser(user)) return '/promoter';
   if (isStationStaffUser(user)) return '/station';
   if (isDriverUser(user)) return '/driver';
   return isAdminUser(user) ? '/admin/dashboard' : '/dashboard';

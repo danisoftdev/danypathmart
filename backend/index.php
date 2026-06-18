@@ -185,6 +185,18 @@ $routes = [
     'POST ' . 'station/repack-complete'      => 'station/repack-complete.php',
     'POST ' . 'station/collect'             => 'station/collect.php',
 
+    'GET '  . 'admin/promoters'                 => 'admin/promoters/index.php',
+    'POST ' . 'admin/promoters'                 => 'admin/promoters/create.php',
+    'GET '  . 'admin/promoter-withdrawals'      => 'admin/promoter-withdrawals/index.php',
+    'GET '  . 'promoter/dashboard'              => 'promoter/dashboard.php',
+    'POST ' . 'promoter/wallet/withdraw'        => 'promoter/wallet/withdraw.php',
+
+    'GET '  . 'admin/promoters'              => 'admin/promoters/index.php',
+    'POST ' . 'admin/promoters'              => 'admin/promoters/create.php',
+    'GET '  . 'admin/promoter-withdrawals'   => 'admin/promoter-withdrawals/index.php',
+    'GET '  . 'promoter/dashboard'           => 'promoter/dashboard.php',
+    'POST ' . 'promoter/wallet/withdraw'     => 'promoter/wallet/withdraw.php',
+
     'GET '  . 'admin/shop-applications'      => 'admin/shop-applications/index.php',
     'GET '  . 'admin/shops'                  => 'admin/shops/index.php',
     'POST ' . 'admin/shops'                  => 'admin/shops/create.php',
@@ -345,6 +357,20 @@ if ($handlerFile === null && $method === 'POST'
     && preg_match('#^driver/runs/([0-9]+)/confirm-stop$#', $route, $m) === 1) {
     $_GET['run_id'] = $m[1];
     $handlerFile = 'driver/runs/confirm-stop.php';
+}
+
+// Dynamic route: POST admin/promoters/{id}/status
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/promoters/([0-9]+)/status$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoters/status.php';
+}
+
+// Dynamic route: POST admin/promoter-withdrawals/{id}/process
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/promoter-withdrawals/([0-9]+)/process$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoter-withdrawals/process.php';
 }
 
 // Dynamic route: POST admin/shop-applications/{id}/approve
