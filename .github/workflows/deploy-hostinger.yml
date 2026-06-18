@@ -26,18 +26,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Build frontend
         working-directory: frontend
-        env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
-          VITE_APP_NAME: ${{ secrets.VITE_APP_NAME }}
-          VITE_PAYSTACK_PUBLIC_KEY: ${{ secrets.VITE_PAYSTACK_PUBLIC_KEY }}
-          VITE_WEBAUTHN_RP_ID: ${{ secrets.VITE_WEBAUTHN_RP_ID }}
         run: |
+          export VITE_API_BASE_URL='${{ secrets.VITE_API_BASE_URL }}'
+          export VITE_APP_NAME='${{ secrets.VITE_APP_NAME }}'
+          export VITE_PAYSTACK_PUBLIC_KEY='${{ secrets.VITE_PAYSTACK_PUBLIC_KEY }}'
+          export VITE_WEBAUTHN_RP_ID='${{ secrets.VITE_WEBAUTHN_RP_ID }}'
+          missing=0
+          for var in VITE_API_BASE_URL VITE_APP_NAME VITE_PAYSTACK_PUBLIC_KEY VITE_WEBAUTHN_RP_ID; do
+            if [ -z "${!var}" ]; then
+              echo "::error::GitHub secret $var is not set (see DEPLOY-AUTO.md)."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
           npm ci
           npm run build
 
@@ -52,76 +59,78 @@ jobs:
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      - name: Configure SSH
-        env:
-          SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          SSH_PORT: ${{ secrets.HOSTINGER_SSH_PORT }}
-          SSH_USER: ${{ secrets.HOSTINGER_SSH_USER }}
-          WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
+      - name: Validate Hostinger secrets
         run: |
           set -euo pipefail
-          missing=0
-          for var in SSH_HOST SSH_USER WEB_ROOT; do
-            if [ -z "${!var}" ]; then
-              case "$var" in
-                SSH_HOST) echo "::error::GitHub secret HOSTINGER_SSH_HOST is not set (see DEPLOY-AUTO.md)." ;;
-                SSH_USER) echo "::error::GitHub secret HOSTINGER_SSH_USER is not set (see DEPLOY-AUTO.md)." ;;
-                WEB_ROOT) echo "::error::GitHub secret HOSTINGER_WEB_ROOT is not set (see DEPLOY-AUTO.md)." ;;
-              esac
-              missing=1
+          require_single_line() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "::error::GitHub secret $name is not set (see DEPLOY-AUTO.md)."
+              exit 1
             fi
-          done
-          if [ -z "${{ secrets.HOSTINGER_SSH_KEY }}" ]; then
-            echo "::error::GitHub secret HOSTINGER_SSH_KEY is not set (see DEPLOY-AUTO.md)."
-            missing=1
-          fi
-          if [ "$missing" -ne 0 ]; then
-            exit 1
-          fi
+            if printf '%s' "$value" | grep -q $'\n'; then
+              echo "::error::GitHub secret $name must be one line only."
+              echo "::error::If this is HOSTINGER_WEB_ROOT or HOSTINGER_SSH_HOST, remove the SSH private key from that secret — it belongs only in HOSTINGER_SSH_KEY."
+              exit 1
+            fi
+          }
 
-          if [ -z "${SSH_PORT}" ]; then
+          require_single_line HOSTINGER_SSH_HOST '${{ secrets.HOSTINGER_SSH_HOST }}'
+          require_single_line HOSTINGER_SSH_USER '${{ secrets.HOSTINGER_SSH_USER }}'
+          require_single_line HOSTINGER_WEB_ROOT '${{ secrets.HOSTINGER_WEB_ROOT }}'
+
+          SSH_PORT='${{ secrets.HOSTINGER_SSH_PORT }}'
+          if [ -z "$SSH_PORT" ]; then
             echo "::warning::HOSTINGER_SSH_PORT is empty — using Hostinger default 65002."
             SSH_PORT=65002
           fi
+          require_single_line HOSTINGER_SSH_PORT "$SSH_PORT"
 
+          {
+            echo "SSH_HOST=${{ secrets.HOSTINGER_SSH_HOST }}"
+            echo "SSH_PORT=$SSH_PORT"
+            echo "SSH_USER=${{ secrets.HOSTINGER_SSH_USER }}"
+            echo "WEB_ROOT=${{ secrets.HOSTINGER_WEB_ROOT }}"
+            echo "REMOTE=${{ secrets.HOSTINGER_SSH_USER }}@${{ secrets.HOSTINGER_SSH_HOST }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Start SSH agent
+        uses: webfactory/ssh-agent@v0.9.1
+        with:
+          ssh-private-key: ${{ secrets.HOSTINGER_SSH_KEY }}
+
+      - name: Add Hostinger to known_hosts
+        run: |
           mkdir -p ~/.ssh
-          # Multiline private keys must NOT go in step env: (breaks GITHUB_ENV). Inject in script body.
-          printf '%s\n' "${{ secrets.HOSTINGER_SSH_KEY }}" | tr -d '\r' > ~/.ssh/hostinger_deploy
-          chmod 600 ~/.ssh/hostinger_deploy
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-          echo "SSH_PORT=$SSH_PORT" >> "$GITHUB_ENV"
-          echo "SSH_HOST=$SSH_HOST" >> "$GITHUB_ENV"
-          echo "SSH_USER=$SSH_USER" >> "$GITHUB_ENV"
-          echo "WEB_ROOT=$WEB_ROOT" >> "$GITHUB_ENV"
-          echo "REMOTE=${SSH_USER}@${SSH_HOST}" >> "$GITHUB_ENV"
 
       - name: Test SSH connection
         run: |
-          ssh -p "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
             "$REMOTE" "echo SSH_OK && test -d '$WEB_ROOT' && echo WEB_ROOT_OK"
 
       - name: Deploy frontend (dist)
         run: |
           rsync -avz --delete \
-            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new" \
             frontend/dist/ "${REMOTE}:${WEB_ROOT}/"
 
       - name: Deploy SPA .htaccess
         run: |
-          scp -P "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+          scp -P "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
             deploy/public_html.htaccess "${REMOTE}:${WEB_ROOT}/.htaccess"
 
       - name: Deploy database migrations
         run: |
           rsync -avz \
-            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new" \
             database/ "${REMOTE}:${WEB_ROOT}/database/"
 
       - name: Deploy backend (API)
         run: |
           rsync -avz \
-            -e "ssh -p ${SSH_PORT} -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new" \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new" \
             --exclude '.env' \
             --exclude '.env.*' \
             --exclude 'uploads/' \
@@ -130,7 +139,7 @@ jobs:
 
       - name: Post-deploy (migrations + env check)
         run: |
-          ssh -p "$SSH_PORT" -i ~/.ssh/hostinger_deploy -o StrictHostKeyChecking=accept-new \
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=accept-new \
             "$REMOTE" "bash -s" -- "$WEB_ROOT" < deploy/remote-post-deploy.sh
 
       - name: Deployment summary
