@@ -9,6 +9,8 @@ import SearchOverlay from '../search/SearchOverlay';
 import ScrollToTop from '../ui/ScrollToTop';
 import AdminNotificationWatcher from '../notifications/AdminNotificationWatcher';
 
+import SupportChatWidget from '../support/SupportChatWidget';
+
 export default function AppLayout() {
   return (
     <SearchProvider>
@@ -24,6 +26,7 @@ export default function AppLayout() {
         <BottomNav />
         <SearchOverlay />
         <ScrollToTop />
+        <SupportChatWidget />
       </div>
     </SearchProvider>
   );

@@ -42,6 +42,7 @@ import AdminAlertsPage from './pages/admin/AdminAlertsPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminNotificationsPage from './pages/admin/AdminNotificationsPage';
 import AdminContactInboxPage from './pages/admin/AdminContactInboxPage';
+import AdminSupportChatPage from './pages/admin/AdminSupportChatPage';
 import AdminJobPostsPage from './pages/admin/AdminJobPostsPage';
 import AdminCareerApplicationsPage from './pages/admin/AdminCareerApplicationsPage';
 import AdminPositionPermissionsPage from './pages/admin/AdminPositionPermissionsPage';
@@ -255,6 +256,7 @@ export default function App() {
             <Route path="leave-requests" element={<AdminLeaveRequestsPage />} />
             <Route path="launch-readiness" element={<AdminLaunchReadinessPage />} />
             <Route path="contact-inbox" element={<AdminContactInboxPage />} />
+            <Route path="support-chat" element={<AdminSupportChatPage />} />
             <Route path="job-posts" element={<AdminJobPostsPage />} />
             <Route path="career-applications" element={<AdminCareerApplicationsPage />} />
             <Route path="position-permissions" element={<AdminPositionPermissionsPage />} />

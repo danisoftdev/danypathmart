@@ -18,6 +18,7 @@ export const ADMIN_QUICK_ACTIONS = [
   { to: '/admin/reports', label: 'Reports', permission: 'view_reports' },
   { to: '/admin/shipping', label: 'Shipping', permission: 'manage_shipping' },
   { to: '/admin/contact-inbox', label: 'Inbox', permissions: ['manage_contact_inbox', 'view_company_settings'], badgeKey: 'inbox' },
+  { to: '/admin/support-chat', label: 'Chat', permissions: ['manage_contact_inbox', 'view_company_settings'], badgeKey: 'supportChat' },
   { to: '/admin/career-applications', label: 'Hiring', permissions: ['manage_careers', 'hire_employees'], badgeKey: 'careers' },
   { to: '/admin/staff', label: 'Team', permissions: ['manage_staff'] },
   { to: '/admin/company-settings', label: 'Settings', permission: 'view_company_settings' },

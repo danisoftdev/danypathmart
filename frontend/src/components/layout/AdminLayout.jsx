@@ -2,6 +2,7 @@ import { Link, NavLink, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useAlertCount, useCareerApplicationsCount, useContactInboxCount } from '../../hooks/admin';
+import { useAdminSupportChatCount } from '../../hooks/supportChat';
 import { useNotificationCount } from '../../hooks/notifications';
 import { hasAnyPermission, hasPermission, isAdminUser } from '../../lib/permissions';
 import SiteLogo from '../brand/SiteLogo';
@@ -47,6 +48,7 @@ const NAV_GROUPS = [
       { to: '/admin/users', label: 'Customers', permission: 'view_users', icon: '👤' },
       { to: '/admin/notifications', label: 'Notifications', permission: 'view_users', icon: '🔔' },
       { to: '/admin/contact-inbox', label: 'Inbox', permissions: ['manage_contact_inbox', 'view_company_settings'], icon: '✉️', badge: 'inbox' },
+      { to: '/admin/support-chat', label: 'Live chat', permissions: ['manage_contact_inbox', 'view_company_settings'], icon: '💬', badge: 'supportChat' },
     ],
   },
   {
@@ -108,9 +110,10 @@ function navItemVisible(item, user, isSuperAdmin) {
   return true;
 }
 
-function resolveBadge(item, { pending, inboxUnread, careersUnread, notifyUnread }) {
+function resolveBadge(item, { pending, inboxUnread, supportChatUnread, careersUnread, notifyUnread }) {
   if (item.badge === 'alerts') return pending;
   if (item.badge === 'inbox') return inboxUnread;
+  if (item.badge === 'supportChat') return supportChatUnread;
   if (item.badge === 'careers') return careersUnread;
   if (item.badge === 'notify') return notifyUnread;
   return 0;
@@ -266,6 +269,9 @@ export default function AdminLayout() {
   const { data: inboxUnread = 0 } = useContactInboxCount(
     !!user && isAdminUser(user) && hasAnyPermission(user, ['manage_contact_inbox', 'view_company_settings'])
   );
+  const { data: supportChatUnread = 0 } = useAdminSupportChatCount(
+    !!user && isAdminUser(user) && hasAnyPermission(user, ['manage_contact_inbox', 'view_company_settings'])
+  );
   const { data: careersUnread = 0 } = useCareerApplicationsCount(
     !!user && isAdminUser(user) && hasAnyPermission(user, ['manage_careers', 'view_company_settings', 'hire_employees'])
   );
@@ -274,6 +280,7 @@ export default function AdminLayout() {
   const badgeCounts = {
     pending,
     inboxUnread,
+    supportChatUnread,
     careersUnread,
     notifyUnread,
   };
@@ -401,6 +408,7 @@ export default function AdminLayout() {
                 badges={{
                   alerts: pending,
                   inbox: inboxUnread,
+                  supportChat: supportChatUnread,
                   careers: careersUnread,
                 }}
               />

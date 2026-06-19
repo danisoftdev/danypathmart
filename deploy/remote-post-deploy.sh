@@ -15,7 +15,7 @@ fi
 cd "$API_DIR"
 
 # Writable dirs for uploads and dev mail dump
-mkdir -p uploads/products uploads/searches uploads/avatars uploads/careers uploads/shops uploads/customizations uploads/hero storage/mail
+mkdir -p uploads/products uploads/searches uploads/avatars uploads/careers uploads/shops uploads/customizations uploads/hero uploads/support-chat storage/mail
 chmod -R 755 uploads storage 2>/dev/null || true
 
 if [[ ! -f .env ]]; then

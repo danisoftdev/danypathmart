@@ -144,6 +144,10 @@ $routes = [
     'GET '  . 'public/company-info'         => 'public/company-info.php',
     'GET '  . 'public/flash-sale'           => 'public/flash-sale.php',
     'POST ' . 'public/contact'             => 'public/contact.php',
+    'GET '  . 'public/support-chat'        => 'public/support-chat/conversation.php',
+    'POST ' . 'public/support-chat/start'  => 'public/support-chat/start.php',
+    'POST ' . 'public/support-chat/messages' => 'public/support-chat/messages.php',
+    'POST ' . 'public/support-chat/upload' => 'public/support-chat/upload.php',
     'GET '  . 'public/careers'             => 'public/careers/index.php',
     'POST ' . 'public/careers/apply'       => 'public/careers/apply.php',
     'GET '  . 'public/pickup-stations'     => 'public/pickup-stations/index.php',
@@ -153,6 +157,11 @@ $routes = [
     'GET '  . 'admin/contact-inbox/count'   => 'admin/contact-inbox/count.php',
     'POST ' . 'admin/contact-inbox/read'    => 'admin/contact-inbox/read.php',
     'POST ' . 'admin/contact-inbox/delete'  => 'admin/contact-inbox/delete-bulk.php',
+
+    // Admin support live chat
+    'GET '  . 'admin/support-chat/conversations'       => 'admin/support-chat/conversations/index.php',
+    'GET '  . 'admin/support-chat/conversations/count' => 'admin/support-chat/conversations/count.php',
+    'POST ' . 'admin/support-chat/upload'              => 'admin/support-chat/upload.php',
 
     // Careers (Phase M2)
     'GET '  . 'admin/job-role-types'           => 'admin/job-role-types/index.php',
@@ -294,6 +303,27 @@ if ($handlerFile === null && $method === 'DELETE'
     && preg_match('#^admin/contact-inbox/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/contact-inbox/delete.php';
+}
+
+// Dynamic route: GET admin/support-chat/conversations/{id}
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^admin/support-chat/conversations/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/support-chat/conversations/show.php';
+}
+
+// Dynamic route: POST admin/support-chat/conversations/{id}/messages
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/support-chat/conversations/([0-9]+)/messages$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/support-chat/conversations/messages.php';
+}
+
+// Dynamic route: POST admin/support-chat/conversations/{id}/read
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/support-chat/conversations/([0-9]+)/read$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/support-chat/conversations/read.php';
 }
 
 // Dynamic route: PUT admin/job-posts/{id}
