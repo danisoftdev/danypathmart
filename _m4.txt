@@ -1,0 +1,76 @@
+Phase M4 — Shops / marketplace core  
+*Marketplace + money model.*
+
+**Goal:** Approved shops sell on DPM; customer still pays **one** DPM checkout.
+
+| Item | Scope |
+|------|--------|
+| **Shop application** | Apply → admin approve/reject. |
+| **Shop profile** | Name, slug, logo, banner, description, contact, city, commission % (per shop or global default). |
+| **Shop dashboard** | Products (CRUD), orders **containing their lines**, earnings summary. |
+| **Products** | `shop_id`; marketplace listings **admin approve** before live (especially uniforms/badges). |
+| **Shop on product cards** | **Shop name + logo** on homepage, shop grid, search, PDP (e.g. “Sold by Pathfinder Supplies”). |
+| **Payment split (ledger)** | Customer pays DPM; system records: **order total · DPM commission · per-shop net**. |
+| **Shop wallet** | Pending → available → reserved (withdrawal) → paid out. Credit rules: recommend **available after `collected`** (configurable). |
+| **Withdrawals** | Shop requests → admin approve → bank/MoMo → debit wallet. |
+| **Mixed cart** | One payment; multiple shops; policy **wait for all** before `ready_for_pickup` (v1). |
+| **Seller policy (ops)** | They set price & listing; they pack; ship/drop to **DPM inbound hub** (address on pick list). |
+
+**Deliverables:** Live marketplace pilot (1–3 shops); wallets; split on each paid order.
+
+**Depends on:** M3 (pickup on every order).
+
+---
+
+# Phase M5 — Shop links, sharing & shop referral commission  
+*Growth layer on top of shops.*
+
+**Goal:** Shops promote themselves; refer other shops; DPM rewards after 10 sales.
+
+| Item | Scope |
+|------|--------|
+| **Public shop URL** | e.g. `/stores/{slug}` — catalog filtered to that shop. |
+| **Shareable link** | Shop dashboard: **Copy shop link**; optional QR later. |
+| **Shop on cards → links** | Tap shop name/logo → shop page. |
+| **Refer-a-shop** | New shop application: **“Referred by shop code/slug”**. Admin sets program: e.g. **when referred shop completes 10 paid/collected product sales, referring shop gets commission** (fixed GHS or % — admin config). |
+| **Tracking** | Referral attribution on shop record; counter toward 10; one-time or recurring — **recommend one-time bonus per referred shop** for v1. |
+| **Referrer wallet** | Bonus credits **referring shop’s wallet** (same withdrawal flow). |
+| **Admin** | Enable/disable program; amount; min sale definition (paid vs collected). |
+
+**Deliverables:** Share links; shop pages; referral commission after 10 sales.
+
+**Depends on:** M4 (shops + wallets + orders).
+
+---
+
+# Phase M6 — Shop product promos & badges (optional seller tags)  
+*Merchandising owned by shops.*
+
+**Goal:** Sellers highlight offers without breaking DPM design.
+
+| Item | Scope |
+|------|--------|
+| **Optional promo fields** | Per product (shop-managed): e.g. **Free delivery**, **Promo**, **Hot cake** — checkbox or short badge text. |
+| **Display** | Small badge on **product card + PDP** (alongside existing `badge_label` rules — shop badges for marketplace, DPM badges for own catalog). |
+| **Policy** | “Free delivery” = **shop-funded promise** (wording only unless you add shop-specific fee rules later). |
+| **Admin** | Can disable misleading badges; strike/ban repeat offenders. |
+
+**Deliverables:** Shop-controlled promo tags on cards.
+
+**Depends on:** M4 (shop products).
+
+---
+
+# Phase M7 — Drivers & hub logistics (goods through DPM)  
+*Physical “through my company” flow.*
+
+**Goal:** Sellers → hub → driver → station; no riders, no driver cash.
+
+| Item | Scope |
+|------|--------|
+| **Inbound hub** | Admin “receive parcel”: scan order / seller / station; status `received_at_hub`. |
+| **Driver accounts** | From hired careers or admin-created; role `driver`. |
+| **Delivery runs** | Admin creates run: driver + parcels + destination station(s). |
+| **Driver view** | Simple list: pick up at hub → drop at station; confirm drop (signature/photo optional). |
+| **Station receive** | Batch arrived from driver (feeds M8). |
+| **SLA**

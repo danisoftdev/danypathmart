@@ -59,6 +59,24 @@ jobs:
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
+      # ----------------------------------------------------------------------
+      # TEMPORARY DEBUG STEP — remove once HOSTINGER_SSH_HOST issue is solved.
+      # Prints byte-level dump of the secret so hidden \n / \r / spaces show up.
+      # od -An -c output does not match the raw secret string, so GitHub's log
+      # masking will not redact it.
+      # ----------------------------------------------------------------------
+      - name: Debug secret bytes (temporary)
+        env:
+          SECRET_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
+          SECRET_WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
+        run: |
+          echo "--- HOSTINGER_SSH_HOST ---"
+          echo "Length: ${#SECRET_SSH_HOST}"
+          printf '%s' "$SECRET_SSH_HOST" | od -An -c | head -5
+          echo "--- HOSTINGER_WEB_ROOT ---"
+          echo "Length: ${#SECRET_WEB_ROOT}"
+          printf '%s' "$SECRET_WEB_ROOT" | od -An -c | head -5
+
       - name: Validate Hostinger secrets
         env:
           SECRET_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
@@ -67,8 +85,11 @@ jobs:
           SECRET_WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
         run: |
           set -euo pipefail
+
+          # Strip CR, leading/trailing whitespace, AND any trailing newline
+          # that may have been captured into the variable itself.
           trim() {
-            printf '%s' "$1" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+            printf '%s' "$1" | tr -d '\r' | tr -d '\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
           }
 
           require_single_line() {
@@ -78,8 +99,16 @@ jobs:
               echo "::error::GitHub secret $name is not set (see DEPLOY-AUTO.md)."
               exit 1
             fi
-            if printf '%s' "$raw" | grep -q $'\n'; then
-              echo "::error::GitHub secret $name has multiple lines."
+            # Count lines robustly instead of grepping for a literal \n
+            local line_count
+            line_count=$(printf '%s' "$raw" | wc -l)
+            local has_trailing_content
+            has_trailing_content=$(printf '%s' "$raw" | tail -c 1)
+            if [ "$line_count" -gt 0 ] && [ -n "$has_trailing_content" ]; then
+              line_count=$((line_count + 1))
+            fi
+            if [ "$line_count" -gt 1 ]; then
+              echo "::error::GitHub secret $name has multiple lines ($line_count lines detected)."
               if printf '%s' "$raw" | grep -q 'BEGIN OPENSSH PRIVATE KEY'; then
                 echo "::error::You pasted the PRIVATE KEY into $name. Delete this secret and recreate it."
                 echo "::error::Private key goes ONLY in HOSTINGER_SSH_KEY."
@@ -110,11 +139,13 @@ jobs:
 
           if ! printf '%s' "$SSH_HOST" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$'; then
             echo "::error::HOSTINGER_SSH_HOST must be the server IP only (e.g. 82.25.113.25). Current value does not look like an IP."
+            echo "::error::Current trimmed value: '$SSH_HOST'"
             exit 1
           fi
 
           if ! printf '%s' "$WEB_ROOT" | grep -q '^/home/'; then
             echo "::error::HOSTINGER_WEB_ROOT must be an absolute path starting with /home/ (no trailing slash)."
+            echo "::error::Current trimmed value: '$WEB_ROOT'"
             exit 1
           fi
 
