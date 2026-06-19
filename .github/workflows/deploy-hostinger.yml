@@ -59,24 +59,6 @@ jobs:
         working-directory: backend
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
-      # ----------------------------------------------------------------------
-      # TEMPORARY DEBUG STEP — remove once HOSTINGER_SSH_HOST issue is solved.
-      # Prints byte-level dump of the secret so hidden \n / \r / spaces show up.
-      # od -An -c output does not match the raw secret string, so GitHub's log
-      # masking will not redact it.
-      # ----------------------------------------------------------------------
-      - name: Debug secret bytes (temporary)
-        env:
-          SECRET_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
-          SECRET_WEB_ROOT: ${{ secrets.HOSTINGER_WEB_ROOT }}
-        run: |
-          echo "--- HOSTINGER_SSH_HOST ---"
-          echo "Length: ${#SECRET_SSH_HOST}"
-          printf '%s' "$SECRET_SSH_HOST" | od -An -c | head -5
-          echo "--- HOSTINGER_WEB_ROOT ---"
-          echo "Length: ${#SECRET_WEB_ROOT}"
-          printf '%s' "$SECRET_WEB_ROOT" | od -An -c | head -5
-
       - name: Validate Hostinger secrets
         env:
           SECRET_SSH_HOST: ${{ secrets.HOSTINGER_SSH_HOST }}
