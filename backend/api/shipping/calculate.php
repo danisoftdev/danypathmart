@@ -52,6 +52,10 @@ if ($user !== null && in_array($orderType, ['group', 'institutional'], true)) {
 
 Response::success([
     'subtotal'               => $quote['subtotal'],
+    'dpm_subtotal'           => $quote['dpm_subtotal'] ?? $quote['subtotal'],
+    'shop_subtotal'          => $quote['shop_subtotal'] ?? 0,
+    'has_shop_items'         => !empty($quote['has_shop_items']),
+    'has_dpm_items'          => !empty($quote['has_dpm_items']),
     'intl_shipping_cost'     => $quote['intl_shipping_cost'],
     'local_delivery_cost'    => $quote['local_delivery_cost'],
     'local_delivery_percent' => $quote['local_delivery_percent'],
@@ -60,6 +64,7 @@ Response::success([
     'delivery_explanation'   => $quote['delivery_explanation'],
     'delivery_mode'          => $quote['delivery_mode'] ?? 'address',
     'pickup_station_id'      => $quote['pickup_station_id'] ?? null,
+    'shop_delivery_note'     => $quote['shop_delivery_note'] ?? null,
     'discount_amount'        => $quote['discount_amount'] ?? 0,
     'discount_label'         => $quote['discount_label'] ?? null,
 ]);

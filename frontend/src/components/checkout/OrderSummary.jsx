@@ -60,6 +60,11 @@ export default function OrderSummary({ items, quote, isLoading, onBack, onContin
               )}
               <p className="mt-0.5 text-sm text-muted">
                 Qty {item.qty} × {formatPrice(item.price)}
+                {item.shop_name && (
+                  <span className="ml-2 rounded bg-brand-green/15 px-1.5 py-0.5 text-[10px] font-bold text-brand-green">
+                    {item.shop_name}
+                  </span>
+                )}
                 {item.is_preorder && (
                   <span className="ml-2 rounded bg-brand-gold px-1.5 py-0.5 text-[10px] font-black text-black">
                     {labels.cartBadge}
@@ -80,7 +85,23 @@ export default function OrderSummary({ items, quote, isLoading, onBack, onContin
         </div>
       ) : (
         <div className="space-y-3">
-          <ShippingCard icon="🛍️" title="Subtotal" amount={formatPrice(quote.subtotal)} />
+          {quote.has_shop_items && quote.has_dpm_items ? (
+            <>
+              <ShippingCard icon="🏪" title="DanyPathMart items" amount={formatPrice(quote.dpm_subtotal ?? 0)} />
+              <ShippingCard icon="🛍️" title="Marketplace shop items" amount={formatPrice(quote.shop_subtotal ?? 0)} />
+              <ShippingCard icon="📋" title="Combined subtotal" amount={formatPrice(quote.subtotal)} />
+            </>
+          ) : (
+            <ShippingCard icon="🛍️" title="Subtotal" amount={formatPrice(quote.subtotal)} />
+          )}
+
+          {quote.shop_delivery_note && (
+            <div className="rounded-2xl border border-brand-gold/40 bg-brand-gold/10 p-4 text-sm">
+              <p className="font-bold">Shop delivery</p>
+              <p className="mt-1 text-muted">{quote.shop_delivery_note}</p>
+            </div>
+          )}
+
           {quote.intl_shipping_cost > 0 && (
             <ShippingCard
               icon="✈️"

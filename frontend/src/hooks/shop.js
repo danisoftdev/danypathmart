@@ -42,6 +42,26 @@ export function useShopOrders(enabled = true) {
   });
 }
 
+export function useShopOrderDetail(id, enabled = true) {
+  return useQuery({
+    queryKey: ['shop-order', id],
+    queryFn: async () => (await api.get(`/shop/orders/${id}`)).data,
+    enabled: enabled && !!id,
+  });
+}
+
+export function useUpdateShopOrderStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, status, note }) =>
+      (await api.post(`/shop/orders/${id}/status`, { status, note })).data,
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: ['shop-orders'] });
+      qc.invalidateQueries({ queryKey: ['shop-order', id] });
+    },
+  });
+}
+
 export function useShopWallet(enabled = true) {
   return useQuery({
     queryKey: ['shop-wallet'],

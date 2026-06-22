@@ -83,11 +83,14 @@ export default function PaymentStep({ items, addressId, pickupStationId, quote, 
 
   const methods = useMemo(() => {
     const raw = paymentSettings?.methods;
-    if (Array.isArray(raw) && raw.length > 0) {
-      return raw.filter((m) => typeof m === 'string');
+    let list = Array.isArray(raw) && raw.length > 0
+      ? raw.filter((m) => typeof m === 'string')
+      : ['paystack'];
+    if (quote?.has_shop_items) {
+      list = list.filter((m) => m !== 'pod');
     }
-    return ['paystack'];
-  }, [paymentSettings]);
+    return list;
+  }, [paymentSettings, quote?.has_shop_items]);
 
   const payBeforeDelivery = paymentSettings?.pay_before_delivery !== false;
   const bank = paymentSettings?.bank ?? {};
@@ -308,6 +311,12 @@ export default function PaymentStep({ items, addressId, pickupStationId, quote, 
         <h2 className="text-xl font-extrabold text-[#111111] dark:text-white">Payment</h2>
         <p className="mt-1 text-sm text-muted">All amounts in Ghana Cedis (GHS).</p>
       </div>
+
+      {quote?.has_shop_items && (
+        <p className="mb-4 rounded-xl border border-brand-gold/40 bg-brand-gold/15 px-4 py-3 text-sm text-amber-900 dark:text-brand-gold">
+          Marketplace items must be prepaid in the app. Shop sellers arrange delivery and collect their delivery fee directly from you.
+        </p>
+      )}
 
       {payBeforeDelivery && method !== 'pod' && (
         <p className="mb-4 rounded-xl border border-brand-green/25 bg-brand-green/10 px-4 py-3 text-sm text-brand-green">

@@ -319,6 +319,7 @@ final class OrderService
         NotificationService::notifyOrderPaid($pdo, $orderId, $order, $channel);
         ReferralService::onOrderPaid($pdo, $orderId);
         MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
         return true;
     }
 
@@ -354,6 +355,7 @@ final class OrderService
 
         ReferralService::onOrderPaid($pdo, $orderId);
         MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
     }
 
     /** @param array<string,mixed> $order */
@@ -498,6 +500,8 @@ final class OrderService
         $pdo->prepare(
             'INSERT INTO order_tracking (order_id, status, note, updated_by) VALUES (?, ?, ?, ?)'
         )->execute([$orderId, 'cancelled', $reason !== '' ? $reason : 'Order cancelled.', $updatedBy]);
+
+        ShopFulfillmentService::markCancelledForOrder($pdo, $orderId, $updatedBy);
     }
 
     private static function formatCancelNote(?string $reason, string $by): string

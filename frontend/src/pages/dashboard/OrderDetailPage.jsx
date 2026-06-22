@@ -352,6 +352,42 @@ export default function OrderDetailPage() {
           </section>
         )}
 
+        {order.shop_fulfillments?.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Marketplace shop delivery</h2>
+            {order.shop_fulfillments.map((sf) => (
+              <div
+                key={sf.id}
+                className="rounded-2xl border border-brand-gold/30 bg-brand-gold/5 p-4 dark:border-brand-gold/20 sm:p-5"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-brand-gold">Sold by</p>
+                    <p className="font-bold">{sf.shop_name}</p>
+                  </div>
+                  <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-bold uppercase dark:bg-white/10">
+                    {(sf.status || '').replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted">
+                  Shop subtotal: {formatPrice(sf.subtotal)} — delivery fee is between you and the seller.
+                </p>
+                {(sf.tracking ?? []).length > 0 && (
+                  <ul className="mt-3 space-y-2 border-t border-black/5 pt-3 dark:border-white/10">
+                    {sf.tracking.map((t, idx) => (
+                      <li key={`${t.status}-${idx}`} className="text-sm">
+                        <p className="font-semibold capitalize">{(t.status || '').replace(/_/g, ' ')}</p>
+                        {t.note && <p className="text-muted">{t.note}</p>}
+                        {t.created_at && <p className="text-xs text-muted">{formatStamp(t.created_at)}</p>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+
         {order.pickup_station && (
           <section className="rounded-2xl border border-brand-green/30 bg-brand-green/5 p-4 dark:border-brand-green/20 sm:p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-brand-green">Pickup station</p>

@@ -95,6 +95,12 @@ function runSqlFile(PDO $pdo, string $path): void
     }
 
     foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+        if ($statement === '') {
+            continue;
+        }
+        // Strip leading SQL comments so CREATE blocks after a file header comment are not skipped.
+        $statement = preg_replace('/^(\s*--[^\n]*\n)+/', '', $statement) ?? $statement;
+        $statement = trim($statement);
         if ($statement === '' || str_starts_with($statement, '--')) {
             continue;
         }

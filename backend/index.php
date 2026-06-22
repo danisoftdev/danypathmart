@@ -452,6 +452,20 @@ if ($handlerFile === null && $method === 'PUT'
     $handlerFile = 'shop/products/update.php';
 }
 
+// Dynamic route: GET shop/orders/{id}
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^shop/orders/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'shop/orders/show.php';
+}
+
+// Dynamic route: POST shop/orders/{id}/status
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^shop/orders/([0-9]+)/status$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'shop/orders/status.php';
+}
+
 // Dynamic route: GET public/shops/{slug}
 if ($handlerFile === null && $method === 'GET'
     && preg_match('#^public/shops/([a-z0-9-]+)$#', $route, $m) === 1) {

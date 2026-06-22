@@ -12,6 +12,7 @@ use App\Helpers\PlatformFeatures;
 use App\Helpers\ReferralService;
 use App\Helpers\Response;
 use App\Helpers\ShippingService;
+use App\Helpers\ShopFulfillmentService;
 use App\Middleware\AuthMiddleware;
 
 $user = AuthMiddleware::authenticate();
@@ -62,19 +63,6 @@ $pickupStationId = isset($body['pickup_station_id']) ? (int) $body['pickup_stati
 $pickupStation = null;
 $pickupSnapshot = null;
 
-if ($pickupEnabled) {
-    if ($pickupStationId <= 0) {
-        Response::error('Please choose a pickup station.', 422, ['code' => 'bad_pickup_station']);
-    }
-    $pickupStation = PickupStationService::findActive($pdo, $pickupStationId);
-    if ($pickupStation === null) {
-        Response::error('Pickup station not found or inactive.', 422, ['code' => 'bad_pickup_station']);
-    }
-    $pickupSnapshot = PickupStationService::buildSnapshot($pickupStation);
-} elseif ($pickupStationId > 0) {
-    $pickupStationId = 0;
-}
-
 $quoteRegion = null;
 if ($addressId !== null) {
     $regionStmt = $pdo->prepare('SELECT region FROM addresses WHERE id = ? AND user_id = ?');
@@ -100,6 +88,35 @@ if ($quote['errors'] !== []) {
 }
 if ($quote['lines'] === []) {
     Response::error('Your cart is empty.', 422, ['code' => 'empty_cart']);
+}
+
+$hasShopItems = !empty($quote['has_shop_items']);
+$hasDpmItems = !empty($quote['has_dpm_items']);
+
+if ($hasShopItems) {
+    if ($addressId === null) {
+        Response::error('A delivery address is required for marketplace items.', 422, ['code' => 'address_required']);
+    }
+    if ($paymentMethod === 'pod') {
+        Response::error('Marketplace items must be paid in the app before delivery. Pay on delivery is not available for seller products.', 422, ['code' => 'shop_prepay_required']);
+    }
+    $pickupStationId = 0;
+}
+
+if ($pickupEnabled && $hasDpmItems && !$hasShopItems) {
+    if ($pickupStationId <= 0) {
+        Response::error('Please choose a pickup station.', 422, ['code' => 'bad_pickup_station']);
+    }
+    $pickupStation = PickupStationService::findActive($pdo, $pickupStationId);
+    if ($pickupStation === null) {
+        Response::error('Pickup station not found or inactive.', 422, ['code' => 'bad_pickup_station']);
+    }
+    $pickupSnapshot = PickupStationService::buildSnapshot($pickupStation);
+} else {
+    $pickupStationId = 0;
+    if ($hasDpmItems && !$hasShopItems && $addressId === null && !$pickupEnabled) {
+        Response::error('Please choose a delivery address.', 422, ['code' => 'address_required']);
+    }
 }
 
 if (in_array($orderType, ['group', 'institutional'], true)) {
@@ -255,6 +272,8 @@ try {
     $pdo->rollBack();
     throw $e;
 }
+
+ShopFulfillmentService::createForOrder($pdo, $orderId, $quote['lines']);
 
 if ($referralCode !== '') {
     ReferralService::attachToOrder($pdo, $orderId, (int) $user['id'], $referralCode);

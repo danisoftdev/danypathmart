@@ -27,11 +27,14 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const { pickupStationsEnabled, isLoading: flagsLoading } = usePlatformFeatures();
 
+  const hasShopItems = useMemo(() => items.some((i) => i.shop_id), [items]);
+  const pickupMode = pickupStationsEnabled && !hasShopItems;
+
   const [step, setStep] = useState(1);
   const [pickedAddress, setPickedAddress] = useState(null);
   const [pickedStation, setPickedStation] = useState(null);
 
-  const { data: addrData } = useAddresses(isAuthenticated && !pickupStationsEnabled);
+  const { data: addrData } = useAddresses(isAuthenticated && (!pickupMode || hasShopItems));
   const addresses = addrData?.data ?? [];
   const defaultId = addresses.find((a) => a.is_default)?.id ?? addresses[0]?.id ?? null;
   const selectedAddressId = pickedAddress ?? defaultId;
@@ -45,7 +48,7 @@ export default function CheckoutPage() {
     [items]
   );
 
-  const quoteRegion = pickupStationsEnabled
+  const quoteRegion = pickupMode
     ? selectedStation?.region ?? null
     : selectedAddress?.region ?? null;
 
@@ -54,7 +57,7 @@ export default function CheckoutPage() {
     items.length > 0,
     quoteRegion,
     null,
-    pickupStationsEnabled ? pickedStation : null
+    pickupMode ? pickedStation : null
   );
 
   if (!isAuthenticated) {
@@ -77,16 +80,28 @@ export default function CheckoutPage() {
       <div className="mb-2 text-center md:text-left">
         <h1 className="text-2xl font-extrabold sm:text-3xl">Checkout</h1>
         <p className="mt-1 text-sm text-muted">
-          {pickupStationsEnabled
+          {pickupMode
             ? 'Choose your pickup point and pay — collect in person at the station.'
-            : 'Fast, secure checkout in three simple steps.'}
+            : hasShopItems
+              ? 'Delivery address required for marketplace items — shop sellers deliver their own goods.'
+              : 'Fast, secure checkout in three simple steps.'}
         </p>
       </div>
 
-      <CheckoutStepper current={step} pickupMode={pickupStationsEnabled} />
+      {hasShopItems && (
+        <div className="mb-4 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-sm">
+          <p className="font-bold">Marketplace items in your cart</p>
+          <p className="mt-1 text-muted">
+            Shop sellers deliver to your address. Delivery fees for shop items are arranged directly with each seller — not charged here.
+            {pickupStationsEnabled && ' Pickup is only available for DanyPathMart catalog items.'}
+          </p>
+        </div>
+      )}
+
+      <CheckoutStepper current={step} pickupMode={pickupMode} />
 
       <div className="rounded-2xl border border-black/8 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1E1E1E] sm:p-8">
-        {step === 1 && pickupStationsEnabled && (
+        {step === 1 && pickupMode && (
           <PickupStationSelector
             selectedId={pickedStation}
             onSelect={setPickedStation}
@@ -94,7 +109,7 @@ export default function CheckoutPage() {
           />
         )}
 
-        {step === 1 && !pickupStationsEnabled && (
+        {step === 1 && !pickupMode && (
           <AddressSelector
             selectedId={selectedAddressId}
             onSelect={setPickedAddress}
@@ -107,7 +122,7 @@ export default function CheckoutPage() {
             items={items}
             quote={quote}
             isLoading={quoteLoading}
-            pickupMode={pickupStationsEnabled}
+            pickupMode={pickupMode}
             pickupStation={selectedStation}
             onBack={() => setStep(1)}
             onContinue={() => setStep(3)}
@@ -118,10 +133,10 @@ export default function CheckoutPage() {
           <Suspense fallback={<PaymentStepFallback />}>
             <PaymentStep
               items={quoteItems}
-              addressId={pickupStationsEnabled ? undefined : selectedAddressId}
-              pickupStationId={pickupStationsEnabled ? pickedStation : undefined}
+              addressId={pickupMode ? undefined : selectedAddressId}
+              pickupStationId={pickupMode ? pickedStation : undefined}
               quote={quote}
-              pickupMode={pickupStationsEnabled}
+              pickupMode={pickupMode}
               onBack={() => setStep(2)}
             />
           </Suspense>

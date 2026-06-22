@@ -109,7 +109,19 @@ final class ShippingService
                 }
 
                 $p = $found[$pid];
+                $shopId = isset($p['shop_id']) && $p['shop_id'] !== null && (int) $p['shop_id'] > 0
+                    ? (int) $p['shop_id']
+                    : null;
                 $isPre = (int) $p['is_preorder'] === 1;
+
+                if ($shopId !== null && $isPre) {
+                    $errors[] = [
+                        'product_id' => $pid,
+                        'name'       => $p['name'],
+                        'error'      => 'shop_preorder_not_allowed',
+                    ];
+                    continue;
+                }
 
                 if ($requireStock && !$isPre && (int) $p['stock_qty'] < $qty) {
                     $errors[] = [
@@ -125,7 +137,7 @@ final class ShippingService
                 $subtotal += $unit * $qty;
 
                 $eta = null;
-                if ($isPre) {
+                if ($isPre && $shopId === null) {
                     $intl += self::intlFreightPerUnit($p, $set['usd_to_ghs_rate']) * $qty;
 
                     if (!empty($p['estimated_arrival_days'])) {
@@ -139,6 +151,8 @@ final class ShippingService
                     'unit_price'        => round($unit, 2),
                     'is_preorder'       => $isPre,
                     'estimated_arrival' => $eta,
+                    'shop_id'           => $shopId,
+                    'fulfillment'       => $shopId !== null ? 'shop' : 'dpm',
                 ];
             }
         }
@@ -146,9 +160,24 @@ final class ShippingService
         $subtotal = round($subtotal, 2);
         $intl = round($intl, 2);
 
+        $dpmSubtotal = 0.0;
+        $shopSubtotal = 0.0;
+        foreach ($lines as $line) {
+            $lineTotal = (float) $line['unit_price'] * (int) $line['quantity'];
+            if (($line['fulfillment'] ?? 'dpm') === 'shop') {
+                $shopSubtotal += $lineTotal;
+            } else {
+                $dpmSubtotal += $lineTotal;
+            }
+        }
+        $dpmSubtotal = round($dpmSubtotal, 2);
+        $shopSubtotal = round($shopSubtotal, 2);
+        $hasShopItems = $shopSubtotal > 0;
+        $hasDpmItems = $dpmSubtotal > 0;
+
         $deliveryMode = 'address';
         $localPercent = round($set['local_delivery_percent'], 2);
-        if ($pickupStationId !== null && $pickupStationId > 0) {
+        if ($pickupStationId !== null && $pickupStationId > 0 && $hasDpmItems && !$hasShopItems) {
             $station = PickupStationService::findActive($pdo, $pickupStationId);
             if ($station !== null) {
                 $local = round((float) $station['pickup_handling_fee'], 2);
@@ -156,16 +185,16 @@ final class ShippingService
                 $deliveryMode = 'pickup';
                 $region = (string) $station['region'];
             } else {
-                $local = round($subtotal * ($set['local_delivery_percent'] / 100.0), 2);
+                $local = round($dpmSubtotal * ($set['local_delivery_percent'] / 100.0), 2);
             }
         } else {
-            $local = round($subtotal * ($set['local_delivery_percent'] / 100.0), 2);
+            $local = round($dpmSubtotal * ($set['local_delivery_percent'] / 100.0), 2);
         }
 
         $preorderCount = 0;
         $chargeableKg = 0.0;
         foreach ($lines as $line) {
-            if (!$line['is_preorder']) {
+            if (!$line['is_preorder'] || ($line['fulfillment'] ?? 'dpm') === 'shop') {
                 continue;
             }
             $preorderCount += (int) $line['quantity'];
@@ -189,6 +218,10 @@ final class ShippingService
 
         return [
             'subtotal'               => $subtotal,
+            'dpm_subtotal'           => $dpmSubtotal,
+            'shop_subtotal'          => $shopSubtotal,
+            'has_shop_items'         => $hasShopItems,
+            'has_dpm_items'          => $hasDpmItems,
             'intl_shipping_cost'     => $intl,
             'local_delivery_cost'    => $local,
             'local_delivery_percent' => $localPercent,
@@ -199,6 +232,9 @@ final class ShippingService
             'delivery_explanation'   => $deliveryExplanation,
             'delivery_mode'          => $deliveryMode,
             'pickup_station_id'      => $deliveryMode === 'pickup' ? $pickupStationId : null,
+            'shop_delivery_note'     => $hasShopItems
+                ? 'Marketplace items are delivered by the seller. Delivery fees are paid directly to the seller — not in this checkout total.'
+                : null,
         ];
     }
 

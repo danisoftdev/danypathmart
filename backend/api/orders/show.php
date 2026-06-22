@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Config\Database;
 use App\Helpers\OrderService;
 use App\Helpers\Response;
+use App\Helpers\ShopFulfillmentService;
 use App\Helpers\WalletService;
 use App\Middleware\AuthMiddleware;
 
@@ -134,5 +135,6 @@ Response::success([
         'wallet_refunded_total'  => WalletService::refundedTotalForOrder($pdo, $orderId),
         'has_preorder'           => array_reduce($items, static fn ($c, $i) => $c || $i['is_preorder'], false),
         'customizations'         => $customizations,
+        'shop_fulfillments'      => ShopFulfillmentService::listForCustomerOrder($pdo, $orderId),
     ],
 ]);

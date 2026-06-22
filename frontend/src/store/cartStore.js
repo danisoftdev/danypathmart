@@ -12,12 +12,14 @@ export const useCartStore = create(
         if (existing) {
           existing.qty += qty;
         } else {
-          items.push({
+            items.push({
             id: product.id,
             name: product.name,
             price: Number(product.price) || 0,
             image: Array.isArray(product.images) ? product.images[0] : product.image,
             is_preorder: !!product.is_preorder,
+            shop_id: product.shop_id ?? null,
+            shop_name: product.shop_name ?? product.shop?.name ?? null,
             requires_custom_proof: !!product.requires_custom_proof,
             custom_proof: product.custom_proof || null,
             qty,
@@ -41,6 +43,8 @@ export const useCartStore = create(
               price: Number(product.price) || 0,
               image: Array.isArray(product.images) ? product.images[0] : product.image,
               is_preorder: !!product.is_preorder,
+              shop_id: product.shop_id ?? null,
+              shop_name: product.shop_name ?? product.shop?.name ?? null,
               requires_custom_proof: !!product.requires_custom_proof,
               custom_proof: product.custom_proof || null,
               qty,

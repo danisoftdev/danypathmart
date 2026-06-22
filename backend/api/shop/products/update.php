@@ -22,6 +22,9 @@ if ($existing === false) {
 }
 
 $body = Response::body();
+if (!empty($body['is_preorder'])) {
+    Response::error('Marketplace shops cannot list pre-order / air freight products.', 422);
+}
 $name = trim((string) ($body['name'] ?? ''));
 $price = isset($body['price']) ? (float) $body['price'] : null;
 

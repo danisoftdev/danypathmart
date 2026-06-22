@@ -16,6 +16,9 @@ $price = isset($body['price']) ? (float) $body['price'] : -1;
 if ($name === '' || $price < 0) {
     Response::error('Name and price are required.', 422);
 }
+if (!empty($body['is_preorder'])) {
+    Response::error('Marketplace shops cannot list pre-order / air freight products. Those are DanyPathMart catalog only.', 422);
+}
 
 $slug = trim((string) ($body['slug'] ?? ''));
 if ($slug === '') {
