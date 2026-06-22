@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useShopWallet, useShopWithdraw } from '../../hooks/shop';
 import { formatPrice } from '../../lib/currency';
+import { downloadShopSalesExport } from '../../lib/shopExport';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 
 function formatWhen(iso) {
@@ -18,6 +19,7 @@ export default function ShopWalletPage() {
   const [method, setMethod] = useState('bank');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const wallet = data?.wallet ?? {};
   const transactions = data?.transactions ?? [];
@@ -45,8 +47,29 @@ export default function ShopWalletPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-extrabold md:text-2xl">Wallet</h1>
-      <p className="mt-1 text-sm text-muted">Earnings move from pending to available when orders are completed.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-extrabold md:text-2xl">Wallet</h1>
+          <p className="mt-1 text-sm text-muted">Earnings move from pending to available when orders are completed.</p>
+        </div>
+        <button
+          type="button"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true);
+            try {
+              await downloadShopSalesExport();
+            } catch {
+              setError('Could not download sales CSV.');
+            } finally {
+              setExporting(false);
+            }
+          }}
+          className="min-h-[40px] rounded-xl border-2 border-brand-green px-4 py-2 text-sm font-bold text-brand-green hover:bg-brand-green/5 disabled:opacity-50"
+        >
+          {exporting ? 'Exporting…' : 'Download sales CSV'}
+        </button>
+      </div>
 
       {isLoading ? (
         <div className="mt-6"><AdminTableSkeleton rows={3} cols={3} /></div>

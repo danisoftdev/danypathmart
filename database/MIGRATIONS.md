@@ -66,6 +66,7 @@ cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-productio
 | `051_subscription_referral_promoters.sql` | M6 | Promoters, subscription referral earnings, shop application referrer fields |
 | `052_support_live_chat.sql` | — | Two-way support chat conversations and messages |
 | `053_shop_self_delivery.sql` | M4 | Shop self-delivery fulfillments, earnings on payment confirmed |
+| `054_shop_registration_promotions.sql` | M6 | Free registration window, first-reg & referral applicant discounts |
 
 `migrate-all.php` also runs post-hooks: job role catalog sync, workforce employee backfill.
 

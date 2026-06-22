@@ -7,6 +7,7 @@ import {
   useConfirmShopBillingDevPayment,
   useInitializeShopRegistrationPayment,
   useShopBillingSettings,
+  useShopRegistrationQuote,
   useUploadShopApplicationLogo,
   useValidateShopReferralCode,
 } from '../hooks/shop';
@@ -38,7 +39,6 @@ export default function ShopApplyPage() {
 
   const user = useAuthStore((s) => s.user);
   const { marketplaceEnabled, shopApplicationsOpen, shopReferralEnabled, isLoading: flagsLoading } = usePlatformFeatures();
-  const { data: billingSettings } = useShopBillingSettings(marketplaceEnabled);
   const apply = useApplyForShop();
   const initPayment = useInitializeShopRegistrationPayment();
   const confirmDev = useConfirmShopBillingDevPayment();
@@ -49,6 +49,12 @@ export default function ShopApplyPage() {
     email: user?.email || '',
     referred_by_shop_code: refFromUrl,
   }));
+  const { data: billingSettings } = useShopBillingSettings(marketplaceEnabled);
+  const { data: feeQuote } = useShopRegistrationQuote(
+    form.email,
+    form.referred_by_shop_code,
+    marketplaceEnabled && !!billingSettings?.enabled
+  );
   const { data: referrerCheck } = useValidateShopReferralCode(
     form.referred_by_shop_code,
     shopReferralEnabled && form.referred_by_shop_code.trim().length >= 2
@@ -61,7 +67,25 @@ export default function ShopApplyPage() {
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const registrationFee = billingSettings?.enabled ? Number(billingSettings.registration_fee || 0) : 0;
+  const listFee = feeQuote?.list_fee ?? billingSettings?.registration_list_fee ?? billingSettings?.registration_fee ?? 0;
+  const amountDue = feeQuote?.amount_due ?? billingSettings?.registration_amount_due ?? listFee;
+  const requiresPayment = billingSettings?.enabled && amountDue > 0;
+
+  const startPayment = async (appId, email) => {
+    const pay = await initPayment.mutateAsync({ application_id: appId, email });
+    if (pay.no_payment_needed) {
+      setDone(true);
+      setPendingPayment(false);
+      return;
+    }
+    if (pay.dev_mock && pay.authorization_url) {
+      window.location.href = pay.authorization_url;
+      return;
+    }
+    if (pay.authorization_url) {
+      window.location.href = pay.authorization_url;
+    }
+  };
 
   useEffect(() => {
     if (!paymentReturn || !returnAppId) return;
@@ -101,17 +125,6 @@ export default function ShopApplyPage() {
       cancelled = true;
     };
   }, [paymentReturn, returnAppId, isMockReturn, returnRef, confirmDev, setSearchParams]);
-
-  const startPayment = async (appId, email) => {
-    const pay = await initPayment.mutateAsync({ application_id: appId, email });
-    if (pay.dev_mock && pay.authorization_url) {
-      window.location.href = pay.authorization_url;
-      return;
-    }
-    if (pay.authorization_url) {
-      window.location.href = pay.authorization_url;
-    }
-  };
 
   if (!flagsLoading && (!marketplaceEnabled || !shopApplicationsOpen)) {
     return (
@@ -164,7 +177,7 @@ export default function ShopApplyPage() {
       <div className="mx-auto max-w-3xl px-4 py-8 pb-24 md:py-12">
         <h1 className="text-2xl font-extrabold text-brand-green">Application received</h1>
         <p className="mt-3 text-sm text-muted">
-          {registrationFee > 0
+          {paymentReturn || (requiresPayment && !feeQuote?.free_period_active)
             ? 'Your registration fee is paid. We will review your shop application and email you when your seller dashboard is ready.'
             : 'We will review your shop application and email you when your seller dashboard is ready.'}
         </p>
@@ -180,7 +193,7 @@ export default function ShopApplyPage() {
       <div className="mx-auto max-w-3xl px-4 py-8 pb-24 md:py-12">
         <h1 className="text-2xl font-extrabold">Complete registration payment</h1>
         <p className="mt-3 text-sm text-muted">
-          Your application was saved. Pay {formatPrice(registrationFee)} to submit it for review.
+          Your application was saved. Pay {formatPrice(amountDue)} to submit it for review.
         </p>
         {error && <p className="mt-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">{error}</p>}
         <button
@@ -189,7 +202,7 @@ export default function ShopApplyPage() {
           disabled={initPayment.isPending}
           onClick={() => startPayment(applicationId, form.email)}
         >
-          {initPayment.isPending ? 'Starting payment…' : `Pay ${formatPrice(registrationFee)}`}
+          {initPayment.isPending ? 'Starting payment…' : `Pay ${formatPrice(amountDue)}`}
         </button>
       </div>
     );
@@ -208,11 +221,34 @@ export default function ShopApplyPage() {
         List uniforms, books, and club materials alongside DanyPathMart. Products go live after admin review.
       </p>
 
-      {registrationFee > 0 && (
-        <p className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
-          Shop registration fee: <strong>{formatPrice(registrationFee)}</strong> (Paystack — card or mobile money).
-          You will pay after submitting this form.
-        </p>
+      {billingSettings?.enabled && listFee > 0 && (
+        <div className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
+          {feeQuote?.free_period_active ? (
+            <p>
+              <strong>Free registration</strong> until{' '}
+              {billingSettings.free_period_until
+                ? new Date(billingSettings.free_period_until).toLocaleDateString()
+                : 'promo ends'}
+              .
+            </p>
+          ) : amountDue < listFee ? (
+            <p>
+              Registration fee:{' '}
+              <span className="line-through text-muted">{formatPrice(listFee)}</span>{' '}
+              <strong>{formatPrice(amountDue)}</strong>
+              {feeQuote?.breakdown?.length > 0 && (
+                <span className="mt-1 block text-xs text-muted">
+                  {feeQuote.breakdown.map((b) => b.label).join(' · ')}
+                </span>
+              )}
+            </p>
+          ) : (
+            <p>
+              Shop registration fee: <strong>{formatPrice(amountDue)}</strong> (Paystack — card or mobile money).
+              You will pay after submitting this form.
+            </p>
+          )}
+        </div>
       )}
 
       {!user && (
@@ -274,6 +310,14 @@ export default function ShopApplyPage() {
                 {referrerCheck.referrer_type === 'promoter' ? ' (promoter)' : ' (shop)'}
               </p>
             )}
+            {form.referred_by_shop_code.trim().length >= 2 && referrerCheck?.valid && referrerCheck?.applicant_discount?.enabled && (
+              <p className="mt-1 text-xs text-muted">
+                Referral discount:{' '}
+                {referrerCheck.applicant_discount.type === 'percent'
+                  ? `${referrerCheck.applicant_discount.value}% off registration`
+                  : `${formatPrice(referrerCheck.applicant_discount.value)} off registration`}
+              </p>
+            )}
             {form.referred_by_shop_code.trim().length >= 2 && referrerCheck && !referrerCheck.valid && (
               <p className="mt-1 text-xs text-brand-red">Referral code not found.</p>
             )}
@@ -305,8 +349,8 @@ export default function ShopApplyPage() {
         <button type="submit" className="btn-primary w-full min-h-[44px]" disabled={apply.isPending || flagsLoading || initPayment.isPending}>
           {apply.isPending || initPayment.isPending
             ? 'Submitting…'
-            : registrationFee > 0
-              ? `Submit & pay ${formatPrice(registrationFee)}`
+            : requiresPayment
+              ? `Submit & pay ${formatPrice(amountDue)}`
               : 'Submit application'}
         </button>
       </form>

@@ -107,6 +107,25 @@ export function useShopBillingSettings(enabled = true) {
   });
 }
 
+export function useShopRegistrationQuote(email, referralCode, enabled = true) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const code = String(referralCode || '').trim();
+  return useQuery({
+    queryKey: ['shop-registration-quote', normalizedEmail, code],
+    queryFn: async () =>
+      (
+        await api.get('/public/shop-billing/registration-quote', {
+          params: {
+            email: normalizedEmail || undefined,
+            referral_code: code.length >= 2 ? code : undefined,
+          },
+        })
+      ).data.quote,
+    enabled: enabled && normalizedEmail.includes('@'),
+    staleTime: 15_000,
+  });
+}
+
 export function useInitializeShopRegistrationPayment() {
   return useMutation({
     mutationFn: async (payload) =>

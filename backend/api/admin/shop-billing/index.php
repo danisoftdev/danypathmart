@@ -10,7 +10,13 @@ use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
 
 AuthMiddleware::requireAdmin();
-PermissionMiddleware::requireAny(['view_shop_billing', 'manage_shop_fees', 'waive_shop_fees']);
+PermissionMiddleware::requireAny([
+    'view_shop_billing',
+    'manage_shop_fees',
+    'manage_shop_registration_promo',
+    'manage_referral_registration_discount',
+    'waive_shop_fees',
+]);
 
 $pdo = Database::pdo();
 $settings = ShopBillingService::loadSettings($pdo);

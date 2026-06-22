@@ -214,11 +214,14 @@ $routes = [
 
     'POST ' . 'public/shop-applications/apply' => 'public/shop-applications/apply.php',
     'GET '  . 'public/shop-billing/settings' => 'public/shop-billing/settings.php',
+    'GET '  . 'public/shop-billing/registration-quote' => 'public/shop-billing/registration-quote.php',
     'POST ' . 'public/shop-billing/initialize-registration' => 'public/shop-billing/initialize-registration.php',
     'POST ' . 'public/shop-billing/dev-confirm' => 'public/shop-billing/dev-confirm.php',
 
     'GET '  . 'admin/shop-billing' => 'admin/shop-billing/index.php',
     'POST ' . 'admin/shop-billing/update-settings' => 'admin/shop-billing/update-settings.php',
+    'POST ' . 'admin/shop-billing/update-promo' => 'admin/shop-billing/update-promo.php',
+    'POST ' . 'admin/shop-billing/update-referral-discount' => 'admin/shop-billing/update-referral-discount.php',
     'POST ' . 'admin/shop-billing/waive-application' => 'admin/shop-billing/waive-application.php',
     'POST ' . 'admin/shop-billing/waive-shop' => 'admin/shop-billing/waive-shop.php',
 
@@ -227,6 +230,7 @@ $routes = [
     'GET '  . 'shop/products'               => 'shop/products/index.php',
     'POST ' . 'shop/products'               => 'shop/products/create.php',
     'GET '  . 'shop/orders'                  => 'shop/orders/index.php',
+    'GET '  . 'shop/orders/export'           => 'shop/orders/export.php',
     'GET '  . 'shop/wallet'                 => 'shop/wallet/index.php',
     'POST ' . 'shop/wallet/withdraw'        => 'shop/wallet/withdraw.php',
     'GET '  . 'shop/profile'                => 'shop/profile.php',

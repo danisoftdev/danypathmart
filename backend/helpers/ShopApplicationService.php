@@ -107,14 +107,20 @@ final class ShopApplicationService
 
         $id = (int) $pdo->lastInsertId();
 
-        $initial = ShopBillingService::initialApplicationStatus($pdo);
+        $initial = ShopBillingService::initialApplicationStatus($pdo, [
+            'user_id'            => $userId,
+            'email'              => $email,
+            'has_valid_referrer' => $referrerType !== null,
+        ]);
         if ($initial['status'] !== 'new') {
             $pdo->prepare('UPDATE shop_applications SET status = ? WHERE id = ?')
                 ->execute([$initial['status'], $id]);
         }
 
+        ShopBillingService::applyRegistrationPricingToApplication($pdo, $id);
+
         $result = self::findById($pdo, $id) ?? [];
-        $result['requires_payment'] = $initial['requires_payment'];
+        $result['requires_payment'] = ShopBillingService::registrationRequired($pdo, $result);
 
         return $result;
     }
@@ -162,7 +168,7 @@ final class ShopApplicationService
             throw new \InvalidArgumentException('Registration fee must be paid or waived before approval.');
         }
 
-        if (ShopBillingService::registrationRequired($pdo) && !ShopBillingService::applicationRegistrationPaid($app)) {
+        if (ShopBillingService::registrationRequired($pdo, $app)) {
             throw new \InvalidArgumentException('Registration fee must be paid or waived before approval.');
         }
 
@@ -275,6 +281,10 @@ final class ShopApplicationService
             'registration_fee_paid'   => !empty($row['registration_fee_paid'] ?? null),
             'registration_fee_waived' => !empty($row['registration_fee_waived'] ?? null),
             'registration_payment_ref'=> $row['registration_payment_ref'] ?? null,
+            'registration_list_fee'   => isset($row['registration_list_fee']) ? (float) $row['registration_list_fee'] : null,
+            'registration_discount_amount' => isset($row['registration_discount_amount'])
+                ? (float) $row['registration_discount_amount'] : 0.0,
+            'registration_amount_due' => isset($row['registration_amount_due']) ? (float) $row['registration_amount_due'] : null,
             'admin_note'          => $row['admin_note'],
             'shop_id'             => $row['shop_id'] !== null ? (int) $row['shop_id'] : null,
             'reviewed_at'         => $row['reviewed_at'],

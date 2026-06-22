@@ -329,6 +329,28 @@ export function useUpdateShopBillingSettings() {
   });
 }
 
+export function useUpdateShopRegistrationPromo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/shop-billing/update-promo', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shop-billing'] });
+      qc.invalidateQueries({ queryKey: ['shop-billing-settings'] });
+    },
+  });
+}
+
+export function useUpdateReferralRegistrationDiscount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/shop-billing/update-referral-discount', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shop-billing'] });
+      qc.invalidateQueries({ queryKey: ['shop-billing-settings'] });
+    },
+  });
+}
+
 export function useWaiveShopApplicationFee() {
   const qc = useQueryClient();
   return useMutation({

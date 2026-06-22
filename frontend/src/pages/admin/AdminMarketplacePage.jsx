@@ -18,6 +18,8 @@ import {
   useReviewMarketplaceListing,
   useUpdateAdminShop,
   useUpdateShopBillingSettings,
+  useUpdateShopRegistrationPromo,
+  useUpdateReferralRegistrationDiscount,
   useWaiveShopApplicationFee,
   useWaiveShopRenewal,
 } from '../../hooks/admin';
@@ -147,6 +149,22 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
             </div>
           )}
           <div><dt className="text-xs font-bold uppercase text-muted">Submitted</dt><dd>{formatWhen(app.created_at)}</dd></div>
+          {(app.registration_list_fee != null || app.registration_amount_due != null) && (
+            <div className="rounded-xl border border-black/8 p-3 dark:border-white/10">
+              <p className="text-xs font-bold uppercase text-muted">Registration pricing</p>
+              {app.registration_list_fee != null && (
+                <p className="mt-1 text-sm">
+                  List fee: {formatPrice(app.registration_list_fee)}
+                  {(app.registration_discount_amount ?? 0) > 0 && (
+                    <> · Discount: −{formatPrice(app.registration_discount_amount)}</>
+                  )}
+                  {app.registration_amount_due != null && (
+                    <> · Due: <strong>{formatPrice(app.registration_amount_due)}</strong></>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           <div><dt className="text-xs font-bold uppercase text-muted">Registration fee</dt><dd>{paymentLabel}</dd></div>
         </dl>
 
@@ -189,8 +207,16 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
 
 export default function AdminMarketplacePage() {
   const user = useAuthStore((s) => s.user);
-  const canViewBilling = hasAnyPermission(user, ['view_shop_billing', 'manage_shop_fees', 'waive_shop_fees']);
+  const canViewBilling = hasAnyPermission(user, [
+    'view_shop_billing',
+    'manage_shop_fees',
+    'manage_shop_registration_promo',
+    'manage_referral_registration_discount',
+    'waive_shop_fees',
+  ]);
   const canManageFees = hasPermission(user, 'manage_shop_fees');
+  const canManagePromo = hasPermission(user, 'manage_shop_registration_promo');
+  const canManageReferralDiscount = hasPermission(user, 'manage_referral_registration_discount');
   const canWaiveFees = hasPermission(user, 'waive_shop_fees');
   const canOps = hasAnyPermission(user, ['manage_marketplace', 'approve_shop_applications', 'edit_company_settings', 'manage_promoters']);
   const canManagePromoters = hasAnyPermission(user, ['manage_promoters', 'edit_company_settings']);
@@ -235,9 +261,13 @@ export default function AdminMarketplacePage() {
   const processPromoterWithdrawal = useProcessPromoterWithdrawal();
   const { data: billingData, isLoading: billingLoading } = useAdminShopBilling(canAccess && tab === 'billing' && canViewBilling);
   const updateBilling = useUpdateShopBillingSettings();
+  const updatePromo = useUpdateShopRegistrationPromo();
+  const updateReferralDiscount = useUpdateReferralRegistrationDiscount();
   const waiveAppFee = useWaiveShopApplicationFee();
   const waiveShopRenewal = useWaiveShopRenewal();
   const [billingForm, setBillingForm] = useState(null);
+  const [promoForm, setPromoForm] = useState(null);
+  const [referralDiscountForm, setReferralDiscountForm] = useState(null);
 
   const applications = appData?.data ?? [];
   const newCount = appData?.new_count ?? 0;
@@ -287,6 +317,8 @@ export default function AdminMarketplacePage() {
   };
 
   const billingSettings = billingForm ?? billingData?.settings ?? {};
+  const promoSettings = promoForm ?? billingData?.settings ?? {};
+  const referralDiscountSettings = referralDiscountForm ?? billingData?.settings ?? {};
   const billingPayments = billingData?.payments ?? [];
   const billingSubscriptions = billingData?.subscriptions ?? [];
 
@@ -299,6 +331,30 @@ export default function AdminMarketplacePage() {
       setBillingForm(null);
     } catch (err) {
       showAlert(err.response?.data?.message || 'Could not save billing settings.', 'error');
+    }
+  };
+
+  const savePromoSettings = async (e) => {
+    e.preventDefault();
+    if (!canManagePromo) return;
+    try {
+      await updatePromo.mutateAsync(promoSettings);
+      showAlert('Registration promo settings saved.');
+      setPromoForm(null);
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Could not save promo settings.', 'error');
+    }
+  };
+
+  const saveReferralDiscountSettings = async (e) => {
+    e.preventDefault();
+    if (!canManageReferralDiscount) return;
+    try {
+      await updateReferralDiscount.mutateAsync(referralDiscountSettings);
+      showAlert('Referral applicant discount saved.');
+      setReferralDiscountForm(null);
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Could not save referral discount.', 'error');
     }
   };
 
@@ -714,6 +770,143 @@ export default function AdminMarketplacePage() {
                 </form>
               )}
 
+              {canManagePromo && (
+                <form onSubmit={savePromoSettings} className="admin-panel mb-6 space-y-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Registration promos</p>
+                  <p className="text-xs text-muted">
+                    Requires <strong>manage_shop_registration_promo</strong>. Set a free-registration window or a first-time seller discount.
+                  </p>
+                  <label className="block text-sm">
+                    <span className="mb-1 block font-semibold">Free registration until (optional)</span>
+                    <input
+                      type="date"
+                      className="input-field w-full max-w-xs"
+                      value={promoSettings.shop_registration_free_until || ''}
+                      onChange={(e) =>
+                        setPromoForm({
+                          ...promoSettings,
+                          shop_registration_free_until: e.target.value || null,
+                        })
+                      }
+                    />
+                    <span className="mt-1 block text-xs text-muted">Leave empty when not running a free signup promo.</span>
+                  </label>
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 accent-brand-green"
+                      checked={!!promoSettings.shop_first_reg_discount_enabled}
+                      onChange={(e) =>
+                        setPromoForm({ ...promoSettings, shop_first_reg_discount_enabled: e.target.checked })
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold">First registration discount</span>
+                      <span className="text-xs text-muted">For applicants with no prior approved shop on DPM.</span>
+                    </span>
+                  </label>
+                  {promoSettings.shop_first_reg_discount_enabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Discount type</span>
+                        <select
+                          className="input-field w-full"
+                          value={promoSettings.shop_first_reg_discount_type || 'fixed'}
+                          onChange={(e) =>
+                            setPromoForm({ ...promoSettings, shop_first_reg_discount_type: e.target.value })
+                          }
+                        >
+                          <option value="fixed">Fixed amount (GHS off)</option>
+                          <option value="percent">Percent off</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Discount value</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="input-field w-full"
+                          value={promoSettings.shop_first_reg_discount_value ?? 0}
+                          onChange={(e) =>
+                            setPromoForm({
+                              ...promoSettings,
+                              shop_first_reg_discount_value: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={updatePromo.isPending}>
+                    Save promo settings
+                  </button>
+                </form>
+              )}
+
+              {canManageReferralDiscount && (
+                <form onSubmit={saveReferralDiscountSettings} className="admin-panel mb-6 space-y-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted">Referral applicant discount</p>
+                  <p className="text-xs text-muted">
+                    Requires <strong>manage_referral_registration_discount</strong>. Discount for new sellers who apply with a valid shop or promoter code.
+                    Promoter commission on the paid amount is unchanged.
+                  </p>
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 accent-brand-green"
+                      checked={!!referralDiscountSettings.shop_referral_reg_discount_enabled}
+                      onChange={(e) =>
+                        setReferralDiscountForm({
+                          ...referralDiscountSettings,
+                          shop_referral_reg_discount_enabled: e.target.checked,
+                        })
+                      }
+                    />
+                    <span className="block text-sm font-semibold">Enable referral code discount for applicants</span>
+                  </label>
+                  {referralDiscountSettings.shop_referral_reg_discount_enabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Discount type</span>
+                        <select
+                          className="input-field w-full"
+                          value={referralDiscountSettings.shop_referral_reg_discount_type || 'percent'}
+                          onChange={(e) =>
+                            setReferralDiscountForm({
+                              ...referralDiscountSettings,
+                              shop_referral_reg_discount_type: e.target.value,
+                            })
+                          }
+                        >
+                          <option value="percent">Percent off</option>
+                          <option value="fixed">Fixed amount (GHS off)</option>
+                        </select>
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Discount value</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="input-field w-full"
+                          value={referralDiscountSettings.shop_referral_reg_discount_value ?? 10}
+                          onChange={(e) =>
+                            setReferralDiscountForm({
+                              ...referralDiscountSettings,
+                              shop_referral_reg_discount_value: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+                  <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={updateReferralDiscount.isPending}>
+                    Save referral discount
+                  </button>
+                </form>
+              )}
+
               {!canManageFees && (
                 <div className="admin-panel mb-6 text-sm">
                   <p className="text-xs font-bold uppercase tracking-wide text-muted">Current settings</p>
@@ -722,6 +915,15 @@ export default function AdminMarketplacePage() {
                     {billingSettings.shop_billing_enabled && (
                       <>
                         {' '}· Registration {formatPrice(billingSettings.shop_registration_fee_ghs || 0)}
+                        {billingSettings.shop_registration_free_until && (
+                          <> · Free until {billingSettings.shop_registration_free_until}</>
+                        )}
+                        {billingSettings.shop_first_reg_discount_enabled && (
+                          <> · First-reg discount on</>
+                        )}
+                        {billingSettings.shop_referral_reg_discount_enabled && (
+                          <> · Referral applicant discount on</>
+                        )}
                         {' '}· Renewal {formatPrice(billingSettings.shop_renewal_fee_ghs || 0)} / {billingSettings.shop_renewal_period}
                       </>
                     )}

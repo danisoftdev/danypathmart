@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   useShopOrderDetail,
@@ -6,6 +6,7 @@ import {
   useUpdateShopOrderStatus,
 } from '../../hooks/shop';
 import { formatPrice, resolveImageUrl } from '../../lib/currency';
+import { downloadShopSalesExport, downloadShopSalesItemsExport } from '../../lib/shopExport';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 
 const STATUS_OPTIONS = [
@@ -35,6 +36,8 @@ export default function ShopOrdersPage() {
   const [nextStatus, setNextStatus] = useState('preparing');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
 
   const fulfillment = detailData?.fulfillment ?? null;
 
@@ -57,12 +60,47 @@ export default function ShopOrdersPage() {
 
   const canUpdate = fulfillment && !['awaiting_payment', 'cancelled', 'delivered'].includes(fulfillment.status);
 
+  const runExport = async (fn) => {
+    setExportError('');
+    setExporting(true);
+    try {
+      await fn();
+    } catch {
+      setExportError('Could not download CSV. Try again.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
-      <h1 className="text-xl font-extrabold md:text-2xl">Orders</h1>
-      <p className="mt-1 text-sm text-muted">
-        Paid marketplace orders — you deliver to the customer. Delivery fees are arranged offline with the buyer.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-extrabold md:text-2xl">Orders</h1>
+          <p className="mt-1 text-sm text-muted">
+            Paid marketplace orders — you deliver to the customer. Delivery fees are arranged offline with the buyer.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={() => runExport(() => downloadShopSalesExport())}
+            className="min-h-[40px] rounded-xl border-2 border-brand-green px-4 py-2 text-sm font-bold text-brand-green hover:bg-brand-green/5 disabled:opacity-50"
+          >
+            {exporting ? 'Exporting…' : 'Export sales CSV'}
+          </button>
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={() => runExport(() => downloadShopSalesItemsExport())}
+            className="min-h-[40px] rounded-xl border-2 border-black/10 px-4 py-2 text-sm font-bold hover:bg-black/5 disabled:opacity-50 dark:border-white/15 dark:hover:bg-white/5"
+          >
+            Line items CSV
+          </button>
+        </div>
+      </div>
+      {exportError && <p className="mt-2 text-sm text-brand-red">{exportError}</p>}
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(280px,360px)_1fr]">
         <div className="admin-panel overflow-x-auto p-2">

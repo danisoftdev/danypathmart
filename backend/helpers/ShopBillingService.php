@@ -14,17 +14,27 @@ final class ShopBillingService
     public static function loadSettings(PDO $pdo): array
     {
         $defaults = [
-            'shop_billing_enabled'       => false,
-            'shop_registration_fee_ghs'  => 0.0,
-            'shop_renewal_fee_ghs'       => 0.0,
-            'shop_renewal_period'        => 'yearly',
-            'shop_renewal_grace_days'    => 7,
+            'shop_billing_enabled'              => false,
+            'shop_registration_fee_ghs'         => 0.0,
+            'shop_renewal_fee_ghs'              => 0.0,
+            'shop_renewal_period'               => 'yearly',
+            'shop_renewal_grace_days'           => 7,
+            'shop_registration_free_until'    => null,
+            'shop_first_reg_discount_enabled'   => false,
+            'shop_first_reg_discount_type'      => 'fixed',
+            'shop_first_reg_discount_value'     => 0.0,
+            'shop_referral_reg_discount_enabled' => false,
+            'shop_referral_reg_discount_type'   => 'percent',
+            'shop_referral_reg_discount_value'  => 0.0,
         ];
 
         try {
             $row = $pdo->query(
                 'SELECT shop_billing_enabled, shop_registration_fee_ghs, shop_renewal_fee_ghs,
-                        shop_renewal_period, shop_renewal_grace_days
+                        shop_renewal_period, shop_renewal_grace_days,
+                        shop_registration_free_until,
+                        shop_first_reg_discount_enabled, shop_first_reg_discount_type, shop_first_reg_discount_value,
+                        shop_referral_reg_discount_enabled, shop_referral_reg_discount_type, shop_referral_reg_discount_value
                  FROM company_settings ORDER BY id ASC LIMIT 1'
             )->fetch();
         } catch (\Throwable) {
@@ -38,19 +48,224 @@ final class ShopBillingService
         $period = (string) ($row['shop_renewal_period'] ?? 'yearly');
 
         return [
-            'shop_billing_enabled'      => (int) ($row['shop_billing_enabled'] ?? 0) === 1,
-            'shop_registration_fee_ghs' => max(0.0, (float) ($row['shop_registration_fee_ghs'] ?? 0)),
-            'shop_renewal_fee_ghs'      => max(0.0, (float) ($row['shop_renewal_fee_ghs'] ?? 0)),
-            'shop_renewal_period'       => in_array($period, ['monthly', 'yearly'], true) ? $period : 'yearly',
-            'shop_renewal_grace_days'   => max(0, (int) ($row['shop_renewal_grace_days'] ?? 7)),
+            'shop_billing_enabled'              => (int) ($row['shop_billing_enabled'] ?? 0) === 1,
+            'shop_registration_fee_ghs'         => max(0.0, (float) ($row['shop_registration_fee_ghs'] ?? 0)),
+            'shop_renewal_fee_ghs'              => max(0.0, (float) ($row['shop_renewal_fee_ghs'] ?? 0)),
+            'shop_renewal_period'               => in_array($period, ['monthly', 'yearly'], true) ? $period : 'yearly',
+            'shop_renewal_grace_days'           => max(0, (int) ($row['shop_renewal_grace_days'] ?? 7)),
+            'shop_registration_free_until'      => $row['shop_registration_free_until'] ?? null,
+            'shop_first_reg_discount_enabled'   => (int) ($row['shop_first_reg_discount_enabled'] ?? 0) === 1,
+            'shop_first_reg_discount_type'      => ($row['shop_first_reg_discount_type'] ?? 'fixed') === 'percent' ? 'percent' : 'fixed',
+            'shop_first_reg_discount_value'     => max(0.0, (float) ($row['shop_first_reg_discount_value'] ?? 0)),
+            'shop_referral_reg_discount_enabled' => (int) ($row['shop_referral_reg_discount_enabled'] ?? 0) === 1,
+            'shop_referral_reg_discount_type'   => ($row['shop_referral_reg_discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent',
+            'shop_referral_reg_discount_value'  => max(0.0, (float) ($row['shop_referral_reg_discount_value'] ?? 0)),
         ];
     }
 
-    public static function registrationRequired(PDO $pdo): bool
+    public static function isRegistrationFreePeriodActive(array $settings): bool
+    {
+        $until = $settings['shop_registration_free_until'] ?? null;
+        if ($until === null || trim((string) $until) === '') {
+            return false;
+        }
+
+        return date('Y-m-d') <= (string) $until;
+    }
+
+    public static function applicantHasPriorRegistration(PDO $pdo, ?int $userId, ?string $email): bool
+    {
+        $email = $email !== null ? strtolower(trim($email)) : '';
+        if ($email === '' && ($userId === null || $userId <= 0)) {
+            return false;
+        }
+
+        $sql = 'SELECT 1 FROM shop_applications WHERE (
+                    (? <> "" AND email = ?)
+                    OR (? > 0 AND user_id = ?)
+                ) AND (
+                    status = ?
+                    OR registration_fee_paid = 1
+                    OR shop_id IS NOT NULL
+                ) LIMIT 1';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([
+            $email, $email,
+            $userId ?? 0, $userId ?? 0,
+            'approved',
+        ]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    /**
+     * @param array{user_id?:int|null,email?:string|null,has_valid_referrer?:bool} $ctx
+     * @return array{
+     *   list_fee:float,amount_due:float,discount_total:float,requires_payment:bool,
+     *   free_period_active:bool,breakdown:list<array{label:string,amount:float}>
+     * }
+     */
+    public static function computeRegistrationPricing(PDO $pdo, array $ctx = []): array
+    {
+        $settings = self::loadSettings($pdo);
+        $listFee = round((float) ($settings['shop_registration_fee_ghs'] ?? 0), 2);
+        $breakdown = [];
+
+        if (!$settings['shop_billing_enabled'] || $listFee <= 0) {
+            return [
+                'list_fee'            => $listFee,
+                'amount_due'          => 0.0,
+                'discount_total'      => 0.0,
+                'requires_payment'    => false,
+                'free_period_active'  => false,
+                'breakdown'           => [],
+            ];
+        }
+
+        if (self::isRegistrationFreePeriodActive($settings)) {
+            return [
+                'list_fee'            => $listFee,
+                'amount_due'          => 0.0,
+                'discount_total'      => $listFee,
+                'requires_payment'    => false,
+                'free_period_active'  => true,
+                'breakdown'           => [['label' => 'Launch promo — free registration', 'amount' => $listFee]],
+            ];
+        }
+
+        $amount = $listFee;
+        $discountTotal = 0.0;
+
+        if (
+            !empty($settings['shop_first_reg_discount_enabled'])
+            && !self::applicantHasPriorRegistration($pdo, $ctx['user_id'] ?? null, $ctx['email'] ?? null)
+        ) {
+            $d = self::applyDiscountAmount(
+                $amount,
+                (string) $settings['shop_first_reg_discount_type'],
+                (float) $settings['shop_first_reg_discount_value']
+            );
+            if ($d > 0) {
+                $breakdown[] = ['label' => 'First registration discount', 'amount' => $d];
+                $discountTotal += $d;
+                $amount -= $d;
+            }
+        }
+
+        if (!empty($settings['shop_referral_reg_discount_enabled']) && !empty($ctx['has_valid_referrer'])) {
+            $d = self::applyDiscountAmount(
+                $amount,
+                (string) $settings['shop_referral_reg_discount_type'],
+                (float) $settings['shop_referral_reg_discount_value']
+            );
+            if ($d > 0) {
+                $breakdown[] = ['label' => 'Referral code discount', 'amount' => $d];
+                $discountTotal += $d;
+                $amount -= $d;
+            }
+        }
+
+        $amountDue = max(0.0, round($amount, 2));
+
+        return [
+            'list_fee'            => $listFee,
+            'amount_due'          => $amountDue,
+            'discount_total'      => round($discountTotal, 2),
+            'requires_payment'    => $amountDue > 0,
+            'free_period_active'  => false,
+            'breakdown'           => $breakdown,
+        ];
+    }
+
+    public static function applyRegistrationPricingToApplication(PDO $pdo, int $applicationId): void
+    {
+        $app = ShopApplicationService::findById($pdo, $applicationId);
+        if ($app === null) {
+            return;
+        }
+
+        $hasReferrer = !empty($app['referred_by_type'])
+            || !empty($app['referred_by_shop_id'])
+            || !empty($app['referred_by_promoter_id']);
+
+        $quote = self::computeRegistrationPricing($pdo, [
+            'user_id'            => $app['user_id'],
+            'email'              => $app['email'],
+            'has_valid_referrer' => $hasReferrer,
+        ]);
+
+        $status = $app['status'];
+        if ($status === 'pending_payment' && !$quote['requires_payment']) {
+            $status = 'new';
+        } elseif ($quote['requires_payment'] && $status === 'new') {
+            $status = 'pending_payment';
+        }
+
+        try {
+            $pdo->prepare(
+                'UPDATE shop_applications SET
+                    registration_list_fee = ?,
+                    registration_discount_amount = ?,
+                    registration_amount_due = ?,
+                    status = ?
+                 WHERE id = ?'
+            )->execute([
+                $quote['list_fee'],
+                $quote['discount_total'],
+                $quote['amount_due'],
+                $status,
+                $applicationId,
+            ]);
+        } catch (\Throwable) {
+            if ($status !== $app['status']) {
+                $pdo->prepare('UPDATE shop_applications SET status = ? WHERE id = ?')
+                    ->execute([$status, $applicationId]);
+            }
+        }
+    }
+
+    private static function applyDiscountAmount(float $current, string $type, float $value): float
+    {
+        if ($value <= 0 || $current <= 0) {
+            return 0.0;
+        }
+        if ($type === 'percent') {
+            return round($current * min(100.0, $value) / 100.0, 2);
+        }
+
+        return min($current, round($value, 2));
+    }
+
+    public static function registrationAmountDueForApplication(array $app): float
+    {
+        if (!empty($app['registration_fee_waived']) || !empty($app['registration_fee_paid'])) {
+            return 0.0;
+        }
+        if (isset($app['registration_amount_due']) && $app['registration_amount_due'] !== null) {
+            return max(0.0, round((float) $app['registration_amount_due'], 2));
+        }
+
+        return 0.0;
+    }
+
+    public static function registrationRequired(PDO $pdo, ?array $application = null): bool
     {
         $s = self::loadSettings($pdo);
+        if (!$s['shop_billing_enabled'] || $s['shop_registration_fee_ghs'] <= 0) {
+            return false;
+        }
 
-        return $s['shop_billing_enabled'] && $s['shop_registration_fee_ghs'] > 0;
+        if ($application !== null) {
+            if (self::applicationRegistrationPaid($application)) {
+                return false;
+            }
+
+            return self::registrationAmountDueForApplication($application) > 0;
+        }
+
+        $quote = self::computeRegistrationPricing($pdo, []);
+
+        return $quote['requires_payment'];
     }
 
     public static function renewalRequired(PDO $pdo): bool
@@ -64,13 +279,28 @@ final class ShopBillingService
     public static function publicSettings(PDO $pdo): array
     {
         $s = self::loadSettings($pdo);
+        $quote = self::computeRegistrationPricing($pdo, []);
 
         return [
-            'enabled'          => $s['shop_billing_enabled'],
-            'registration_fee' => $s['shop_registration_fee_ghs'],
-            'renewal_fee'      => $s['shop_renewal_fee_ghs'],
-            'renewal_period'   => $s['shop_renewal_period'],
-            'currency'         => 'GHS',
+            'enabled'                       => $s['shop_billing_enabled'],
+            'registration_fee'              => $s['shop_registration_fee_ghs'],
+            'registration_amount_due'       => $quote['amount_due'],
+            'registration_list_fee'         => $quote['list_fee'],
+            'free_period_active'            => $quote['free_period_active'],
+            'free_period_until'             => $s['shop_registration_free_until'],
+            'first_registration_discount'   => [
+                'enabled' => $s['shop_first_reg_discount_enabled'],
+                'type'    => $s['shop_first_reg_discount_type'],
+                'value'   => $s['shop_first_reg_discount_value'],
+            ],
+            'referral_applicant_discount'   => [
+                'enabled' => $s['shop_referral_reg_discount_enabled'],
+                'type'    => $s['shop_referral_reg_discount_type'],
+                'value'   => $s['shop_referral_reg_discount_value'],
+            ],
+            'renewal_fee'                   => $s['shop_renewal_fee_ghs'],
+            'renewal_period'                => $s['shop_renewal_period'],
+            'currency'                      => 'GHS',
         ];
     }
 
@@ -87,13 +317,14 @@ final class ShopBillingService
     }
 
     /** @return array{requires_payment:bool,status:string} */
-    public static function initialApplicationStatus(PDO $pdo): array
+    public static function initialApplicationStatus(PDO $pdo, array $ctx = []): array
     {
-        if (self::registrationRequired($pdo)) {
-            return ['requires_payment' => true, 'status' => 'pending_payment'];
-        }
+        $quote = self::computeRegistrationPricing($pdo, $ctx);
 
-        return ['requires_payment' => false, 'status' => 'new'];
+        return [
+            'requires_payment' => $quote['requires_payment'],
+            'status'           => $quote['requires_payment'] ? 'pending_payment' : 'new',
+        ];
     }
 
     /**
@@ -112,11 +343,29 @@ final class ShopBillingService
             throw new \InvalidArgumentException('Registration fee already paid or waived.');
         }
 
-        $settings = self::loadSettings($pdo);
-        $amountGhs = $settings['shop_registration_fee_ghs'];
+        $amountGhs = self::registrationAmountDueForApplication($app);
         if ($amountGhs <= 0) {
-            throw new \InvalidArgumentException('Registration fee is not configured.');
+            $quote = self::computeRegistrationPricing($pdo, [
+                'user_id'            => $app['user_id'],
+                'email'              => $app['email'],
+                'has_valid_referrer' => !empty($app['referred_by_type']),
+            ]);
+            $amountGhs = $quote['amount_due'];
         }
+
+        if ($amountGhs <= 0) {
+            self::markRegistrationPaid($pdo, $applicationId, 'FREE-' . $applicationId);
+
+            return [
+                'dev_mock'          => true,
+                'reference'         => 'FREE-' . $applicationId,
+                'authorization_url' => null,
+                'amount_ghs'        => 0.0,
+                'no_payment_needed' => true,
+            ];
+        }
+
+        $settings = self::loadSettings($pdo);
 
         $frontend = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
         $callback = $frontend . '/sell?shop_payment=registration&application_id=' . $applicationId;
@@ -224,11 +473,15 @@ final class ShopBillingService
         $amt = $payStmt->fetchColumn();
         if ($amt !== false) {
             $amountGhs = (float) $amt;
+            $pdo->prepare(
+                'UPDATE shop_billing_payments SET status = ?, paid_at = NOW() WHERE paystack_ref = ?'
+            )->execute(['paid', $reference]);
+        } else {
+            $app = ShopApplicationService::findById($pdo, $applicationId);
+            if ($app !== null && isset($app['registration_amount_due'])) {
+                $amountGhs = (float) $app['registration_amount_due'];
+            }
         }
-
-        $pdo->prepare(
-            'UPDATE shop_billing_payments SET status = ?, paid_at = NOW() WHERE paystack_ref = ?'
-        )->execute(['paid', $reference]);
 
         $pdo->prepare(
             'UPDATE shop_applications SET registration_fee_paid = 1, registration_payment_ref = ?, status = ? WHERE id = ?'

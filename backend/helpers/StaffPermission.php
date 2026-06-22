@@ -48,6 +48,8 @@ final class StaffPermission
         'manage_promoters',
         'view_shop_billing',
         'manage_shop_fees',
+        'manage_shop_registration_promo',
+        'manage_referral_registration_discount',
         'waive_shop_fees',
         'manage_contact_inbox',
         'manage_careers',
@@ -101,6 +103,8 @@ final class StaffPermission
             'manage_promoters'            => 'Manage promoter accounts',
             'view_shop_billing'           => 'View shop registration & renewal payments',
             'manage_shop_fees'            => 'Set shop registration fee & renewal (month/year)',
+            'manage_shop_registration_promo' => 'Set free registration period & first-registration discount',
+            'manage_referral_registration_discount' => 'Set referral code discount for new shop applicants',
             'waive_shop_fees'             => 'Waive shop fees & grant billing extensions',
             'manage_contact_inbox'        => 'Contact inbox',
             'manage_careers'              => 'Careers, job posts & applications',
@@ -151,7 +155,8 @@ final class StaffPermission
                 'keys'  => [
                     'manage_marketplace', 'approve_shop_applications', 'approve_shop_listings',
                     'manage_promoters',
-                    'view_shop_billing', 'manage_shop_fees', 'waive_shop_fees',
+                    'view_shop_billing', 'manage_shop_fees', 'manage_shop_registration_promo',
+                    'manage_referral_registration_discount', 'waive_shop_fees',
                 ],
             ],
             [
