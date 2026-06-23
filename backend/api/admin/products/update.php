@@ -38,6 +38,7 @@ $map = [
     'is_preorder' => 'is_preorder', 'estimated_arrival_days' => 'estimated_arrival_days',
     'origin_country' => 'origin_country', 'status' => 'status',
     'size_guide_id' => 'size_guide_id',
+    'barcode' => 'barcode',
     'requires_custom_proof' => 'requires_custom_proof',
 ];
 

@@ -132,7 +132,11 @@ $routes = [
     'POST ' . 'admin/company-settings/enable-module' => 'admin/company-settings/enable-module.php',
     'GET '  . 'admin/launch-readiness'      => 'admin/launch-readiness/index.php',
     'GET '  . 'pos/bootstrap'               => 'pos/bootstrap.php',
-    'GET '  . 'pos/products/search'         => 'pos/products/search.php',
+    'GET '  . 'pos/products/barcode'         => 'pos/products/barcode.php',
+    'GET '  . 'pos/shift/report'             => 'pos/shift/report.php',
+    'POST ' . 'pos/sales/paystack-init'       => 'pos/sales/paystack-init.php',
+    'POST ' . 'pos/sales/paystack-verify'     => 'pos/sales/paystack-verify.php',
+    'GET '  . 'admin/pos/reports/summary'     => 'admin/pos/reports/summary.php',
     'POST ' . 'pos/sales/quote'             => 'pos/sales/quote.php',
     'POST ' . 'pos/sales'                   => 'pos/sales/create.php',
     'POST ' . 'pos/shift/open'              => 'pos/shift/open.php',
@@ -858,6 +862,17 @@ if ($handlerFile === null && $method === 'POST'
     && preg_match('#^pos/shifts/([0-9]+)/reject$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'pos/shifts/reject.php';
+}
+
+if ($handlerFile === null && $method === 'PUT'
+    && preg_match('#^admin/pos/locations/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/pos/locations/update.php';
+}
+if ($handlerFile === null && $method === 'PUT'
+    && preg_match('#^admin/pos/registers/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/pos/registers/update.php';
 }
 
 if ($handlerFile === null) {

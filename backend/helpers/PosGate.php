@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Helpers;
 
 use PDO;
+use App\Helpers\Response;
 
 /** POS module access checks. */
 final class PosGate
@@ -20,7 +21,7 @@ final class PosGate
         if (!self::isEnabled($pdo)) {
             Response::error('Point of sale is not enabled.', 403, ['code' => 'pos_disabled']);
         }
-        if (!in_array($user['role'] ?? '', ['admin', 'super_admin'], true)) {
+        if (!in_array($user['role'] ?? '', ['staff', 'super_admin'], true)) {
             Response::error('POS access requires a staff account.', 403);
         }
     }

@@ -22,6 +22,7 @@ final class ProductPresenter
             'id'          => (int) $r['id'],
             'name'        => $r['name'],
             'slug'        => $r['slug'],
+            'barcode'     => $r['barcode'] ?? null,
             'price'       => (float) $r['price'],
             'cost_price'  => (float) ($r['cost_price'] ?? 0),
             'compare_at_price' => isset($r['compare_at_price']) && $r['compare_at_price'] !== null

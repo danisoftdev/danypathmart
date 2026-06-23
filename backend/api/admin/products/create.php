@@ -43,10 +43,10 @@ if (!is_array($tags)) {
 }
 
 $stmt = $pdo->prepare(
-    'INSERT INTO products (category_id, name, slug, description, price, cost_price, compare_at_price,
+    'INSERT INTO products (category_id, name, slug, barcode, description, price, cost_price, compare_at_price,
                            rating_avg, rating_count, badge_label, is_featured, is_flash_deal,
                            stock_qty, images, tags, is_preorder, origin_country, estimated_arrival_days, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
 );
 
 $compareAt = isset($body['compare_at_price']) && $body['compare_at_price'] !== '' && $body['compare_at_price'] !== null
@@ -56,10 +56,14 @@ $ratingAvg = isset($body['rating_avg']) && $body['rating_avg'] !== '' && $body['
     ? (float) $body['rating_avg']
     : null;
 
+$barcode = trim((string) ($body['barcode'] ?? ''));
+$barcode = $barcode !== '' ? $barcode : null;
+
 $stmt->execute([
     !empty($body['category_id']) ? (int) $body['category_id'] : null,
     $name,
     $slug,
+    $barcode,
     trim((string) ($body['description'] ?? '')) ?: null,
     $price,
     max(0, (float) ($body['cost_price'] ?? 0)),

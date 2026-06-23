@@ -17,12 +17,14 @@ final class PosSettingsService
             'pos_receipt_footer'              => null,
             'pos_void_window_minutes'         => 30,
             'pos_central_momo'                => null,
+            'has_supervisor_pin'              => false,
         ];
 
         try {
             $row = $pdo->query(
                 'SELECT pos_module_enabled, pos_max_cashier_discount_percent, pos_receipt_footer,
-                        pos_void_window_minutes, pos_central_momo, company_name, phone
+                        pos_void_window_minutes, pos_central_momo, pos_supervisor_pin_hash,
+                        company_name, phone
                  FROM company_settings ORDER BY id ASC LIMIT 1'
             )->fetch();
         } catch (\Throwable) {
@@ -41,7 +43,38 @@ final class PosSettingsService
             'pos_central_momo'                 => $row['pos_central_momo'] ?? null,
             'company_name'                     => $row['company_name'] ?? 'DanyPathMart',
             'company_phone'                    => $row['phone'] ?? null,
+            'has_supervisor_pin'               => !empty($row['pos_supervisor_pin_hash']),
         ];
+    }
+
+    public static function verifySupervisorPin(PDO $pdo, ?string $pin): bool
+    {
+        if ($pin === null || trim($pin) === '') {
+            return false;
+        }
+        try {
+            $hash = $pdo->query('SELECT pos_supervisor_pin_hash FROM company_settings ORDER BY id ASC LIMIT 1')->fetchColumn();
+        } catch (\Throwable) {
+            return false;
+        }
+        if ($hash === false || $hash === null || $hash === '') {
+            return false;
+        }
+
+        return password_verify(trim($pin), (string) $hash);
+    }
+
+    public static function setSupervisorPin(PDO $pdo, ?string $pin): void
+    {
+        $hash = null;
+        if ($pin !== null && trim($pin) !== '') {
+            $hash = password_hash(trim($pin), PASSWORD_DEFAULT);
+        }
+        try {
+            $pdo->prepare('UPDATE company_settings SET pos_supervisor_pin_hash = ? WHERE id = 1')->execute([$hash]);
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('POS settings require migration 058.');
+        }
     }
 
     /** @param array<string,mixed> $input */
@@ -63,6 +96,10 @@ final class PosSettingsService
         $momo = array_key_exists('pos_central_momo', $input)
             ? self::nullableStr($input['pos_central_momo'])
             : $current['pos_central_momo'];
+
+        if (array_key_exists('pos_supervisor_pin', $input)) {
+            self::setSupervisorPin($pdo, self::nullableStr($input['pos_supervisor_pin']));
+        }
 
         try {
             $pdo->prepare(

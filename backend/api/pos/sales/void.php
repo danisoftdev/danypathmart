@@ -25,7 +25,14 @@ if (!$asSupervisor && !PosGate::canUsePos($user)) {
 }
 
 try {
-    PosSaleService::void($pdo, $orderId, (int) $user['id'], $reason, $asSupervisor);
+    PosSaleService::void(
+        $pdo,
+        $orderId,
+        (int) $user['id'],
+        $reason,
+        $asSupervisor,
+        isset($body['supervisor_pin']) ? (string) $body['supervisor_pin'] : null
+    );
 } catch (\Throwable $e) {
     Response::error($e->getMessage(), 422);
 }

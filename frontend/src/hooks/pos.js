@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/api';
 
+export function usePosSaleReceipt() {
+  return useMutation({
+    mutationFn: async (orderId) => (await api.get(`/pos/sales/${orderId}`)).data,
+  });
+}
+
 export function usePosBootstrap(registerId, enabled = true) {
   return useQuery({
     queryKey: ['pos-bootstrap', registerId],
@@ -20,6 +26,12 @@ export function usePosProductSearch(q, enabled = true) {
   });
 }
 
+export function usePosBarcodeLookup() {
+  return useMutation({
+    mutationFn: async (code) => (await api.get('/pos/products/barcode', { params: { code } })).data,
+  });
+}
+
 export function usePosQuote() {
   return useMutation({
     mutationFn: async (payload) => (await api.post('/pos/sales/quote', payload)).data,
@@ -30,7 +42,24 @@ export function usePosCompleteSale() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => (await api.post('/pos/sales', payload)).data,
-    onSuccess: (_, vars) => {
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pos-bootstrap'] });
+      qc.invalidateQueries({ queryKey: ['pos-shift'] });
+    },
+  });
+}
+
+export function usePosPaystackInit() {
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/pos/sales/paystack-init', payload)).data,
+  });
+}
+
+export function usePosPaystackVerify() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/pos/sales/paystack-verify', payload)).data,
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['pos-bootstrap'] });
       qc.invalidateQueries({ queryKey: ['pos-shift'] });
     },
@@ -66,6 +95,15 @@ export function usePosShiftCurrent(registerId, enabled = true) {
   });
 }
 
+export function usePosShiftReport(shiftId, type, enabled = true) {
+  return useQuery({
+    queryKey: ['pos-shift-report', shiftId, type],
+    queryFn: async () =>
+      (await api.get('/pos/shift/report', { params: { shift_id: shiftId, type } })).data,
+    enabled: enabled && shiftId > 0,
+  });
+}
+
 export function usePosPendingShifts(enabled = true) {
   return useQuery({
     queryKey: ['pos-shifts-pending'],
@@ -94,8 +132,8 @@ export function usePosRejectShift() {
 export function usePosVoidSale() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ orderId, reason }) =>
-      (await api.post(`/pos/sales/${orderId}/void`, { reason })).data,
+    mutationFn: async ({ orderId, reason, supervisor_pin }) =>
+      (await api.post(`/pos/sales/${orderId}/void`, { reason, supervisor_pin })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-shift'] }),
   });
 }
@@ -133,6 +171,14 @@ export function usePosCreateLocation() {
   });
 }
 
+export function usePosUpdateLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }) => (await api.put(`/admin/pos/locations/${id}`, payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-locations'] }),
+  });
+}
+
 export function usePosRegisters(locationId) {
   return useQuery({
     queryKey: ['pos-registers', locationId],
@@ -148,5 +194,22 @@ export function usePosCreateRegister() {
   return useMutation({
     mutationFn: async (payload) => (await api.post('/admin/pos/registers', payload)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-registers'] }),
+  });
+}
+
+export function usePosUpdateRegister() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }) => (await api.put(`/admin/pos/registers/${id}`, payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['pos-registers'] }),
+  });
+}
+
+export function usePosReportsSummary(from, to, enabled = true) {
+  return useQuery({
+    queryKey: ['pos-reports-summary', from, to],
+    queryFn: async () =>
+      (await api.get('/admin/pos/reports/summary', { params: { from, to } })).data,
+    enabled,
   });
 }

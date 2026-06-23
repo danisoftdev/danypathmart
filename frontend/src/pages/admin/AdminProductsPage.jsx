@@ -17,6 +17,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 const EMPTY_DRAFT = {
   name: '',
+  barcode: '',
   price: '',
   cost_price: '',
   compare_at_price: '',
@@ -480,6 +481,7 @@ export default function AdminProductsPage() {
 
   const payloadFrom = (v) => ({
     name: v.name.trim(),
+    barcode: v.barcode?.trim() || null,
     price: Number(v.price),
     cost_price: Number(v.cost_price) || 0,
     compare_at_price: v.compare_at_price !== '' ? Number(v.compare_at_price) : null,
@@ -673,6 +675,7 @@ export default function AdminProductsPage() {
             <option value="draft">Draft</option>
             <option value="inactive">Inactive</option>
           </select>
+          <input className="input-field" placeholder="Barcode / SKU" value={draft.barcode} onChange={(e) => setDraft((d) => ({ ...d, barcode: e.target.value }))} />
           <input className="input-field" type="number" step="0.01" placeholder="Sell price (GHS)" value={draft.price} onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))} required />
           <input className="input-field" type="number" step="0.01" placeholder="Cost price (GHS)" value={draft.cost_price} onChange={(e) => setDraft((d) => ({ ...d, cost_price: e.target.value }))} />
           <input className="input-field" type="number" placeholder="Stock qty" value={draft.stock_qty} onChange={(e) => setDraft((d) => ({ ...d, stock_qty: e.target.value }))} />
@@ -732,6 +735,7 @@ export default function AdminProductsPage() {
             <h3 className="font-extrabold">Edit product</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input className="input-field sm:col-span-2" value={editing.name} onChange={(e) => setEditing((x) => ({ ...x, name: e.target.value }))} placeholder="Name" />
+              <input className="input-field sm:col-span-2" value={editing.barcode || ''} onChange={(e) => setEditing((x) => ({ ...x, barcode: e.target.value }))} placeholder="Barcode / SKU" />
               <select className="admin-filter-select w-full sm:col-span-2" value={editing.category_id} onChange={(e) => setEditing((x) => ({ ...x, category_id: e.target.value }))}>{categoryOptions}</select>
               <input className="input-field" type="number" step="0.01" value={editing.price} onChange={(e) => setEditing((x) => ({ ...x, price: e.target.value }))} placeholder="Sell price" />
               <input className="input-field" type="number" step="0.01" value={editing.cost_price} onChange={(e) => setEditing((x) => ({ ...x, cost_price: e.target.value }))} placeholder="Cost price" />

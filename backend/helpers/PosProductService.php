@@ -21,25 +21,47 @@ final class PosProductService
 
         $like = '%' . $q . '%';
         $stmt = $pdo->prepare(
-            "SELECT p.id, p.name, p.slug, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id
+            "SELECT p.id, p.name, p.slug, p.barcode, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id
              FROM products p
              WHERE p.status = 'active'
                AND (p.shop_id IS NULL OR p.shop_id = 0)
                AND p.is_preorder = 0
-               AND (p.name LIKE ? OR p.slug LIKE ? OR CAST(p.id AS CHAR) = ?)
+               AND (p.name LIKE ? OR p.slug LIKE ? OR p.barcode = ? OR CAST(p.id AS CHAR) = ?)
              ORDER BY p.name ASC
              LIMIT {$limit}"
         );
-        $stmt->execute([$like, $like, $q]);
+        $stmt->execute([$like, $like, $q, $q]);
 
         return array_map([self::class, 'format'], $stmt->fetchAll());
+    }
+
+    /** @return array<string,mixed>|null */
+    public static function findByBarcode(PDO $pdo, string $barcode): ?array
+    {
+        $code = trim($barcode);
+        if ($code === '') {
+            return null;
+        }
+
+        $stmt = $pdo->prepare(
+            "SELECT p.id, p.name, p.slug, p.barcode, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id, p.cost_price
+             FROM products p
+             WHERE p.barcode = ? AND p.status = 'active'
+               AND (p.shop_id IS NULL OR p.shop_id = 0)
+               AND p.is_preorder = 0
+             LIMIT 1"
+        );
+        $stmt->execute([$code]);
+        $row = $stmt->fetch();
+
+        return $row === false ? null : self::format($row);
     }
 
     /** @return array<string,mixed>|null */
     public static function find(PDO $pdo, int $productId): ?array
     {
         $stmt = $pdo->prepare(
-            "SELECT p.id, p.name, p.slug, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id, p.cost_price
+            "SELECT p.id, p.name, p.slug, p.barcode, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id, p.cost_price
              FROM products p
              WHERE p.id = ? AND p.status = 'active'
                AND (p.shop_id IS NULL OR p.shop_id = 0)
@@ -112,7 +134,7 @@ final class PosProductService
     private static function recent(PDO $pdo, int $limit): array
     {
         $stmt = $pdo->query(
-            "SELECT p.id, p.name, p.slug, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id
+            "SELECT p.id, p.name, p.slug, p.barcode, p.price, p.stock_qty, p.images, p.is_preorder, p.shop_id
              FROM products p
              WHERE p.status = 'active'
                AND (p.shop_id IS NULL OR p.shop_id = 0)
@@ -134,6 +156,7 @@ final class PosProductService
             'id'          => (int) $row['id'],
             'name'        => (string) $row['name'],
             'slug'        => (string) $row['slug'],
+            'barcode'     => isset($row['barcode']) && $row['barcode'] !== null ? (string) $row['barcode'] : null,
             'price'       => round((float) $row['price'], 2),
             'stock_qty'   => (int) $row['stock_qty'],
             'cost_price'  => isset($row['cost_price']) ? round((float) $row['cost_price'], 2) : 0.0,

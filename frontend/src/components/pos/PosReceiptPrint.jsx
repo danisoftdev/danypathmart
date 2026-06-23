@@ -5,8 +5,16 @@ export default function PosReceiptPrint({ receipt, onDone }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-auto bg-black/60 p-4 print:relative print:inset-auto print:bg-white print:p-0">
+      <style>{`
+        @media print {
+          @page { margin: 4mm; size: 80mm auto; }
+          body * { visibility: hidden; }
+          #pos-receipt-print, #pos-receipt-print * { visibility: visible; }
+          #pos-receipt-print { position: absolute; left: 0; top: 0; width: 72mm; font-size: 11px; }
+        }
+      `}</style>
       <div className="w-full max-w-sm rounded-xl bg-white p-6 text-black shadow-xl print:max-w-none print:shadow-none">
-        <div id="pos-receipt-print" className="text-sm">
+        <div id="pos-receipt-print" className="font-mono text-sm">
           <p className="text-center text-base font-extrabold">{company_name}</p>
           {sale.location?.name && <p className="text-center text-xs text-gray-600">{sale.location.name}</p>}
           {sale.register?.name && <p className="text-center text-xs text-gray-600">Register: {sale.register.name}</p>}
@@ -39,6 +47,12 @@ export default function PosReceiptPrint({ receipt, onDone }) {
               <span>Total</span>
               <span>{sale.total.toFixed(2)} GHS</span>
             </div>
+            {sale.change_given > 0 && (
+              <div className="flex justify-between font-bold">
+                <span>Change</span>
+                <span>{sale.change_given.toFixed(2)} GHS</span>
+              </div>
+            )}
           </div>
           {sale.payments?.length > 0 && (
             <>

@@ -188,7 +188,16 @@ final class PosShiftService
 
     private static function refundTotalForShift(PDO $pdo, int $shiftId, string $method): float
     {
-        return 0.0;
+        $stmt = $pdo->prepare(
+            'SELECT COALESCE(SUM(p.amount), 0)
+             FROM pos_order_payments p
+             INNER JOIN orders o ON o.id = p.order_id
+             WHERE o.pos_shift_id = ? AND o.sales_channel = \'pos\'
+               AND o.pos_voided_at IS NOT NULL AND p.method = ?'
+        );
+        $stmt->execute([$shiftId, $method]);
+
+        return round((float) $stmt->fetchColumn(), 2);
     }
 
     /** @param array<string,mixed> $row */

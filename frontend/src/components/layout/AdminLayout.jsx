@@ -30,6 +30,7 @@ const NAV_GROUPS = [
       { to: '/pos', label: 'POS register', permission: 'use_pos', icon: '🧾' },
       { to: '/admin/pos', label: 'POS setup', permissions: ['manage_pos_config', 'edit_company_settings'], icon: '🖥️' },
       { to: '/admin/pos/shifts', label: 'POS shifts', permission: 'manage_pos_shifts', icon: '💰' },
+      { to: '/admin/pos/reports', label: 'POS reports', permission: 'view_pos_reports', icon: '📊' },
       { to: '/admin/custom-proofs', label: 'Custom proofs', permission: 'view_orders', icon: '🎨' },
       { to: '/admin/image-alerts', label: 'Image alerts', permission: 'view_image_alerts', icon: '🖼️', badge: 'alerts' },
     ],

@@ -20,6 +20,6 @@ if ($registerId <= 0) {
 }
 
 $shift = PosShiftService::currentForRegister($pdo, $registerId);
-$sales = $shift !== null ? PosSaleService::listForShift($pdo, (int) $shift['id']) : [];
+$sales = $shift !== null ? PosSaleService::listForShift($pdo, (int) $shift['id'], true) : [];
 
 Response::success(['shift' => $shift, 'sales' => $sales]);

@@ -31,8 +31,9 @@ $db = $pdo->query('SELECT DATABASE()')->fetchColumn();
 
 $requiredTables = ['pos_locations', 'pos_registers', 'pos_shifts', 'pos_order_payments'];
 $requiredColumns = [
-    'company_settings' => ['pos_module_enabled', 'pos_central_momo'],
-    'orders'           => ['sales_channel', 'pos_shift_id', 'pos_voided_at'],
+    'company_settings' => ['pos_module_enabled', 'pos_supervisor_pin_hash'],
+    'products'         => ['barcode'],
+    'orders'           => ['sales_channel', 'pos_shift_id', 'pos_change_given'],
 ];
 
 echo "POS schema smoke test (database: {$db})\n" . str_repeat('-', 50) . "\n";

@@ -71,6 +71,7 @@ import AdminShippingPage from './pages/admin/AdminShippingPage';
 import AdminLaunchReadinessPage from './pages/admin/AdminLaunchReadinessPage';
 import AdminPosSettingsPage from './pages/admin/AdminPosSettingsPage';
 import AdminPosShiftsPage from './pages/admin/AdminPosShiftsPage';
+import AdminPosReportsPage from './pages/admin/AdminPosReportsPage';
 import PosLayout from './components/layout/PosLayout';
 import PosTerminalPage from './pages/pos/PosTerminalPage';
 import ContactPage from './pages/ContactPage';
@@ -275,6 +276,7 @@ export default function App() {
             <Route path="marketplace" element={<AdminMarketplacePage />} />
             <Route path="pos" element={<AdminPosSettingsPage />} />
             <Route path="pos/shifts" element={<AdminPosShiftsPage />} />
+            <Route path="pos/reports" element={<AdminPosReportsPage />} />
             <Route path="staff" element={<StaffAccounts />} />
           </Route>
           <Route
