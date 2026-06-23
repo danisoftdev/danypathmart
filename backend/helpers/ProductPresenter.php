@@ -38,6 +38,7 @@ final class ProductPresenter
             'is_preorder' => (bool) ($r['is_preorder'] ?? 0),
             'requires_custom_proof' => (bool) ($r['requires_custom_proof'] ?? 0),
             'stock_qty'   => (int) ($r['stock_qty'] ?? 0),
+            'units_sold'  => (int) ($r['units_sold'] ?? 0),
             'category_id' => isset($r['category_id']) ? (int) $r['category_id'] : null,
             'category_name' => $r['category_name'] ?? null,
             'category_slug' => $r['category_slug'] ?? null,

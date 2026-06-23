@@ -63,6 +63,9 @@ final class StaffPermission
         'manage_employee_profiles',
         'view_leave_requests',
         'manage_leave_requests',
+        'manage_product_reviews',
+        'manage_support_bot',
+        'manage_messaging_integrations',
     ];
 
     /** @return array<string, string> */
@@ -118,6 +121,9 @@ final class StaffPermission
             'manage_employee_profiles'    => 'Manage employee profiles',
             'view_leave_requests'         => 'View leave requests',
             'manage_leave_requests'       => 'Manage leave requests',
+            'manage_product_reviews'      => 'Moderate product reviews',
+            'manage_support_bot'          => 'Manage live chat bot scripts',
+            'manage_messaging_integrations' => 'Toggle SMS, WhatsApp API & push settings',
         ];
     }
 
@@ -132,11 +138,15 @@ final class StaffPermission
                 'keys'  => [
                     'view_products', 'add_edit_products', 'delete_products',
                     'manage_categories', 'manage_size_guides', 'manage_kits', 'manage_flash_sale',
+                    'manage_product_reviews',
                 ],
             ],
             [
                 'title' => 'Customers & comms',
-                'keys'  => ['view_users', 'edit_users', 'send_notifications', 'manage_contact_inbox'],
+                'keys'  => [
+                    'view_users', 'edit_users', 'send_notifications', 'manage_contact_inbox',
+                    'manage_support_bot', 'manage_messaging_integrations',
+                ],
             ],
             [
                 'title' => 'Staff & hiring',

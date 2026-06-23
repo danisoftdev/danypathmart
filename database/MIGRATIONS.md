@@ -67,6 +67,7 @@ cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-productio
 | `052_support_live_chat.sql` | — | Two-way support chat conversations and messages |
 | `053_shop_self_delivery.sql` | M4 | Shop self-delivery fulfillments, earnings on payment confirmed |
 | `054_shop_registration_promotions.sql` | M6 | Free registration window, first-reg & referral applicant discounts |
+| `055_trust_reviews_messaging.sql` | — | Reviews, stock on payment, shop search, chat bot routing, push/SMS/WhatsApp toggles |
 
 `migrate-all.php` also runs post-hooks: job role catalog sync, workforce employee backfill.
 

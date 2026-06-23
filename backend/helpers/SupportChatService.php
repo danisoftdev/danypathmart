@@ -46,6 +46,137 @@ final class SupportChatService
     }
 
     /** @return array<string,mixed> */
+    public static function startWithContext(
+        PDO $pdo,
+        ?array $user,
+        ?string $guestToken,
+        string $name,
+        string $email,
+        ?int $productId = null,
+        ?int $orderId = null
+    ): array {
+        $product = null;
+        $shopId = null;
+        if ($productId !== null && $productId > 0) {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, stock_qty, is_preorder, shop_id FROM products WHERE id = ? AND status = ? LIMIT 1'
+            );
+            $stmt->execute([$productId, 'active']);
+            $product = $stmt->fetch() ?: null;
+            if ($product !== false && $product !== null) {
+                $shopId = $product['shop_id'] !== null ? (int) $product['shop_id'] : null;
+            }
+        }
+
+        if ($user !== null) {
+            $existing = self::findOpenForUser($pdo, (int) $user['id']);
+            if ($existing !== null) {
+                self::attachContext($pdo, (int) $existing['id'], $productId, $shopId, $orderId);
+                return self::requireConversationPublic($pdo, (int) $existing['id']);
+            }
+            $pdo->prepare(
+                'INSERT INTO support_conversations (user_id, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
+            )->execute([
+                (int) $user['id'],
+                $name,
+                $email,
+                $productId,
+                $shopId,
+                $orderId,
+                $productId !== null ? 'product' : ($orderId !== null ? 'order' : 'general'),
+            ]);
+        } else {
+            if ($guestToken === null) {
+                throw new RuntimeException('Guest token required.');
+            }
+            $existing = self::findByGuestToken($pdo, $guestToken);
+            if ($existing !== null && ($existing['status'] ?? '') === 'open') {
+                self::attachContext($pdo, (int) $existing['id'], $productId, $shopId, $orderId);
+                return self::requireConversationPublic($pdo, (int) $existing['id']);
+            }
+            $pdo->prepare(
+                'INSERT INTO support_conversations (guest_token, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
+            )->execute([
+                $guestToken,
+                $name,
+                $email,
+                $productId,
+                $shopId,
+                $orderId,
+                $productId !== null ? 'product' : ($orderId !== null ? 'order' : 'general'),
+            ]);
+        }
+
+        $conv = self::requireConversationPublic($pdo, (int) $pdo->lastInsertId());
+        $intro = $productId !== null && $product !== false && $product !== null
+            ? 'Hi! You asked about: ' . ($product['name'] ?? 'this product') . '. Choose an option below.'
+            : 'Hi! How can we help you today? Choose an option below.';
+        self::insertBotMessage($pdo, (int) $conv['id'], $intro);
+
+        return $conv;
+    }
+
+    public static function attachContext(PDO $pdo, int $conversationId, ?int $productId, ?int $shopId, ?int $orderId): void
+    {
+        $pdo->prepare(
+            'UPDATE support_conversations SET product_id = COALESCE(?, product_id), shop_id = COALESCE(?, shop_id),
+                order_id = COALESCE(?, order_id), updated_at = NOW() WHERE id = ?'
+        )->execute([$productId, $shopId, $orderId, $conversationId]);
+    }
+
+    public static function routeConversation(PDO $pdo, int $conversationId, string $routedTo, ?int $shopId): void
+    {
+        if (!in_array($routedTo, ['dpm', 'shop'], true)) {
+            return;
+        }
+        $pdo->prepare(
+            'UPDATE support_conversations SET routed_to = ?, shop_id = COALESCE(?, shop_id), updated_at = NOW() WHERE id = ?'
+        )->execute([$routedTo, $shopId, $conversationId]);
+    }
+
+    /** @return array<string,mixed> */
+    public static function insertBotMessage(PDO $pdo, int $conversationId, string $body): array
+    {
+        self::insertMessage($pdo, $conversationId, 'bot', null, $body, null);
+        $pdo->prepare(
+            'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
+
+        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public static function listForShop(PDO $pdo, int $shopId, ?string $status = 'open'): array
+    {
+        $sql = 'SELECT c.* FROM support_conversations c WHERE c.routed_to = \'shop\' AND c.shop_id = ?';
+        $params = [$shopId];
+        if ($status === 'open' || $status === 'closed') {
+            $sql .= ' AND c.status = ?';
+            $params[] = $status;
+        }
+        $sql .= ' ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT 100';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return array_map(static fn (array $r): array => self::mapConversation($r), $stmt->fetchAll());
+    }
+
+    /** @return array<string,mixed> */
+    public static function sendShopMessage(PDO $pdo, int $conversationId, int $shopUserId, ?string $body): array
+    {
+        self::requireConversation($pdo, $conversationId);
+        self::insertMessage($pdo, $conversationId, 'shop', $shopUserId, $body, null);
+        $pdo->prepare(
+            'UPDATE support_conversations SET customer_unread_count = customer_unread_count + 1,
+                shop_unread_count = 0, last_message_at = NOW(), updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
+
+        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+    }
+
+    /** @return array<string,mixed> */
     public static function createForUser(PDO $pdo, int $userId, string $name, string $email): array
     {
         $pdo->prepare(
@@ -215,10 +346,10 @@ final class SupportChatService
         $sql = 'SELECT c.*,
                        (SELECT body FROM support_messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS last_body,
                        (SELECT image_url FROM support_messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS last_image_url
-                FROM support_conversations c';
+                FROM support_conversations c WHERE c.routed_to IN (\'pending\', \'dpm\')';
         $params = [];
         if ($status === 'open' || $status === 'closed') {
-            $sql .= ' WHERE c.status = ?';
+            $sql .= ' AND c.status = ?';
             $params[] = $status;
         }
         $sql .= ' ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT 200';
@@ -358,6 +489,12 @@ final class SupportChatService
     }
 
     /** @return array<string,mixed> */
+    public static function requireConversationPublic(PDO $pdo, int $id): array
+    {
+        return self::requireConversation($pdo, $id);
+    }
+
+    /** @return array<string,mixed> */
     private static function requireConversation(PDO $pdo, int $id): array
     {
         $stmt = $pdo->prepare('SELECT * FROM support_conversations WHERE id = ? LIMIT 1');
@@ -397,8 +534,15 @@ final class SupportChatService
             'guest_token'             => $row['guest_token'] !== null ? (string) $row['guest_token'] : null,
             'guest_name'              => $row['guest_name'] !== null ? (string) $row['guest_name'] : null,
             'guest_email'             => $row['guest_email'] !== null ? (string) $row['guest_email'] : null,
+            'product_id'              => isset($row['product_id']) && $row['product_id'] !== null ? (int) $row['product_id'] : null,
+            'shop_id'                 => isset($row['shop_id']) && $row['shop_id'] !== null ? (int) $row['shop_id'] : null,
+            'order_id'                => isset($row['order_id']) && $row['order_id'] !== null ? (int) $row['order_id'] : null,
+            'context_type'            => (string) ($row['context_type'] ?? 'general'),
+            'routed_to'               => (string) ($row['routed_to'] ?? 'pending'),
+            'bot_step_key'            => $row['bot_step_key'] ?? null,
             'status'                  => (string) $row['status'],
             'admin_unread_count'      => (int) ($row['admin_unread_count'] ?? 0),
+            'shop_unread_count'       => (int) ($row['shop_unread_count'] ?? 0),
             'customer_unread_count'   => (int) ($row['customer_unread_count'] ?? 0),
             'last_message_at'         => $row['last_message_at'],
             'created_at'              => $row['created_at'],

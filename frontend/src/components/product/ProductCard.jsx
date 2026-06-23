@@ -7,7 +7,8 @@ import ProductBadges from './ProductBadges';
 
 import { formatPrice } from '../../lib/currency';
 
-import { productDiscount, stockLabel } from '../../lib/productUi';
+import { productDiscount, stockLabel, unitsSoldLabel } from '../../lib/productUi';
+import { useCatalogSettings } from '../../hooks/catalogSettings';
 
 import { useIsWishlisted, useToggleWishlist } from '../../hooks/wishlist';
 
@@ -22,6 +23,8 @@ export default function ProductCard({ product, onQuickView }) {
 
   const addItem = useCartStore((s) => s.addItem);
   const labels = useAirLabels();
+  const { data: catalogSettings } = useCatalogSettings();
+  const inv = catalogSettings?.inventory;
 
   const wishlisted = useIsWishlisted(product.id);
   const toggleWish = useToggleWishlist();
@@ -30,7 +33,8 @@ export default function ProductCard({ product, onQuickView }) {
 
   const discount = productDiscount(product);
 
-  const stock = stockLabel(product, labels);
+  const stock = stockLabel(product, labels, inv);
+  const sold = unitsSoldLabel(product, inv);
 
 
 
@@ -192,6 +196,12 @@ export default function ProductCard({ product, onQuickView }) {
           {stock.text}
 
         </span>
+
+        {sold && (
+          <span className="mt-1 inline-flex w-fit rounded-full bg-black/5 px-2 py-0.5 text-[10px] font-semibold text-muted dark:bg-white/10">
+            {sold}
+          </span>
+        )}
 
 
 

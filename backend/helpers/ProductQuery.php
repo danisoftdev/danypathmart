@@ -63,6 +63,13 @@ final class ProductQuery
             $where[] = 'stock_qty > 0';
         }
 
+        $shopSlug = trim((string) ($q['shop_slug'] ?? ''));
+        if ($shopSlug !== '') {
+            $where[] = 'shop_id IN (SELECT id FROM shops WHERE slug = ? AND status = ?)';
+            $params[] = $shopSlug;
+            $params[] = 'active';
+        }
+
         if (!empty($q['is_featured']) && in_array((string) $q['is_featured'], ['0', '1'], true)) {
             $where[] = 'is_featured = ?';
             $params[] = (int) $q['is_featured'];

@@ -49,6 +49,7 @@ import AdminPositionPermissionsPage from './pages/admin/AdminPositionPermissions
 import AdminPickupStationsPage from './pages/admin/AdminPickupStationsPage';
 import AdminHubLogisticsPage from './pages/admin/AdminHubLogisticsPage';
 import AdminDeliveryRunsPage from './pages/admin/AdminDeliveryRunsPage';
+import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminMarketplacePage from './pages/admin/AdminMarketplacePage';
 import DriverLayout from './components/layout/DriverLayout';
 import DriverRunsPage from './pages/driver/DriverRunsPage';
@@ -58,6 +59,7 @@ import AdminStationStaffPage from './pages/admin/AdminStationStaffPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
 import ShopApplyPage from './pages/ShopApplyPage';
 import StorePage from './pages/StorePage';
+import StoresPage from './pages/StoresPage';
 import ShopLayout from './components/layout/ShopLayout';
 import ShopDashboardPage from './pages/seller/ShopDashboardPage';
 import ShopProductsPage from './pages/seller/ShopProductsPage';
@@ -160,6 +162,7 @@ export default function App() {
           <Route path="/careers/apply/:jobId" element={<JobApplyPage />} />
           <Route path="/sell" element={<ShopApplyPage />} />
           <Route path="/promoter" element={<PromoterDashboardPage />} />
+          <Route path="/stores" element={<StoresPage />} />
           <Route path="/stores/:slug" element={<StorePage />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
@@ -257,6 +260,7 @@ export default function App() {
             <Route path="launch-readiness" element={<AdminLaunchReadinessPage />} />
             <Route path="contact-inbox" element={<AdminContactInboxPage />} />
             <Route path="support-chat" element={<AdminSupportChatPage />} />
+            <Route path="reviews" element={<AdminReviewsPage />} />
             <Route path="job-posts" element={<AdminJobPostsPage />} />
             <Route path="career-applications" element={<AdminCareerApplicationsPage />} />
             <Route path="position-permissions" element={<AdminPositionPermissionsPage />} />

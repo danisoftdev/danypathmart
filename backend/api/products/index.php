@@ -33,7 +33,7 @@ $total = (int) $countStmt->fetchColumn();
 // string-bound LIMIT params when emulation is off).
 $sql = "SELECT p.id, p.category_id, p.shop_id, p.name, p.slug, p.description, p.price, p.compare_at_price,
                p.rating_avg, p.rating_count, p.badge_label, p.is_featured, p.is_flash_deal,
-               p.stock_qty, p.images, p.tags, p.is_preorder, p.origin_country, p.estimated_arrival_days,
+               p.stock_qty, p.units_sold, p.images, p.tags, p.is_preorder, p.origin_country, p.estimated_arrival_days,
                p.status, p.listing_status, p.created_at,
                c.name AS category_name, c.slug AS category_slug,
                s.name AS shop_name, s.slug AS shop_slug, s.logo_url AS shop_logo

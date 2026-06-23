@@ -221,8 +221,7 @@ try {
 
         foreach ($quote['lines'] as $line) {
             if (!$line['is_preorder']) {
-                $pdo->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?')
-                    ->execute([(int) $line['quantity'], (int) $line['product']['id']]);
+                // Stock committed on payment (or POD below) via InventoryService
             }
         }
     } else {
@@ -246,10 +245,7 @@ try {
                 null,
             ]);
 
-            if (!$line['is_preorder']) {
-                $pdo->prepare('UPDATE products SET stock_qty = stock_qty - ? WHERE id = ?')
-                    ->execute([(int) $line['quantity'], (int) $line['product']['id']]);
-            }
+            // Stock committed on payment (or POD below) via InventoryService
         }
     }
 
@@ -274,6 +270,11 @@ try {
 }
 
 ShopFulfillmentService::createForOrder($pdo, $orderId, $quote['lines']);
+
+$invSettings = InventoryService::displaySettings($pdo);
+if (!$invSettings['stock_decrement_on_payment'] || InventoryService::shouldCommitOnOrderCreate($paymentMethod)) {
+    InventoryService::commitOrderInventory($pdo, $orderId);
+}
 
 if ($referralCode !== '') {
     ReferralService::attachToOrder($pdo, $orderId, (int) $user['id'], $referralCode);

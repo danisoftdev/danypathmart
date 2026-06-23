@@ -10,6 +10,7 @@ import ScrollToTop from '../ui/ScrollToTop';
 import AdminNotificationWatcher from '../notifications/AdminNotificationWatcher';
 
 import SupportChatWidget from '../support/SupportChatWidget';
+import PushNotificationPrompt from '../notifications/PushNotificationPrompt';
 
 export default function AppLayout() {
   return (
@@ -27,6 +28,7 @@ export default function AppLayout() {
         <SearchOverlay />
         <ScrollToTop />
         <SupportChatWidget />
+        <PushNotificationPrompt />
       </div>
     </SearchProvider>
   );
