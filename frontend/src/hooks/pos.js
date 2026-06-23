@@ -213,3 +213,30 @@ export function usePosReportsSummary(from, to, enabled = true) {
     enabled,
   });
 }
+
+export function usePosBackfillBarcodes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async () => (await api.post('/admin/pos/barcodes/backfill')).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['pos-label-products'] });
+      qc.invalidateQueries({ queryKey: ['pos-products'] });
+    },
+  });
+}
+
+export function usePosLabelProducts(enabled = true) {
+  return useQuery({
+    queryKey: ['pos-label-products'],
+    queryFn: async () => (await api.get('/admin/pos/labels')).data,
+    enabled,
+  });
+}
+
+export function usePosShiftHistory(enabled = true) {
+  return useQuery({
+    queryKey: ['pos-shifts-history'],
+    queryFn: async () => (await api.get('/admin/pos/shifts/history')).data,
+    enabled,
+  });
+}

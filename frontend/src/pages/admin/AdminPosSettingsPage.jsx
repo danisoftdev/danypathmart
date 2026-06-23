@@ -10,6 +10,7 @@ import {
   usePosUpdateLocation,
   usePosUpdateRegister,
   usePosUpdateSettings,
+  usePosBackfillBarcodes,
 } from '../../hooks/pos';
 import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../lib/permissions';
@@ -21,6 +22,7 @@ export default function AdminPosSettingsPage() {
 
   const { data: settingsData, isLoading } = usePosAdminSettings();
   const updateSettings = usePosUpdateSettings();
+  const backfillBarcodes = usePosBackfillBarcodes();
   const { data: locData } = usePosLocations();
   const createLoc = usePosCreateLocation();
   const updateLoc = usePosUpdateLocation();
@@ -116,6 +118,22 @@ export default function AdminPosSettingsPage() {
           </label>
         </div>
         <button type="submit" className="btn-primary mt-4" disabled={updateSettings.isPending}>Save settings</button>
+        <button
+          type="button"
+          className="btn-secondary mt-4 ml-3"
+          disabled={backfillBarcodes.isPending}
+          onClick={async () => {
+            try {
+              const res = await backfillBarcodes.mutateAsync();
+              setToast(res.message || 'Barcodes assigned.');
+              setTimeout(() => setToast(''), 4000);
+            } catch (err) {
+              setError(err.response?.data?.message || 'Backfill failed.');
+            }
+          }}
+        >
+          Assign barcodes to all DPM products
+        </button>
       </form>
 
       <div className="grid gap-8 lg:grid-cols-2">

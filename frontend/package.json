@@ -13,6 +13,7 @@
     "@paystack/inline-js": "^2.22.9",
     "@tanstack/react-query": "^5.100.14",
     "axios": "^1.16.1",
+    "jsbarcode": "^3.12.3",
     "leaflet": "^1.9.4",
     "lodash": "^4.18.1",
     "qrcode.react": "^4.2.0",

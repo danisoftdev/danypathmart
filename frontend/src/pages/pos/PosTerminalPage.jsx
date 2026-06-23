@@ -4,6 +4,8 @@ import { formatPrice } from '../../lib/currency';
 import { hasPermission } from '../../lib/permissions';
 import { useAuthStore } from '../../store/authStore';
 import PosReceiptPrint from '../../components/pos/PosReceiptPrint';
+import PosShiftReportModal from '../../components/pos/PosShiftReportModal';
+import { posBeep } from '../../lib/posBeep';
 import {
   usePosBarcodeLookup,
   usePosBootstrap,
@@ -53,6 +55,7 @@ export default function PosTerminalPage() {
   const [closeOpen, setCloseOpen] = useState(false);
   const [salesOpen, setSalesOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [zReport, setZReport] = useState(null);
   const [voidSale, setVoidSale] = useState(null);
   const [voidReason, setVoidReason] = useState('');
   const [voidPin, setVoidPin] = useState('');
@@ -117,6 +120,7 @@ export default function PosTerminalPage() {
       const res = await barcodeLookup.mutateAsync(trimmed);
       if (res?.data) {
         addToCart(res.data);
+        posBeep('ok');
         return;
       }
     } catch {
@@ -129,6 +133,7 @@ export default function PosTerminalPage() {
       }
       setScanFlash('err');
       setTimeout(() => setScanFlash(''), 500);
+      posBeep('err');
       setError(`No product for barcode: ${trimmed}`);
     }
     setSearch('');
@@ -191,12 +196,15 @@ export default function PosTerminalPage() {
   const handleCloseShift = async () => {
     setError('');
     try {
-      await closeShift.mutateAsync({
+      const res = await closeShift.mutateAsync({
         shift_id: shift.id,
         counted_cash: Number(countedCash) || 0,
         variance_note: varianceNote,
       });
       setCloseOpen(false);
+      setCountedCash('');
+      setVarianceNote('');
+      if (res.z_report) setZReport(res.z_report);
     } catch (e) {
       setError(e.response?.data?.message || 'Could not close shift.');
     }
@@ -532,22 +540,11 @@ export default function PosTerminalPage() {
       )}
 
       {reportOpen && xReport && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
-          <div className="max-h-[85vh] w-full max-w-md overflow-auto rounded-2xl bg-white p-6 text-black">
-            <h3 className="font-extrabold">X-Report · Shift #{shift.id}</h3>
-            <p className="text-sm text-gray-500">{xReport.company_name}</p>
-            <div className="mt-4 space-y-1 text-sm">
-              <p>Sales count: <strong>{xReport.totals?.sales ?? 0}</strong></p>
-              <p>Gross: <strong>{formatPrice(xReport.gross_sales)}</strong></p>
-              <p>Cash: <strong>{formatPrice(xReport.totals?.cash)}</strong></p>
-              <p>MoMo: <strong>{formatPrice(xReport.totals?.momo)}</strong></p>
-              <p>Paystack: <strong>{formatPrice(xReport.totals?.paystack)}</strong></p>
-              <p>Expected cash in drawer: <strong>{formatPrice(xReport.expected_cash)}</strong></p>
-            </div>
-            <button type="button" className="btn-primary mt-6 w-full print:hidden" onClick={() => window.print()}>Print</button>
-            <button type="button" className="btn-secondary mt-2 w-full" onClick={() => setReportOpen(false)}>Close</button>
-          </div>
-        </div>
+        <PosShiftReportModal report={xReport} title="X-Report" onClose={() => setReportOpen(false)} />
+      )}
+
+      {zReport && (
+        <PosShiftReportModal report={zReport} title="Z-Report — shift closed" onClose={() => setZReport(null)} />
       )}
 
       {closeOpen && (

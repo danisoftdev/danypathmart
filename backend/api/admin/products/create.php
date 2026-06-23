@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\PosBarcodeService;
 use App\Helpers\ProductPresenter;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
@@ -83,6 +84,9 @@ $stmt->execute([
 ]);
 
 $id = (int) $pdo->lastInsertId();
+if ($barcode === null) {
+    $barcode = PosBarcodeService::assignIfMissing($pdo, $id);
+}
 $row = $pdo->prepare('SELECT * FROM products WHERE id = ?');
 $row->execute([$id]);
 $product = $row->fetch();

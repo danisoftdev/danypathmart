@@ -159,6 +159,24 @@ final class PosShiftService
         return array_map(static fn (array $r): array => self::format($pdo, $r, true), $stmt->fetchAll());
     }
 
+    /** @return list<array<string,mixed>> */
+    public static function listHistory(PDO $pdo, int $limit = 50): array
+    {
+        $limit = max(1, min($limit, 100));
+        $stmt = $pdo->query(
+            "SELECT s.*, r.name AS register_name, l.name AS location_name, u.name AS opened_by_name
+             FROM pos_shifts s
+             INNER JOIN pos_registers r ON r.id = s.register_id
+             INNER JOIN pos_locations l ON l.id = s.location_id
+             INNER JOIN users u ON u.id = s.opened_by
+             WHERE s.status IN ('approved', 'rejected', 'pending_approval')
+             ORDER BY COALESCE(s.closed_at, s.opened_at) DESC
+             LIMIT {$limit}"
+        );
+
+        return array_map(static fn (array $r): array => self::format($pdo, $r, true), $stmt->fetchAll());
+    }
+
     /** @param array<string,mixed> $shift */
     public static function expectedCash(PDO $pdo, array $shift): float
     {

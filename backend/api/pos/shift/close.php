@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\PosGate;
+use App\Helpers\PosReportService;
 use App\Helpers\PosShiftService;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
@@ -24,8 +25,9 @@ if ($shiftId <= 0) {
 
 try {
     $shift = PosShiftService::close($pdo, $shiftId, (int) $user['id'], $counted, $note);
+    $zReport = PosReportService::shiftReport($pdo, $shiftId, 'z');
 } catch (\Throwable $e) {
     Response::error($e->getMessage(), 422);
 }
 
-Response::success(['shift' => $shift]);
+Response::success(['shift' => $shift, 'z_report' => $zReport]);

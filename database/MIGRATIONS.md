@@ -71,6 +71,7 @@ cd ~/domains/danypathmart.store/public_html/api && php scripts/migrate-productio
 | `056_shop_location_map.sql` | M4 | Shop/DPM map pins (Leaflet/OSM), shop pickup at seller location |
 | `057_pos_dpm.sql` | — | DPM point-of-sale: locations, registers, shifts, payments, receipts |
 | `058_pos_full.sql` | — | POS barcodes, supervisor PIN, cash change, full register features |
+| `059_pos_barcode_backfill.sql` | — | Auto-assign DPM00000xxx barcodes to catalog products |
 
 `migrate-all.php` also runs post-hooks: job role catalog sync, workforce employee backfill.
 
