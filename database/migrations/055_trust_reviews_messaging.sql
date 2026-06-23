@@ -1,23 +1,183 @@
 -- Trust & messaging: reviews, stock on payment, shop search, support bot routing, push/SMS/WhatsApp toggles.
+-- Idempotent: safe to re-run in phpMyAdmin or via php scripts/migrate-production.php
 
-ALTER TABLE products
-    ADD COLUMN units_sold INT UNSIGNED NOT NULL DEFAULT 0 AFTER stock_qty;
+-- products.units_sold
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products' AND COLUMN_NAME = 'units_sold'
+    ),
+    'SELECT ''skip products.units_sold'' AS info',
+    'ALTER TABLE products ADD COLUMN units_sold INT UNSIGNED NOT NULL DEFAULT 0 AFTER stock_qty'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE shops
-    ADD COLUMN rating_avg DECIMAL(2,1) DEFAULT NULL AFTER logo_url,
-    ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating_avg;
+-- shops.rating_avg
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shops' AND COLUMN_NAME = 'rating_avg'
+    ),
+    'SELECT ''skip shops.rating_avg'' AS info',
+    'ALTER TABLE shops ADD COLUMN rating_avg DECIMAL(2,1) DEFAULT NULL AFTER logo_url'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE orders
-    ADD COLUMN inventory_committed TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_whatsapp;
+-- shops.rating_count
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'shops' AND COLUMN_NAME = 'rating_count'
+    ),
+    'SELECT ''skip shops.rating_count'' AS info',
+    'ALTER TABLE shops ADD COLUMN rating_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER rating_avg'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE company_settings
-    ADD COLUMN stock_decrement_on_payment TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN show_units_sold_badge TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN show_low_stock_exact TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN push_notifications_enabled TINYINT(1) NOT NULL DEFAULT 1,
-    ADD COLUMN sms_api_enabled TINYINT(1) NOT NULL DEFAULT 0,
-    ADD COLUMN whatsapp_api_enabled TINYINT(1) NOT NULL DEFAULT 0,
-    ADD COLUMN vapid_public_key VARCHAR(500) DEFAULT NULL;
+-- orders.notify_whatsapp (Phase F — may be missing if only numbered SQL migrations were applied)
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'notify_whatsapp'
+    ),
+    'SELECT ''skip orders.notify_whatsapp'' AS info',
+    'ALTER TABLE orders ADD COLUMN notify_whatsapp TINYINT(1) NOT NULL DEFAULT 0 AFTER notes'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- orders.inventory_committed (AFTER anchor chosen from columns that exist on this database)
+SET @after_col = IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'notify_whatsapp'
+    ),
+    'notify_whatsapp',
+    IF(
+        EXISTS(
+            SELECT 1 FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'organization_name'
+        ),
+        'organization_name',
+        IF(
+            EXISTS(
+                SELECT 1 FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'order_type'
+            ),
+            'order_type',
+            'notes'
+        )
+    )
+);
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'inventory_committed'
+    ),
+    'SELECT ''skip orders.inventory_committed'' AS info',
+    CONCAT('ALTER TABLE orders ADD COLUMN inventory_committed TINYINT(1) NOT NULL DEFAULT 0 AFTER ', @after_col)
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.stock_decrement_on_payment
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'stock_decrement_on_payment'
+    ),
+    'SELECT ''skip company_settings.stock_decrement_on_payment'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN stock_decrement_on_payment TINYINT(1) NOT NULL DEFAULT 1'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.show_units_sold_badge
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'show_units_sold_badge'
+    ),
+    'SELECT ''skip company_settings.show_units_sold_badge'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN show_units_sold_badge TINYINT(1) NOT NULL DEFAULT 1'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.show_low_stock_exact
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'show_low_stock_exact'
+    ),
+    'SELECT ''skip company_settings.show_low_stock_exact'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN show_low_stock_exact TINYINT(1) NOT NULL DEFAULT 1'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.push_notifications_enabled
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'push_notifications_enabled'
+    ),
+    'SELECT ''skip company_settings.push_notifications_enabled'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN push_notifications_enabled TINYINT(1) NOT NULL DEFAULT 1'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.sms_api_enabled
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'sms_api_enabled'
+    ),
+    'SELECT ''skip company_settings.sms_api_enabled'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN sms_api_enabled TINYINT(1) NOT NULL DEFAULT 0'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.whatsapp_api_enabled
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'whatsapp_api_enabled'
+    ),
+    'SELECT ''skip company_settings.whatsapp_api_enabled'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN whatsapp_api_enabled TINYINT(1) NOT NULL DEFAULT 0'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- company_settings.vapid_public_key
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'company_settings' AND COLUMN_NAME = 'vapid_public_key'
+    ),
+    'SELECT ''skip company_settings.vapid_public_key'' AS info',
+    'ALTER TABLE company_settings ADD COLUMN vapid_public_key VARCHAR(500) DEFAULT NULL'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS product_reviews (
     id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -69,17 +229,112 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
         REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-ALTER TABLE support_conversations
-    ADD COLUMN product_id BIGINT UNSIGNED DEFAULT NULL AFTER guest_email,
-    ADD COLUMN shop_id BIGINT UNSIGNED DEFAULT NULL AFTER product_id,
-    ADD COLUMN order_id BIGINT UNSIGNED DEFAULT NULL AFTER shop_id,
-    ADD COLUMN context_type ENUM('general','product','order') NOT NULL DEFAULT 'general' AFTER order_id,
-    ADD COLUMN routed_to ENUM('pending','dpm','shop') NOT NULL DEFAULT 'pending' AFTER context_type,
-    ADD COLUMN bot_step_key VARCHAR(80) DEFAULT NULL AFTER routed_to,
-    ADD COLUMN shop_unread_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER admin_unread_count;
+-- support_conversations.product_id
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'product_id'
+    ),
+    'SELECT ''skip support_conversations.product_id'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN product_id BIGINT UNSIGNED DEFAULT NULL AFTER guest_email'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
-ALTER TABLE support_messages
-    MODIFY COLUMN sender_type ENUM('customer','admin','bot','shop') NOT NULL;
+-- support_conversations.shop_id
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'shop_id'
+    ),
+    'SELECT ''skip support_conversations.shop_id'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN shop_id BIGINT UNSIGNED DEFAULT NULL AFTER product_id'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_conversations.order_id
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'order_id'
+    ),
+    'SELECT ''skip support_conversations.order_id'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN order_id BIGINT UNSIGNED DEFAULT NULL AFTER shop_id'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_conversations.context_type
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'context_type'
+    ),
+    'SELECT ''skip support_conversations.context_type'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN context_type ENUM(''general'',''product'',''order'') NOT NULL DEFAULT ''general'' AFTER order_id'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_conversations.routed_to
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'routed_to'
+    ),
+    'SELECT ''skip support_conversations.routed_to'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN routed_to ENUM(''pending'',''dpm'',''shop'') NOT NULL DEFAULT ''pending'' AFTER context_type'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_conversations.bot_step_key
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'bot_step_key'
+    ),
+    'SELECT ''skip support_conversations.bot_step_key'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN bot_step_key VARCHAR(80) DEFAULT NULL AFTER routed_to'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_conversations.shop_unread_count
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'support_conversations' AND COLUMN_NAME = 'shop_unread_count'
+    ),
+    'SELECT ''skip support_conversations.shop_unread_count'' AS info',
+    'ALTER TABLE support_conversations ADD COLUMN shop_unread_count INT UNSIGNED NOT NULL DEFAULT 0 AFTER admin_unread_count'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- support_messages.sender_type (extend enum with bot + shop)
+SET @s = (SELECT IF(
+    EXISTS(
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'support_messages'
+          AND COLUMN_NAME = 'sender_type'
+          AND COLUMN_TYPE LIKE '%bot%'
+    ),
+    'SELECT ''skip support_messages.sender_type'' AS info',
+    'ALTER TABLE support_messages MODIFY COLUMN sender_type ENUM(''customer'',''admin'',''bot'',''shop'') NOT NULL'
+));
+PREPARE stmt FROM @s;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS support_bot_nodes (
     id             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

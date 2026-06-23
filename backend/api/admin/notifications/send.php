@@ -32,15 +32,34 @@ if ($linkUrl !== '' && !str_starts_with($linkUrl, '/')) {
 }
 
 $result = NotificationService::sendBroadcast($pdo, [
-    'title'      => $title,
-    'body'       => $message,
-    'link_url'   => $linkUrl !== '' ? $linkUrl : null,
-    'category'   => $category,
-    'send_email' => !isset($body['send_email']) || !empty($body['send_email']),
+    'title'          => $title,
+    'body'           => $message,
+    'link_url'       => $linkUrl !== '' ? $linkUrl : null,
+    'category'       => $category,
+    'send_email'     => !isset($body['send_email']) || !empty($body['send_email']),
+    'send_sms'       => !empty($body['send_sms']),
+    'send_whatsapp'  => !empty($body['send_whatsapp']),
 ], (int) $user['id']);
 
+$extra = '';
+if (!empty($body['send_sms']) || !empty($body['send_whatsapp'])) {
+    PermissionMiddleware::require('manage_messaging_integrations');
+    $parts = [];
+    if (!empty($body['send_sms'])) {
+        $parts[] = "{$result['sms_sent']} SMS";
+    }
+    if (!empty($body['send_whatsapp'])) {
+        $parts[] = "{$result['whatsapp_sent']} WhatsApp";
+    }
+    if ($parts !== []) {
+        $extra = ' (' . implode(', ', $parts) . ' sent)';
+    }
+}
+
 Response::success([
-    'message'          => "Notification sent to {$result['recipient_count']} customers.",
+    'message'          => "Notification sent to {$result['recipient_count']} customers{$extra}.",
     'recipient_count'  => $result['recipient_count'],
+    'sms_sent'         => $result['sms_sent'],
+    'whatsapp_sent'    => $result['whatsapp_sent'],
     'broadcast_id'     => $result['broadcast_id'],
 ]);

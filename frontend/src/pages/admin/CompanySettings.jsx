@@ -6,6 +6,7 @@ import { FormPanelSkeleton } from '../../components/ui/Skeleton';
 import { AdminPageError } from '../../components/admin/AdminFetchState';
 import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../lib/permissions';
+import AdminMessagingSettingsPanel from '../../components/admin/AdminMessagingSettingsPanel';
 
 const EMPTY = {
   company_name: '',
@@ -72,6 +73,7 @@ const TABS = [
   { id: 'storefront', label: 'Storefront & footer' },
   { id: 'payments', label: 'Payments' },
   { id: 'features', label: 'Features & modules' },
+  { id: 'messaging', label: 'Messaging & push', permission: 'manage_messaging_integrations' },
 ];
 
 /** Read-only API fields — do not send back on save. */
@@ -132,6 +134,7 @@ export default function CompanySettings() {
   const isSuperAdmin = user?.role === 'super_admin';
   const canManageShopFees = hasPermission(user, 'manage_shop_fees');
   const canManageImageSearch = hasPermission(user, 'manage_image_search');
+  const canManageMessaging = hasPermission(user, 'manage_messaging_integrations');
   const { data, isLoading, error: fetchError } = useCompanySettings();
   const update = useUpdateCompanySettings();
   const [draft, setDraft] = useState(null);
@@ -189,24 +192,21 @@ export default function CompanySettings() {
   }
 
   return (
-    <form onSubmit={save}>
+    <>
       <AdminPageHeader
         title="Company settings"
-        subtitle="Store identity, contact channels, rates and policies shown to customers."
+        subtitle={tab === 'messaging' ? 'Push, SMS, WhatsApp toggles and manual test sends.' : 'Store identity, contact channels, rates and policies shown to customers.'}
         actions={
-          <button type="submit" className="btn-primary min-h-[44px] px-6" disabled={update.isPending}>
-            {update.isPending ? 'Saving…' : 'Save changes'}
-          </button>
+          tab !== 'messaging' ? (
+            <button type="submit" form="company-settings-form" className="btn-primary min-h-[44px] px-6" disabled={update.isPending}>
+              {update.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+          ) : null
         }
       />
 
-      {error && <p className="mb-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">{error}</p>}
-      {toast && (
-        <p className="mb-4 rounded-xl bg-brand-green/10 px-4 py-3 text-sm font-bold text-brand-green">{toast}</p>
-      )}
-
       <div className="mb-6 flex flex-wrap gap-2 border-b border-black/8 pb-1 dark:border-white/10">
-        {TABS.map((t) => (
+        {TABS.filter((t) => !t.permission || hasPermission(user, t.permission)).map((t) => (
           <button
             key={t.id}
             type="button"
@@ -221,6 +221,13 @@ export default function CompanySettings() {
           </button>
         ))}
       </div>
+
+    {tab !== 'messaging' ? (
+    <form id="company-settings-form" onSubmit={save}>
+      {error && <p className="mb-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">{error}</p>}
+      {toast && (
+        <p className="mb-4 rounded-xl bg-brand-green/10 px-4 py-3 text-sm font-bold text-brand-green">{toast}</p>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         {tab === 'storefront' && (
@@ -782,11 +789,19 @@ export default function CompanySettings() {
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 lg:col-span-2">
         <button type="submit" className="btn-primary" disabled={update.isPending}>
           {update.isPending ? 'Saving...' : 'Save changes'}
         </button>
       </div>
     </form>
+    ) : (
+      canManageMessaging ? (
+        <AdminMessagingSettingsPanel />
+      ) : (
+        <p className="text-sm text-muted">You need manage_messaging_integrations permission.</p>
+      )
+    )}
+    </>
   );
 }

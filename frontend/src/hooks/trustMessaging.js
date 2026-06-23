@@ -18,16 +18,7 @@ export function useModerateReview() {
   });
 }
 
-export function useUpdateMessagingSettings() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload) => (await api.post('/admin/messaging-settings/update', payload)).data,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-company-settings'] });
-      qc.invalidateQueries({ queryKey: ['catalog-settings'] });
-    },
-  });
-}
+export { useUpdateMessagingSettings, useMessagingSettings, useSendManualMessage } from './messagingSettings';
 
 export function useSupportBotNodes(enabled = true) {
   return useQuery({

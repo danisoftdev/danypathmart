@@ -6,9 +6,8 @@ namespace App\Helpers;
 
 use App\Config\Env;
 use PDO;
-use RuntimeException;
 
-/** SMS / WhatsApp API stubs — toggles in admin; real providers wired later. */
+/** SMS / WhatsApp via generic HTTP (.env) + admin toggles in company_settings. */
 final class MessagingIntegrationService
 {
     /** @return array<string,mixed> */
@@ -32,8 +31,10 @@ final class MessagingIntegrationService
             'whatsapp_api_enabled'       => (int) ($row['whatsapp_api_enabled'] ?? 0) === 1,
             'push_notifications_enabled' => (int) ($row['push_notifications_enabled'] ?? 1) === 1,
             'vapid_public_key'           => $row['vapid_public_key'] ?? null,
-            'sms_configured'             => trim((string) (Env::get('SMS_API_KEY') ?? '')) !== '',
-            'whatsapp_configured'        => trim((string) (Env::get('WHATSAPP_API_TOKEN') ?? '')) !== '',
+            'sms_configured'             => GenericHttpMessagingClient::isSmsConfigured(),
+            'whatsapp_configured'        => GenericHttpMessagingClient::isWhatsAppConfigured(),
+            'push_configured'            => trim((string) (Env::get('VAPID_PRIVATE_KEY') ?? '')) !== ''
+                && trim((string) ($row['vapid_public_key'] ?? '')) !== '',
         ];
     }
 
@@ -47,39 +48,53 @@ final class MessagingIntegrationService
             'vapid_public_key'           => null,
             'sms_configured'             => false,
             'whatsapp_configured'        => false,
+            'push_configured'            => false,
         ];
     }
 
-    public static function sendSms(PDO $pdo, string $phone, string $message): bool
+    /** @return array{ok:bool,error:?string} */
+    public static function sendSms(PDO $pdo, string $phone, string $message, ?string $title = null): array
     {
         $settings = self::load($pdo);
         if (!$settings['sms_api_enabled']) {
-            return false;
+            return ['ok' => false, 'error' => 'SMS API is disabled in admin settings.'];
         }
         if (!$settings['sms_configured']) {
-            error_log('[DPM SMS stub] Would send to ' . $phone . ': ' . $message);
+            error_log('[DPM SMS] Enabled but SMS_API_URL not set in .env');
 
-            return false;
+            return ['ok' => false, 'error' => 'SMS API not configured in .env.'];
         }
-        // Future: Hubtel / Nsano integration using SMS_API_KEY
-        error_log('[DPM SMS] API enabled but integration pending.');
 
-        return false;
+        $result = GenericHttpMessagingClient::sendSms($phone, $message, $title);
+        if (!$result['ok']) {
+            error_log('[DPM SMS] ' . ($result['error'] ?? 'send failed'));
+
+            return ['ok' => false, 'error' => $result['error'] ?? 'SMS send failed.'];
+        }
+
+        return ['ok' => true, 'error' => null];
     }
 
-    public static function sendWhatsAppTemplate(PDO $pdo, string $phone, string $message): bool
+    /** @return array{ok:bool,error:?string} */
+    public static function sendWhatsApp(PDO $pdo, string $phone, string $message, ?string $title = null): array
     {
         $settings = self::load($pdo);
         if (!$settings['whatsapp_api_enabled']) {
-            return false;
+            return ['ok' => false, 'error' => 'WhatsApp API is disabled in admin settings.'];
         }
         if (!$settings['whatsapp_configured']) {
-            error_log('[DPM WhatsApp stub] Would send to ' . $phone . ': ' . $message);
+            error_log('[DPM WhatsApp] Enabled but WHATSAPP_API_URL not set in .env');
 
-            return false;
+            return ['ok' => false, 'error' => 'WhatsApp API not configured in .env.'];
         }
-        error_log('[DPM WhatsApp] API enabled but integration pending.');
 
-        return false;
+        $result = GenericHttpMessagingClient::sendWhatsApp($phone, $message, $title);
+        if (!$result['ok']) {
+            error_log('[DPM WhatsApp] ' . ($result['error'] ?? 'send failed'));
+
+            return ['ok' => false, 'error' => $result['error'] ?? 'WhatsApp send failed.'];
+        }
+
+        return ['ok' => true, 'error' => null];
     }
 }

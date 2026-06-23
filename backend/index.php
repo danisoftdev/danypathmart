@@ -172,7 +172,9 @@ $routes = [
     'POST ' . 'admin/support-chat/upload'              => 'admin/support-chat/upload.php',
     'GET '  . 'admin/reviews'                          => 'admin/reviews/index.php',
     'POST ' . 'admin/reviews/moderate'                 => 'admin/reviews/moderate.php',
+    'GET '  . 'admin/messaging-settings'               => 'admin/messaging-settings/index.php',
     'POST ' . 'admin/messaging-settings/update'        => 'admin/messaging-settings/update.php',
+    'POST ' . 'admin/messaging-settings/send-manual'   => 'admin/messaging-settings/send-manual.php',
     'GET '  . 'admin/support-bot'                      => 'admin/support-bot/index.php',
     'POST ' . 'admin/support-bot/upsert'               => 'admin/support-bot/upsert.php',
 

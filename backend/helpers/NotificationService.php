@@ -28,8 +28,8 @@ final class NotificationService
     }
 
     /**
-     * @param array{title:string,body:string,link_url:?string,category:string,send_email:bool} $data
-     * @return array{broadcast_id:int,recipient_count:int}
+     * @param array{title:string,body:string,link_url:?string,category:string,send_email:bool,send_sms?:bool,send_whatsapp?:bool} $data
+     * @return array{broadcast_id:int,recipient_count:int,sms_sent:int,whatsapp_sent:int}
      */
     public static function sendBroadcast(PDO $pdo, array $data, int $sentBy): array
     {
@@ -48,6 +48,10 @@ final class NotificationService
         $broadcastId = (int) $pdo->lastInsertId();
         $customers = self::verifiedCustomers($pdo);
         $count = 0;
+        $smsSent = 0;
+        $whatsappSent = 0;
+        $sendSms = !empty($data['send_sms']);
+        $sendWhatsapp = !empty($data['send_whatsapp']);
 
         $insert = $pdo->prepare(
             'INSERT INTO user_notifications (user_id, broadcast_id, title, body, link_url, category)
@@ -74,12 +78,34 @@ final class NotificationService
                     $data['link_url']
                 );
             }
+
+            if ($sendSms || $sendWhatsapp) {
+                $ext = NotificationChannelService::sendExternalToUser(
+                    $pdo,
+                    $customer['id'],
+                    $data['title'],
+                    $data['body'],
+                    $sendSms,
+                    $sendWhatsapp
+                );
+                if (($ext['sms']['ok'] ?? false) === true) {
+                    $smsSent++;
+                }
+                if (($ext['whatsapp']['ok'] ?? false) === true) {
+                    $whatsappSent++;
+                }
+            }
         }
 
         $pdo->prepare('UPDATE admin_broadcasts SET recipient_count = ? WHERE id = ?')
             ->execute([$count, $broadcastId]);
 
-        return ['broadcast_id' => $broadcastId, 'recipient_count' => $count];
+        return [
+            'broadcast_id'    => $broadcastId,
+            'recipient_count' => $count,
+            'sms_sent'        => $smsSent,
+            'whatsapp_sent'   => $whatsappSent,
+        ];
     }
 
     public static function notifyOrderStatus(PDO $pdo, int $orderId, string $status, ?string $note): void
@@ -137,6 +163,9 @@ final class NotificationService
                 'tracking_ref' => $trackingRef,
             ]
         );
+
+        PushNotificationService::sendPushOnly($pdo, (int) $order['user_id'], $title, $body, $linkUrl);
+        NotificationChannelService::sendExternalToUser($pdo, (int) $order['user_id'], $title, $body);
     }
 
     public static function statusLabel(string $status): string

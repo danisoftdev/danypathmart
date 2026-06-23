@@ -1,5 +1,8 @@
 import { useState } from 'react';
 import { useAdminBroadcasts, useSendBroadcast } from '../../hooks/admin';
+import { useMessagingSettings } from '../../hooks/messagingSettings';
+import { useAuthStore } from '../../store/authStore';
+import { hasPermission } from '../../lib/permissions';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
 
@@ -12,6 +15,10 @@ const CATEGORIES = [
 ];
 
 export default function AdminNotificationsPage() {
+  const user = useAuthStore((s) => s.user);
+  const canMessaging = hasPermission(user, 'manage_messaging_integrations');
+  const { data: messagingData } = useMessagingSettings(canMessaging);
+  const messaging = messagingData?.settings ?? {};
   const { data: history, isLoading } = useAdminBroadcasts();
   const send = useSendBroadcast();
   const [form, setForm] = useState({
@@ -20,6 +27,8 @@ export default function AdminNotificationsPage() {
     category: 'custom',
     link_url: '',
     send_email: true,
+    send_sms: false,
+    send_whatsapp: false,
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -38,9 +47,11 @@ export default function AdminNotificationsPage() {
         category: form.category,
         link_url: form.link_url.trim() || undefined,
         send_email: form.send_email,
+        send_sms: form.send_sms,
+        send_whatsapp: form.send_whatsapp,
       });
       setSuccess(res.message || 'Notification sent.');
-      setForm({ title: '', body: '', category: 'custom', link_url: '', send_email: true });
+      setForm({ title: '', body: '', category: 'custom', link_url: '', send_email: true, send_sms: false, send_whatsapp: false });
       setTimeout(() => setSuccess(''), 5000);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send notification.');
@@ -101,6 +112,30 @@ export default function AdminNotificationsPage() {
           />
           Also send by email
         </label>
+        {canMessaging && (
+          <>
+            <label className={`flex items-center gap-2 text-sm font-medium ${!messaging.sms_configured ? 'opacity-50' : ''}`}>
+              <input
+                type="checkbox"
+                checked={form.send_sms}
+                disabled={!messaging.sms_configured || !messaging.sms_api_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, send_sms: e.target.checked }))}
+                className="h-4 w-4 accent-brand-green"
+              />
+              Also send SMS (API in .env + toggle in Messaging settings)
+            </label>
+            <label className={`flex items-center gap-2 text-sm font-medium ${!messaging.whatsapp_configured ? 'opacity-50' : ''}`}>
+              <input
+                type="checkbox"
+                checked={form.send_whatsapp}
+                disabled={!messaging.whatsapp_configured || !messaging.whatsapp_api_enabled}
+                onChange={(e) => setForm((f) => ({ ...f, send_whatsapp: e.target.checked }))}
+                className="h-4 w-4 accent-brand-green"
+              />
+              Also send WhatsApp (API in .env + toggle in Messaging settings)
+            </label>
+          </>
+        )}
         <button type="submit" disabled={send.isPending} className="btn-primary">
           {send.isPending ? 'Sending…' : 'Send to all customers'}
         </button>

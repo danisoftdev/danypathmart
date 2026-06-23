@@ -43,7 +43,17 @@ final class PushNotificationService
     public static function notifyUser(PDO $pdo, int $userId, string $title, string $body, ?string $url = null): void
     {
         NotificationService::notifyUser($pdo, $userId, $title, $body, $url, 'push');
+        self::deliverPush($pdo, $userId, $title, $body, $url);
+    }
 
+    /** Browser push only — use when in-app notification was already created. */
+    public static function sendPushOnly(PDO $pdo, int $userId, string $title, string $body, ?string $url = null): void
+    {
+        self::deliverPush($pdo, $userId, $title, $body, $url);
+    }
+
+    private static function deliverPush(PDO $pdo, int $userId, string $title, string $body, ?string $url = null): void
+    {
         $settings = MessagingIntegrationService::load($pdo);
         if (!$settings['push_notifications_enabled']) {
             return;

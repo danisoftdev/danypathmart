@@ -317,13 +317,6 @@ final class OrderService
         self::sendConfirmation($pdo, (int) $order['id'], (int) $order['user_id']);
         NotificationService::notifyOrderStatus($pdo, $orderId, 'pending', 'Your payment was received. We will prepare your order soon.');
         NotificationService::notifyOrderPaid($pdo, $orderId, $order, $channel);
-        PushNotificationService::notifyUser(
-            $pdo,
-            (int) $order['user_id'],
-            'Payment confirmed',
-            'Your order payment was received. We will prepare your order soon.',
-            '/dashboard/orders/' . $orderId
-        );
         ReferralService::onOrderPaid($pdo, $orderId);
         MarketplaceSplitService::recordOnPayment($pdo, $orderId);
         ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
