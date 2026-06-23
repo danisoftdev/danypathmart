@@ -53,6 +53,10 @@ export const PERMISSION_KEYS = [
   'manage_product_reviews',
   'manage_support_bot',
   'manage_messaging_integrations',
+  'use_pos',
+  'manage_pos_shifts',
+  'manage_pos_config',
+  'view_pos_reports',
 ];
 
 export const PERMISSION_LABELS = {
@@ -108,10 +112,14 @@ export const PERMISSION_LABELS = {
   manage_product_reviews: 'Moderate product reviews',
   manage_support_bot: 'Manage live chat bot scripts',
   manage_messaging_integrations: 'Toggle SMS, WhatsApp API & push settings',
+  use_pos: 'Use POS register & complete sales',
+  manage_pos_shifts: 'Approve shifts, void sales & supervisor actions',
+  manage_pos_config: 'Manage POS locations, registers & settings',
+  view_pos_reports: 'View POS sales reports',
 };
 
 export const PERMISSION_GROUPS = [
-  { title: 'Orders', keys: ['view_orders', 'edit_orders'] },
+  { title: 'Orders', keys: ['view_orders', 'edit_orders', 'use_pos', 'manage_pos_shifts', 'view_pos_reports'] },
   { title: 'Quotes', keys: ['view_quotes', 'edit_quotes'] },
   {
     title: 'Products & catalogue',
@@ -143,7 +151,7 @@ export const PERMISSION_GROUPS = [
     keys: [
       'view_company_settings', 'edit_company_settings', 'manage_shipping',
       'manage_pickup_stations', 'manage_hub_logistics', 'manage_delivery_runs',
-      'manage_station_staff',
+      'manage_station_staff', 'manage_pos_config',
     ],
   },
   { title: 'Reports & exports', keys: ['view_reports', 'export_reports'] },

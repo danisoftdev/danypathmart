@@ -131,6 +131,20 @@ $routes = [
     'POST ' . 'admin/company-settings/pilot-preset' => 'admin/company-settings/pilot-preset.php',
     'POST ' . 'admin/company-settings/enable-module' => 'admin/company-settings/enable-module.php',
     'GET '  . 'admin/launch-readiness'      => 'admin/launch-readiness/index.php',
+    'GET '  . 'pos/bootstrap'               => 'pos/bootstrap.php',
+    'GET '  . 'pos/products/search'         => 'pos/products/search.php',
+    'POST ' . 'pos/sales/quote'             => 'pos/sales/quote.php',
+    'POST ' . 'pos/sales'                   => 'pos/sales/create.php',
+    'POST ' . 'pos/shift/open'              => 'pos/shift/open.php',
+    'POST ' . 'pos/shift/close'             => 'pos/shift/close.php',
+    'GET '  . 'pos/shift/current'           => 'pos/shift/current.php',
+    'GET '  . 'pos/shifts/pending'          => 'pos/shifts/pending.php',
+    'GET '  . 'admin/pos/locations'         => 'admin/pos/locations/index.php',
+    'POST ' . 'admin/pos/locations'         => 'admin/pos/locations/create.php',
+    'GET '  . 'admin/pos/registers'         => 'admin/pos/registers/index.php',
+    'POST ' . 'admin/pos/registers'         => 'admin/pos/registers/create.php',
+    'GET '  . 'admin/pos/settings'          => 'admin/pos/settings/index.php',
+    'PUT '  . 'admin/pos/settings'          => 'admin/pos/settings/update.php',
     'GET '  . 'admin/hero-banners'          => 'admin/hero-banners/index.php',
     'POST ' . 'admin/hero-banners'          => 'admin/hero-banners/create.php',
     'POST ' . 'admin/hero-banners/upload-image' => 'admin/hero-banners/upload-image.php',
@@ -817,6 +831,33 @@ if ($handlerFile === null && $method === 'DELETE'
     && preg_match('#^addresses/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'addresses/delete.php';
+}
+
+// POS sales
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^pos/sales/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'pos/sales/show.php';
+}
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^pos/sales/([0-9]+)/void$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'pos/sales/void.php';
+}
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^pos/sales/([0-9]+)/sms$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'pos/sales/send-sms.php';
+}
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^pos/shifts/([0-9]+)/approve$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'pos/shifts/approve.php';
+}
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^pos/shifts/([0-9]+)/reject$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'pos/shifts/reject.php';
 }
 
 if ($handlerFile === null) {

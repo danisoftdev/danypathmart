@@ -69,6 +69,10 @@ import ShopSettingsPage from './pages/seller/ShopSettingsPage';
 import PromoterDashboardPage from './pages/promoter/PromoterDashboardPage';
 import AdminShippingPage from './pages/admin/AdminShippingPage';
 import AdminLaunchReadinessPage from './pages/admin/AdminLaunchReadinessPage';
+import AdminPosSettingsPage from './pages/admin/AdminPosSettingsPage';
+import AdminPosShiftsPage from './pages/admin/AdminPosShiftsPage';
+import PosLayout from './components/layout/PosLayout';
+import PosTerminalPage from './pages/pos/PosTerminalPage';
 import ContactPage from './pages/ContactPage';
 import ReturnsPolicyPage from './pages/ReturnsPolicyPage';
 import LegalPolicyPage from './pages/LegalPolicyPage';
@@ -269,7 +273,19 @@ export default function App() {
             <Route path="delivery-runs" element={<AdminDeliveryRunsPage />} />
             <Route path="station-staff" element={<AdminStationStaffPage />} />
             <Route path="marketplace" element={<AdminMarketplacePage />} />
+            <Route path="pos" element={<AdminPosSettingsPage />} />
+            <Route path="pos/shifts" element={<AdminPosShiftsPage />} />
             <Route path="staff" element={<StaffAccounts />} />
+          </Route>
+          <Route
+            path="/pos"
+            element={
+              <ProtectedRoute>
+                <PosLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<PosTerminalPage />} />
           </Route>
         </Route>
 
