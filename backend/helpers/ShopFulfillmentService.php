@@ -13,8 +13,9 @@ final class ShopFulfillmentService
     public const SHOP_STATUSES = ['preparing', 'out_for_delivery', 'delivered'];
 
     /** @param array<int,array<string,mixed>> $lines ShippingService quote lines */
-    public static function createForOrder(PDO $pdo, int $orderId, array $lines): void
+    public static function createForOrder(PDO $pdo, int $orderId, array $lines, string $shopFulfillmentMode = 'delivery'): void
     {
+        $mode = $shopFulfillmentMode === 'shop_pickup' ? 'shop_pickup' : 'delivery';
         $byShop = [];
         foreach ($lines as $line) {
             $shopId = isset($line['product']['shop_id']) && $line['product']['shop_id'] !== null
@@ -31,31 +32,62 @@ final class ShopFulfillmentService
             return;
         }
 
-        $insert = $pdo->prepare(
-            'INSERT INTO shop_order_fulfillments (order_id, shop_id, status, subtotal)
-             VALUES (?, ?, \'awaiting_payment\', ?)'
-        );
+        try {
+            $insertFull = $pdo->prepare(
+                'INSERT INTO shop_order_fulfillments (order_id, shop_id, status, subtotal, fulfillment_mode)
+                 VALUES (?, ?, \'awaiting_payment\', ?, ?)'
+            );
+            $insertBasic = null;
+        } catch (\Throwable) {
+            $insertFull = null;
+            $insertBasic = $pdo->prepare(
+                'INSERT INTO shop_order_fulfillments (order_id, shop_id, status, subtotal)
+                 VALUES (?, ?, \'awaiting_payment\', ?)'
+            );
+        }
         $track = $pdo->prepare(
             'INSERT INTO shop_fulfillment_tracking (fulfillment_id, status, note, updated_by) VALUES (?, ?, ?, NULL)'
         );
 
         foreach ($byShop as $shopId => $subtotal) {
-            $insert->execute([$orderId, $shopId, round($subtotal, 2)]);
+            if ($insertFull !== null) {
+                try {
+                    $insertFull->execute([$orderId, $shopId, round($subtotal, 2), $mode]);
+                } catch (\Throwable) {
+                    $insertBasic ??= $pdo->prepare(
+                        'INSERT INTO shop_order_fulfillments (order_id, shop_id, status, subtotal)
+                         VALUES (?, ?, \'awaiting_payment\', ?)'
+                    );
+                    $insertBasic->execute([$orderId, $shopId, round($subtotal, 2)]);
+                }
+            } else {
+                $insertBasic->execute([$orderId, $shopId, round($subtotal, 2)]);
+            }
             $fulfillmentId = (int) $pdo->lastInsertId();
+            $pickupNote = $mode === 'shop_pickup'
+                ? 'Order placed — customer will collect at your shop after payment.'
+                : 'Order placed — awaiting in-app payment before seller ships.';
             $track->execute([
                 $fulfillmentId,
                 'awaiting_payment',
-                'Order placed — awaiting in-app payment before seller ships.',
+                $pickupNote,
             ]);
         }
     }
 
     public static function markPaidForOrder(PDO $pdo, int $orderId): void
     {
-        $stmt = $pdo->prepare(
-            "SELECT id, shop_id FROM shop_order_fulfillments
-             WHERE order_id = ? AND status = 'awaiting_payment'"
-        );
+        try {
+            $stmt = $pdo->prepare(
+                "SELECT id, shop_id, fulfillment_mode FROM shop_order_fulfillments
+                 WHERE order_id = ? AND status = 'awaiting_payment'"
+            );
+        } catch (\Throwable) {
+            $stmt = $pdo->prepare(
+                "SELECT id, shop_id FROM shop_order_fulfillments
+                 WHERE order_id = ? AND status = 'awaiting_payment'"
+            );
+        }
         $stmt->execute([$orderId]);
         $rows = $stmt->fetchAll();
         if ($rows === []) {
@@ -72,10 +104,14 @@ final class ShopFulfillmentService
         foreach ($rows as $row) {
             $fid = (int) $row['id'];
             $upd->execute([$fid]);
+            $fulfillmentMode = (string) ($row['fulfillment_mode'] ?? 'delivery');
+            $paidNote = $fulfillmentMode === 'shop_pickup'
+                ? 'Payment confirmed — customer will collect at your shop.'
+                : 'Payment confirmed — seller will arrange delivery. Delivery fee is paid directly to the seller.';
             $track->execute([
                 $fid,
                 'paid',
-                'Payment confirmed — seller will arrange delivery. Delivery fee is paid directly to the seller.',
+                $paidNote,
             ]);
 
             self::notifyShopMembers(
@@ -83,7 +119,9 @@ final class ShopFulfillmentService
                 (int) $row['shop_id'],
                 $orderId,
                 $fid,
-                'New paid order — arrange delivery to the customer address on file.'
+                $fulfillmentMode === 'shop_pickup'
+                    ? 'New paid order — customer will pick up at your shop.'
+                    : 'New paid order — arrange delivery to the customer address on file.'
             );
         }
     }
@@ -108,12 +146,14 @@ final class ShopFulfillmentService
     public static function listForCustomerOrder(PDO $pdo, int $orderId): array
     {
         $stmt = $pdo->prepare(
-            'SELECT f.id, f.order_id, f.shop_id, f.status, f.subtotal, f.updated_at,
-                    s.name AS shop_name, s.slug AS shop_slug
+            "SELECT f.*, s.name AS shop_name, s.slug AS shop_slug,
+                    s.street_address, s.city AS shop_city, s.region AS shop_region,
+                    s.latitude AS shop_latitude, s.longitude AS shop_longitude,
+                    s.allows_shop_pickup
              FROM shop_order_fulfillments f
              INNER JOIN shops s ON s.id = f.shop_id
              WHERE f.order_id = ?
-             ORDER BY f.id ASC'
+             ORDER BY f.id ASC"
         );
         $stmt->execute([$orderId]);
         $rows = $stmt->fetchAll();
@@ -131,15 +171,24 @@ final class ShopFulfillmentService
             $fid = (int) $row['id'];
             $trackStmt->execute([$fid]);
             $out[] = [
-                'id'         => $fid,
-                'order_id'   => (int) $row['order_id'],
-                'shop_id'    => (int) $row['shop_id'],
-                'shop_name'  => (string) $row['shop_name'],
-                'shop_slug'  => $row['shop_slug'],
-                'status'     => (string) $row['status'],
-                'subtotal'   => round((float) $row['subtotal'], 2),
-                'updated_at' => $row['updated_at'],
-                'tracking'   => array_map(static fn (array $t): array => [
+                'id'                => $fid,
+                'order_id'          => (int) $row['order_id'],
+                'shop_id'           => (int) $row['shop_id'],
+                'shop_name'         => (string) $row['shop_name'],
+                'shop_slug'         => $row['shop_slug'],
+                'status'            => (string) $row['status'],
+                'fulfillment_mode'  => (string) ($row['fulfillment_mode'] ?? 'delivery'),
+                'subtotal'          => round((float) $row['subtotal'], 2),
+                'updated_at'        => $row['updated_at'],
+                'shop_location'     => LocationHelper::publicLocationFields([
+                    'street_address'     => $row['street_address'] ?? null,
+                    'city'               => $row['shop_city'] ?? null,
+                    'region'             => $row['shop_region'] ?? null,
+                    'latitude'           => $row['shop_latitude'] ?? null,
+                    'longitude'          => $row['shop_longitude'] ?? null,
+                    'allows_shop_pickup' => $row['allows_shop_pickup'] ?? 0,
+                ]),
+                'tracking'          => array_map(static fn (array $t): array => [
                     'status'     => (string) $t['status'],
                     'note'       => $t['note'],
                     'created_at' => (string) $t['created_at'],
@@ -326,6 +375,7 @@ final class ShopFulfillmentService
             'order_id'         => (int) $row['order_id'],
             'shop_id'          => (int) $row['shop_id'],
             'status'           => (string) $row['status'],
+            'fulfillment_mode' => (string) ($row['fulfillment_mode'] ?? 'delivery'),
             'subtotal'         => round((float) $row['subtotal'], 2),
             'payment_status'   => (string) ($row['payment_status'] ?? ''),
             'order_status'     => (string) ($row['order_status'] ?? ''),

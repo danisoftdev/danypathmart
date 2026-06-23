@@ -18,7 +18,7 @@ function ShippingCard({ icon, title, amount, detail }) {
   );
 }
 
-export default function OrderSummary({ items, quote, isLoading, onBack, onContinue, groupOrder = false, pickupMode = false, pickupStation = null }) {
+export default function OrderSummary({ items, quote, isLoading, onBack, onContinue, groupOrder = false, pickupMode = false, shopPickupMode = false, pickupStation = null, shopPickup = null }) {
   const { data: policies } = useCheckoutPolicies();
   const labels = useAirLabels();
   return (
@@ -35,6 +35,16 @@ export default function OrderSummary({ items, quote, isLoading, onBack, onContin
           <p className="text-xs font-bold uppercase tracking-wide text-brand-green">Pickup at</p>
           <p className="mt-1 font-bold">{pickupStation.name}</p>
           <p className="text-muted">{pickupStation.city}, {pickupStation.region}</p>
+        </div>
+      )}
+
+      {shopPickupMode && shopPickup && (
+        <div className="mb-4 rounded-2xl border border-brand-gold/30 bg-brand-gold/5 p-4 text-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-brand-gold">Pick up at shop</p>
+          <p className="mt-1 font-bold">{shopPickup.shop_name}</p>
+          <p className="text-muted">
+            {[shopPickup.street_address, shopPickup.city, shopPickup.region].filter(Boolean).join(', ')}
+          </p>
         </div>
       )}
 

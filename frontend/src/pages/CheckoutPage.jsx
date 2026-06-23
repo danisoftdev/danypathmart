@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import CheckoutStepper from '../components/checkout/CheckoutStepper';
 import AddressSelector from '../components/checkout/AddressSelector';
 import PickupStationSelector from '../components/checkout/PickupStationSelector';
+import ShopFulfillmentSelector from '../components/checkout/ShopFulfillmentSelector';
 import OrderSummary from '../components/checkout/OrderSummary';
 import { useAddresses, usePlatformFeatures, usePickupStations, useShippingQuote } from '../hooks/checkout';
 import { formatPrice } from '../lib/currency';
@@ -27,12 +28,14 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const { pickupStationsEnabled, isLoading: flagsLoading } = usePlatformFeatures();
 
+  const shopOnly = useMemo(() => items.length > 0 && items.every((i) => i.shop_id), [items]);
   const hasShopItems = useMemo(() => items.some((i) => i.shop_id), [items]);
   const pickupMode = pickupStationsEnabled && !hasShopItems;
 
   const [step, setStep] = useState(1);
   const [pickedAddress, setPickedAddress] = useState(null);
   const [pickedStation, setPickedStation] = useState(null);
+  const [shopFulfillmentMode, setShopFulfillmentMode] = useState('delivery');
 
   const { data: addrData } = useAddresses(isAuthenticated && (!pickupMode || hasShopItems));
   const addresses = addrData?.data ?? [];
@@ -48,6 +51,9 @@ export default function CheckoutPage() {
     [items]
   );
 
+  const shopPickupMode = shopOnly && shopFulfillmentMode === 'shop_pickup';
+  const needsAddress = !pickupMode && !shopPickupMode;
+
   const quoteRegion = pickupMode
     ? selectedStation?.region ?? null
     : selectedAddress?.region ?? null;
@@ -57,8 +63,20 @@ export default function CheckoutPage() {
     items.length > 0,
     quoteRegion,
     null,
-    pickupMode ? pickedStation : null
+    pickupMode ? pickedStation : null,
+    shopOnly ? shopFulfillmentMode : null
   );
+
+  const shopPickupAvailable = shopOnly && quote?.shop_pickup_available;
+
+  const continueFromStep1 = () => {
+    if (shopPickupAvailable && shopFulfillmentMode === 'shop_pickup') {
+      setStep(2);
+      return;
+    }
+    if (needsAddress && !selectedAddressId) return;
+    setStep(2);
+  };
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -82,18 +100,21 @@ export default function CheckoutPage() {
         <p className="mt-1 text-sm text-muted">
           {pickupMode
             ? 'Choose your pickup point and pay — collect in person at the station.'
-            : hasShopItems
-              ? 'Delivery address required for marketplace items — shop sellers deliver their own goods.'
-              : 'Fast, secure checkout in three simple steps.'}
+            : shopPickupMode
+              ? 'Pay in the app, then collect your order at the shop.'
+              : hasShopItems
+                ? 'Delivery address required for marketplace items — or pick up at the shop when available.'
+                : 'Fast, secure checkout in three simple steps.'}
         </p>
       </div>
 
-      {hasShopItems && (
+      {hasShopItems && !shopPickupMode && (
         <div className="mb-4 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-sm">
           <p className="font-bold">Marketplace items in your cart</p>
           <p className="mt-1 text-muted">
-            Shop sellers deliver to your address. Delivery fees for shop items are arranged directly with each seller — not charged here.
-            {pickupStationsEnabled && ' Pickup is only available for DanyPathMart catalog items.'}
+            {quote?.shop_delivery_note ||
+              'Shop sellers deliver to your address. Delivery fees are arranged directly with each seller — not charged here.'}
+            {pickupStationsEnabled && !shopOnly && ' DPM pickup stations apply only to catalog items.'}
           </p>
         </div>
       )}
@@ -109,7 +130,34 @@ export default function CheckoutPage() {
           />
         )}
 
-        {step === 1 && !pickupMode && (
+        {step === 1 && !pickupMode && shopPickupAvailable && (
+          <div className="space-y-6">
+            <ShopFulfillmentSelector
+              quote={quote}
+              selectedMode={shopFulfillmentMode}
+              onSelect={setShopFulfillmentMode}
+            />
+            {shopFulfillmentMode === 'delivery' && (
+              <div className="border-t border-black/8 pt-6 dark:border-white/10">
+                <AddressSelector
+                  selectedId={selectedAddressId}
+                  onSelect={setPickedAddress}
+                  hideContinue
+                />
+              </div>
+            )}
+            <button
+              type="button"
+              className="btn-primary mt-6 min-h-[44px] w-full sm:w-auto"
+              disabled={!shopFulfillmentMode || (shopFulfillmentMode === 'delivery' && !selectedAddressId)}
+              onClick={continueFromStep1}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+
+        {step === 1 && !pickupMode && !shopPickupAvailable && (
           <AddressSelector
             selectedId={selectedAddressId}
             onSelect={setPickedAddress}
@@ -123,7 +171,9 @@ export default function CheckoutPage() {
             quote={quote}
             isLoading={quoteLoading}
             pickupMode={pickupMode}
+            shopPickupMode={shopPickupMode}
             pickupStation={selectedStation}
+            shopPickup={quote?.shop_pickup}
             onBack={() => setStep(1)}
             onContinue={() => setStep(3)}
           />
@@ -133,8 +183,9 @@ export default function CheckoutPage() {
           <Suspense fallback={<PaymentStepFallback />}>
             <PaymentStep
               items={quoteItems}
-              addressId={pickupMode ? undefined : selectedAddressId}
+              addressId={needsAddress ? selectedAddressId : undefined}
               pickupStationId={pickupMode ? pickedStation : undefined}
+              shopFulfillmentMode={shopOnly ? shopFulfillmentMode : undefined}
               quote={quote}
               pickupMode={pickupMode}
               onBack={() => setStep(2)}

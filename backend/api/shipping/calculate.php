@@ -36,8 +36,13 @@ if (!in_array($orderType, ['retail', 'group', 'institutional'], true)) {
 }
 $organizationName = trim((string) ($body['organization_name'] ?? ''));
 
+$shopFulfillmentMode = trim((string) ($body['shop_fulfillment_mode'] ?? 'delivery'));
+if (!in_array($shopFulfillmentMode, ['delivery', 'shop_pickup'], true)) {
+    $shopFulfillmentMode = 'delivery';
+}
+
 $pdo = Database::pdo();
-$quote = ShippingService::quote($pdo, $items, false, $region, $pickupStationId);
+$quote = ShippingService::quote($pdo, $items, false, $region, $pickupStationId, $shopFulfillmentMode);
 
 $user = AuthMiddleware::optional();
 if ($user !== null && in_array($orderType, ['group', 'institutional'], true)) {
@@ -65,6 +70,9 @@ Response::success([
     'delivery_mode'          => $quote['delivery_mode'] ?? 'address',
     'pickup_station_id'      => $quote['pickup_station_id'] ?? null,
     'shop_delivery_note'     => $quote['shop_delivery_note'] ?? null,
+    'shop_pickup_available'  => !empty($quote['shop_pickup_available']),
+    'shop_pickup'            => $quote['shop_pickup'] ?? null,
+    'shop_fulfillment_mode'  => $quote['shop_fulfillment_mode'] ?? 'delivery',
     'discount_amount'        => $quote['discount_amount'] ?? 0,
     'discount_label'         => $quote['discount_label'] ?? null,
 ]);

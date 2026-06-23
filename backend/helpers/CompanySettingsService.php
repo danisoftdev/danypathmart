@@ -27,6 +27,7 @@ final class CompanySettingsService
         $settings = array_merge($settings, self::loadImageSearch($pdo));
         $settings = array_merge($settings, self::loadSubscriptionReferral($pdo));
         $settings = array_merge($settings, self::loadShopBilling($pdo));
+        $settings = array_merge($settings, self::loadLocation($pdo));
 
         return $settings;
     }
@@ -303,5 +304,42 @@ final class CompanySettingsService
                 'shop_renewal_grace_days'   => 7,
             ];
         }
+    }
+
+    /** @return array<string,mixed> */
+    private static function loadLocation(PDO $pdo): array
+    {
+        try {
+            $row = $pdo->query(
+                'SELECT latitude, longitude FROM company_settings ORDER BY id ASC LIMIT 1'
+            )->fetch();
+            if ($row === false) {
+                return self::defaultLocation();
+            }
+            $lat = LocationHelper::parseCoordinate($row['latitude'] ?? null);
+            $lng = LocationHelper::parseCoordinate($row['longitude'] ?? null);
+
+            return [
+                'latitude'       => $lat,
+                'longitude'      => $lng,
+                'has_map_pin'    => LocationHelper::hasPin($lat, $lng),
+                'directions_url' => LocationHelper::hasPin($lat, $lng)
+                    ? LocationHelper::googleDirectionsUrl($lat, $lng)
+                    : null,
+            ];
+        } catch (\Throwable) {
+            return self::defaultLocation();
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private static function defaultLocation(): array
+    {
+        return [
+            'latitude'       => null,
+            'longitude'      => null,
+            'has_map_pin'    => false,
+            'directions_url' => null,
+        ];
     }
 }

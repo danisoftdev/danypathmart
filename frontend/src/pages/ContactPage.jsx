@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
+import { useCompanyStore } from '../store/companyStore';
+import LocationMapView from '../components/map/LocationMapView';
 
 function useSubmitContact() {
   return useMutation({
@@ -12,6 +14,7 @@ function useSubmitContact() {
 
 export default function ContactPage() {
   const user = useAuthStore((s) => s.user);
+  const company = useCompanyStore((s) => s.company);
   const submit = useSubmitContact();
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -51,6 +54,38 @@ export default function ContactPage() {
       <p className="mt-2 text-muted">
         Questions about an order, products, or delivery? Send us a message and we will reply as soon as we can.
       </p>
+
+      {(company?.phone || company?.email || company?.address) && (
+        <div className="mt-6 rounded-2xl border border-black/8 bg-white p-5 text-sm dark:border-white/10 dark:bg-[#1E1E1E]">
+          <p className="font-bold">{company.company_name}</p>
+          {company.address && <p className="mt-2 text-muted">{company.address}</p>}
+          {company.business_hours && <p className="mt-1 text-muted">Hours: {company.business_hours}</p>}
+          <div className="mt-3 flex flex-wrap gap-4">
+            {company.phone && (
+              <a href={`tel:${company.phone}`} className="font-bold text-brand-green hover:underline">
+                {company.phone}
+              </a>
+            )}
+            {company.email && (
+              <a href={`mailto:${company.email}`} className="font-bold text-brand-green hover:underline">
+                {company.email}
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {company?.has_map_pin && (
+        <div className="mt-6 rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-[#1E1E1E]">
+          <LocationMapView
+            latitude={company.latitude}
+            longitude={company.longitude}
+            label="Visit us"
+            directionsUrl={company.directions_url}
+            height={240}
+          />
+        </div>
+      )}
 
       {sent && (
         <p className="mt-4 rounded-xl border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm font-medium text-brand-green">

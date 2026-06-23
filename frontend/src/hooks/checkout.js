@@ -3,17 +3,18 @@ import api from '../lib/api';
 import { useByAirLabels } from '../lib/airLabels';
 
 /** Server-authoritative shipping/total quote for the given cart lines. */
-export function useShippingQuote(items, enabled = true, region = null, loyalty = null, pickupStationId = null) {
+export function useShippingQuote(items, enabled = true, region = null, loyalty = null, pickupStationId = null, shopFulfillmentMode = null) {
   const orderType = loyalty?.order_type ?? null;
   const organizationName = loyalty?.organization_name ?? null;
 
   return useQuery({
-    queryKey: ['shipping', items, region, orderType, organizationName, pickupStationId],
+    queryKey: ['shipping', items, region, orderType, organizationName, pickupStationId, shopFulfillmentMode],
     queryFn: async () =>
       (await api.post('/shipping/calculate', {
         items,
         ...(region ? { region } : {}),
         ...(pickupStationId ? { pickup_station_id: pickupStationId } : {}),
+        ...(shopFulfillmentMode ? { shop_fulfillment_mode: shopFulfillmentMode } : {}),
         ...(orderType ? { order_type: orderType } : {}),
         ...(organizationName ? { organization_name: organizationName } : {}),
       })).data,

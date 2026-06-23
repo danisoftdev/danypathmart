@@ -23,10 +23,11 @@ function buildCustomizations(cartItems) {
     }));
 }
 
-function orderExtras(cartItems, notifyWhatsapp) {
+function orderExtras(cartItems, notifyWhatsapp, shopMode) {
   const customizations = buildCustomizations(cartItems);
   return {
     notify_whatsapp: notifyWhatsapp,
+    ...(shopMode ? { shop_fulfillment_mode: shopMode } : {}),
     ...(customizations.length > 0 ? { customizations } : {}),
   };
 }
@@ -61,7 +62,7 @@ async function openPaystack(session, orderId, { onSuccess, onCancel, onError }) 
   throw new Error('No payment session');
 }
 
-export default function PaymentStep({ items, addressId, pickupStationId, quote, onBack, pickupMode = false }) {
+export default function PaymentStep({ items, addressId, pickupStationId, shopFulfillmentMode, quote, onBack, pickupMode = false }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const isCustomer = user?.role === 'customer';
@@ -168,7 +169,7 @@ export default function PaymentStep({ items, addressId, pickupStationId, quote, 
           address_id: addressId,
           pickup_station_id: pickupStationId,
           payment_method: 'pod',
-          ...orderExtras(cartItems, notifyWhatsapp),
+          ...orderExtras(cartItems, notifyWhatsapp, shopFulfillmentMode),
         });
         finish(order.order_id);
         return;
@@ -186,7 +187,7 @@ export default function PaymentStep({ items, addressId, pickupStationId, quote, 
           address_id: addressId,
           pickup_station_id: pickupStationId,
           payment_method: 'bank_transfer',
-          ...orderExtras(cartItems, notifyWhatsapp),
+          ...orderExtras(cartItems, notifyWhatsapp, shopFulfillmentMode),
         });
         await submitBank.mutateAsync({ orderId: order.order_id, reference: bankRef.trim() });
         finish(order.order_id);
@@ -199,7 +200,7 @@ export default function PaymentStep({ items, addressId, pickupStationId, quote, 
         address_id: addressId,
         pickup_station_id: pickupStationId,
         payment_method: createMethod,
-        ...orderExtras(cartItems, notifyWhatsapp),
+        ...orderExtras(cartItems, notifyWhatsapp, shopFulfillmentMode),
       });
       const orderId = order.order_id;
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\LocationHelper;
 use App\Helpers\Response;
 use App\Helpers\StaffPermission;
 use App\Helpers\Validator;
@@ -386,6 +387,16 @@ if (($user['role'] ?? '') === 'super_admin'
     } catch (\Throwable) {
         // Phase M6 shop billing migration not applied yet.
     }
+}
+
+try {
+    $coords = LocationHelper::parseLatLng($body);
+    $pdo->prepare('UPDATE company_settings SET latitude = ?, longitude = ? WHERE id = 1')
+        ->execute([$coords['latitude'], $coords['longitude']]);
+    $fields['latitude'] = $coords['latitude'];
+    $fields['longitude'] = $coords['longitude'];
+} catch (\Throwable) {
+    // Migration 056 not applied yet.
 }
 
 Response::success(['message' => 'Company settings saved.', 'settings' => $fields]);

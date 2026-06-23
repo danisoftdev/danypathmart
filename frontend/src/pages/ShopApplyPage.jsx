@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usePlatformFeatures } from '../hooks/checkout';
 import ShopLogoField from '../components/shop/ShopLogoField';
+import LocationMapPicker from '../components/map/LocationMapPicker';
 import {
   useApplyForShop,
   useConfirmShopBillingDevPayment,
@@ -20,6 +21,11 @@ const EMPTY = {
   email: '',
   phone: '',
   city: '',
+  street_address: '',
+  region: '',
+  latitude: null,
+  longitude: null,
+  allows_shop_pickup: false,
   description: '',
   bank_name: '',
   bank_account_name: '',
@@ -283,6 +289,39 @@ export default function ShopApplyPage() {
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">City *</span>
           <input className="input-field w-full" value={form.city} onChange={set('city')} required />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">Street address</span>
+            <input className="input-field w-full" value={form.street_address} onChange={set('street_address')} placeholder="Shop location" />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">Region</span>
+            <input className="input-field w-full" value={form.region} onChange={set('region')} placeholder="e.g. Greater Accra" />
+          </label>
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-semibold">Shop location on map</p>
+          <p className="mb-3 text-xs text-muted">Pin your shop so customers can find you and pick up orders in person.</p>
+          <LocationMapPicker
+            latitude={form.latitude}
+            longitude={form.longitude}
+            onChange={({ latitude, longitude }) =>
+              setForm((f) => ({ ...f, latitude, longitude }))
+            }
+          />
+        </div>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={form.allows_shop_pickup}
+            onChange={(e) => setForm((f) => ({ ...f, allows_shop_pickup: e.target.checked }))}
+          />
+          <span>
+            <span className="font-semibold">Allow customers to pick up orders at my shop</span>
+            <span className="mt-0.5 block text-xs text-muted">Requires a map pin above.</span>
+          </span>
         </label>
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">About your shop</span>

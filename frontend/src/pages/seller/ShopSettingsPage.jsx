@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import ShopLogoField from '../../components/shop/ShopLogoField';
+import LocationMapPicker from '../../components/map/LocationMapPicker';
 import { useUpdateShopProfile, useUploadShopLogo } from '../../hooks/shop';
 
 export default function ShopSettingsPage() {
@@ -11,6 +12,12 @@ export default function ShopSettingsPage() {
     name: initialShop?.name || '',
     description: initialShop?.description || '',
     contact_phone: initialShop?.contact_phone || '',
+    city: initialShop?.city || '',
+    street_address: initialShop?.street_address || '',
+    region: initialShop?.region || '',
+    latitude: initialShop?.latitude ?? null,
+    longitude: initialShop?.longitude ?? null,
+    allows_shop_pickup: !!initialShop?.allows_shop_pickup,
     logo_url: initialShop?.logo_url || '',
     bank_name: initialShop?.bank_name || '',
     bank_account_name: initialShop?.bank_account_name || '',
@@ -26,6 +33,12 @@ export default function ShopSettingsPage() {
         name: initialShop.name || '',
         description: initialShop.description || '',
         contact_phone: initialShop.contact_phone || '',
+        city: initialShop.city || '',
+        street_address: initialShop.street_address || '',
+        region: initialShop.region || '',
+        latitude: initialShop.latitude ?? null,
+        longitude: initialShop.longitude ?? null,
+        allows_shop_pickup: !!initialShop.allows_shop_pickup,
         logo_url: initialShop.logo_url || '',
         bank_name: initialShop.bank_name || '',
         bank_account_name: initialShop.bank_account_name || '',
@@ -46,6 +59,7 @@ export default function ShopSettingsPage() {
         ...form,
         logo_url: form.logo_url.trim() || null,
         description: form.description.trim() || null,
+        allows_shop_pickup: form.allows_shop_pickup && form.latitude != null && form.longitude != null,
       });
       setToast('Shop profile saved.');
       setTimeout(() => setToast(''), 3000);
@@ -83,6 +97,43 @@ export default function ShopSettingsPage() {
           <span className="mb-1 block font-semibold">About your shop</span>
           <textarea className="input-field w-full" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
         </label>
+
+        <div className="rounded-xl border border-black/8 p-4 dark:border-white/10">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">Location & pickup</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="mb-1 block font-semibold">City</span>
+              <input className="input-field w-full" value={form.city} onChange={(e) => set('city', e.target.value)} />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-semibold">Region</span>
+              <input className="input-field w-full" value={form.region} onChange={(e) => set('region', e.target.value)} />
+            </label>
+            <label className="block text-sm sm:col-span-2">
+              <span className="mb-1 block font-semibold">Street address</span>
+              <input className="input-field w-full" value={form.street_address} onChange={(e) => set('street_address', e.target.value)} />
+            </label>
+          </div>
+          <div className="mt-4">
+            <LocationMapPicker
+              latitude={form.latitude}
+              longitude={form.longitude}
+              onChange={({ latitude, longitude }) => setForm((f) => ({ ...f, latitude, longitude }))}
+            />
+          </div>
+          <label className="mt-4 flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={form.allows_shop_pickup}
+              onChange={(e) => set('allows_shop_pickup', e.target.checked)}
+            />
+            <span>
+              <span className="font-semibold">Allow in-person pickup at my shop</span>
+              <span className="mt-0.5 block text-xs text-muted">Customers can collect orders at your pinned location.</span>
+            </span>
+          </label>
+        </div>
 
         <div className="rounded-xl border border-black/8 p-4 dark:border-white/10">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Payout details</p>

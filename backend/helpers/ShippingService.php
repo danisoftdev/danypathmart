@@ -73,7 +73,7 @@ final class ShippingService
      *   lines:array<int,array<string,mixed>>, errors:array<int,array<string,mixed>>
      * }
      */
-    public static function quote(PDO $pdo, array $items, bool $requireStock = false, ?string $region = null, ?int $pickupStationId = null): array
+    public static function quote(PDO $pdo, array $items, bool $requireStock = false, ?string $region = null, ?int $pickupStationId = null, ?string $shopFulfillmentMode = null): array
     {
         $qtyById = [];
         foreach ($items as $item) {
@@ -216,6 +216,22 @@ final class ShippingService
             $deliveryMode === 'pickup'
         );
 
+        $shopPickupOffer = ShopService::resolveShopPickupOffer($pdo, $lines);
+        $shopPickupAvailable = $shopPickupOffer !== null && $hasShopItems && !$hasDpmItems;
+        $effectiveShopMode = 'delivery';
+        if ($shopFulfillmentMode === 'shop_pickup' && $shopPickupAvailable) {
+            $effectiveShopMode = 'shop_pickup';
+        }
+
+        $shopNote = null;
+        if ($hasShopItems) {
+            if ($effectiveShopMode === 'shop_pickup' && $shopPickupOffer !== null) {
+                $shopNote = 'Collect your order at ' . ($shopPickupOffer['shop_name'] ?? 'the shop') . '. No delivery address needed.';
+            } else {
+                $shopNote = 'Marketplace items are delivered by the seller. Delivery fees are paid directly to the seller — not in this checkout total.';
+            }
+        }
+
         return [
             'subtotal'               => $subtotal,
             'dpm_subtotal'           => $dpmSubtotal,
@@ -232,9 +248,10 @@ final class ShippingService
             'delivery_explanation'   => $deliveryExplanation,
             'delivery_mode'          => $deliveryMode,
             'pickup_station_id'      => $deliveryMode === 'pickup' ? $pickupStationId : null,
-            'shop_delivery_note'     => $hasShopItems
-                ? 'Marketplace items are delivered by the seller. Delivery fees are paid directly to the seller — not in this checkout total.'
-                : null,
+            'shop_delivery_note'     => $shopNote,
+            'shop_pickup_available'  => $shopPickupAvailable,
+            'shop_pickup'            => $shopPickupOffer,
+            'shop_fulfillment_mode'  => $effectiveShopMode,
         ];
     }
 

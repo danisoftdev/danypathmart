@@ -7,6 +7,7 @@ import { AdminPageError } from '../../components/admin/AdminFetchState';
 import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../lib/permissions';
 import AdminMessagingSettingsPanel from '../../components/admin/AdminMessagingSettingsPanel';
+import LocationMapPicker from '../../components/map/LocationMapPicker';
 
 const EMPTY = {
   company_name: '',
@@ -18,6 +19,8 @@ const EMPTY = {
   instagram: '',
   twitter: '',
   address: '',
+  latitude: null,
+  longitude: null,
   business_hours: '',
   return_policy: '',
   usd_to_ghs_rate: 0,
@@ -280,6 +283,16 @@ export default function CompanySettings() {
               className="modal-input min-h-[80px] resize-y"
               value={form.address || ''}
               onChange={(e) => set('address', e.target.value)}
+            />
+          </Field>
+          <Field label="HQ location on map" hint="Shown on Contact and for directions to DanyPathMart.">
+            <LocationMapPicker
+              latitude={form.latitude}
+              longitude={form.longitude}
+              onChange={({ latitude, longitude }) =>
+                setForm((f) => ({ ...f, latitude, longitude }))
+              }
+              height={260}
             />
           </Field>
           <Field label="Business hours">

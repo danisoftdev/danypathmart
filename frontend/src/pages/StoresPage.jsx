@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '../lib/api';
 import { resolveProductImageUrl } from '../lib/productImages';
 import EmptyState from '../components/ui/EmptyState';
 import ProductRating from '../components/product/ProductRating';
+import { hasMapPin } from '../lib/mapUtils';
+import 'leaflet/dist/leaflet.css';
 
 function usePublicShops(q, city) {
   return useQuery({
@@ -14,9 +16,74 @@ function usePublicShops(q, city) {
   });
 }
 
+function ShopsMap({ shops }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+  const pinned = useMemo(() => shops.filter((s) => hasMapPin(s.latitude, s.longitude)), [shops]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      if (!containerRef.current || pinned.length === 0) return;
+      const L = (await import('leaflet')).default;
+      if (cancelled || mapRef.current) return;
+
+      delete L.Icon.Default.prototype._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+
+      const map = L.map(containerRef.current).setView([5.6037, -0.187], 12);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map);
+
+      const bounds = [];
+      pinned.forEach((shop) => {
+        const lat = Number(shop.latitude);
+        const lng = Number(shop.longitude);
+        bounds.push([lat, lng]);
+        L.marker([lat, lng])
+          .addTo(map)
+          .bindPopup(`<strong>${shop.name}</strong><br/><a href="/stores/${shop.slug}">View shop</a>`);
+      });
+      if (bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [24, 24] });
+      } else if (bounds.length === 1) {
+        map.setView(bounds[0], 14);
+      }
+      mapRef.current = map;
+      setTimeout(() => map.invalidateSize(), 100);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [pinned]);
+
+  if (pinned.length === 0) {
+    return <p className="mt-6 text-sm text-muted">No shops with map pins yet. Check the list view.</p>;
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="mt-6 z-0 h-[420px] w-full overflow-hidden rounded-2xl border border-black/10 dark:border-white/10"
+    />
+  );
+}
+
 export default function StoresPage() {
   const [q, setQ] = useState('');
   const [city, setCity] = useState('');
+  const [view, setView] = useState('list');
   const { data, isLoading } = usePublicShops(q, city);
   const shops = data?.data ?? [];
 
@@ -28,9 +95,9 @@ export default function StoresPage() {
         <span>Stores</span>
       </nav>
       <h1 className="text-2xl font-extrabold md:text-3xl">Browse shops</h1>
-      <p className="mt-2 text-sm text-muted">Find sellers on DanyPathMart by name or city.</p>
+      <p className="mt-2 text-sm text-muted">Find sellers on DanyPathMart by name, city, or map.</p>
 
-      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           className="input-field flex-1"
           placeholder="Search shop name…"
@@ -43,6 +110,22 @@ export default function StoresPage() {
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
+        <div className="flex rounded-xl border border-black/10 p-1 dark:border-white/10">
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-bold ${view === 'list' ? 'bg-brand-green text-white' : ''}`}
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            className={`rounded-lg px-4 py-2 text-sm font-bold ${view === 'map' ? 'bg-brand-green text-white' : ''}`}
+            onClick={() => setView('map')}
+          >
+            Map
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -51,6 +134,8 @@ export default function StoresPage() {
         <div className="mt-10">
           <EmptyState title="No shops found" message="Try a different search or check back later." actionLabel="Browse products" actionTo="/shop" />
         </div>
+      ) : view === 'map' ? (
+        <ShopsMap shops={shops} />
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shops.map((shop) => (

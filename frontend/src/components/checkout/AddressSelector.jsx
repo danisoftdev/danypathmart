@@ -20,7 +20,7 @@ const FIELDS = [
   { key: 'landmark', label: 'Landmark (optional)', required: false, full: true },
 ];
 
-export default function AddressSelector({ selectedId, onSelect, onContinue }) {
+export default function AddressSelector({ selectedId, onSelect, onContinue, hideContinue = false }) {
   const { data, isLoading } = useAddresses();
   const addAddress = useAddAddress();
   const [adding, setAdding] = useState(false);
@@ -171,16 +171,18 @@ export default function AddressSelector({ selectedId, onSelect, onContinue }) {
         </button>
       )}
 
-      <div className="mt-8 flex justify-end">
-        <button
-          type="button"
-          disabled={!selectedId}
-          onClick={onContinue}
-          className="btn-primary min-h-[48px] w-full px-8 sm:w-auto"
-        >
-          Continue to summary
-        </button>
-      </div>
+      {!hideContinue && (
+        <div className="mt-8 flex justify-end">
+          <button
+            type="button"
+            disabled={!selectedId}
+            onClick={onContinue}
+            className="btn-primary min-h-[48px] w-full px-8 sm:w-auto"
+          >
+            Continue to summary
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { usePublicStore } from '../hooks/shop';
 import ProductCard from '../components/product/ProductCard';
+import LocationMapView from '../components/map/LocationMapView';
 import { resolveProductImageUrl } from '../lib/productImages';
 import EmptyState from '../components/ui/EmptyState';
 import { ProductGridSkeleton } from '../components/ui/Skeleton';
@@ -56,8 +57,28 @@ export default function StorePage() {
           {shop.description && (
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{shop.description}</p>
           )}
+          {shop.allows_shop_pickup && (
+            <p className="mt-2 inline-block rounded-full bg-brand-gold/15 px-2.5 py-0.5 text-xs font-bold text-brand-gold">
+              In-person pickup available
+            </p>
+          )}
         </div>
       </header>
+
+      {shop.has_map_pin && (
+        <section className="mb-8 rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-[#1E1E1E]">
+          <LocationMapView
+            latitude={shop.latitude}
+            longitude={shop.longitude}
+            streetAddress={shop.street_address}
+            city={shop.city}
+            region={shop.region}
+            directionsUrl={shop.directions_url}
+            label="Find this shop"
+            height={260}
+          />
+        </section>
+      )}
 
       {products.length === 0 ? (
         <p className="text-sm text-muted">No products listed yet.</p>

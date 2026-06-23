@@ -71,13 +71,19 @@ if ($addressId !== null) {
     $quoteRegion = $quoteRegion !== false ? (string) $quoteRegion : null;
 }
 
+$shopFulfillmentMode = trim((string) ($body['shop_fulfillment_mode'] ?? 'delivery'));
+if (!in_array($shopFulfillmentMode, ['delivery', 'shop_pickup'], true)) {
+    $shopFulfillmentMode = 'delivery';
+}
+
 // Server recomputes everything from the database (prices, freight, stock).
 $quote = ShippingService::quote(
     $pdo,
     $items,
     true,
     $quoteRegion,
-    $pickupStationId > 0 ? $pickupStationId : null
+    $pickupStationId > 0 ? $pickupStationId : null,
+    $shopFulfillmentMode
 );
 
 if ($quote['errors'] !== []) {
@@ -94,8 +100,15 @@ $hasShopItems = !empty($quote['has_shop_items']);
 $hasDpmItems = !empty($quote['has_dpm_items']);
 
 if ($hasShopItems) {
-    if ($addressId === null) {
+    $shopPickupOrder = ($quote['shop_fulfillment_mode'] ?? 'delivery') === 'shop_pickup';
+    if (!$shopPickupOrder && $addressId === null) {
         Response::error('A delivery address is required for marketplace items.', 422, ['code' => 'address_required']);
+    }
+    if ($shopPickupOrder && empty($quote['shop_pickup_available'])) {
+        Response::error('Shop pickup is not available for this cart.', 422, ['code' => 'shop_pickup_unavailable']);
+    }
+    if ($shopPickupOrder) {
+        $addressId = null;
     }
     if ($paymentMethod === 'pod') {
         Response::error('Marketplace items must be paid in the app before delivery. Pay on delivery is not available for seller products.', 422, ['code' => 'shop_prepay_required']);
@@ -269,7 +282,12 @@ try {
     throw $e;
 }
 
-ShopFulfillmentService::createForOrder($pdo, $orderId, $quote['lines']);
+ShopFulfillmentService::createForOrder(
+    $pdo,
+    $orderId,
+    $quote['lines'],
+    (string) ($quote['shop_fulfillment_mode'] ?? 'delivery')
+);
 
 $invSettings = InventoryService::displaySettings($pdo);
 if (!$invSettings['stock_decrement_on_payment'] || InventoryService::shouldCommitOnOrderCreate($paymentMethod)) {

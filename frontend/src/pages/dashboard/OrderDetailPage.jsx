@@ -10,6 +10,7 @@ import { isGroupOrder, printGroupRoster, printReceipt, rosterLinesFromOrder } fr
 import { useCompanyStore } from '../../store/companyStore';
 import { reorderOrder } from '../../lib/reorder';
 import { FormPanelSkeleton } from '../../components/ui/Skeleton';
+import LocationMapView from '../../components/map/LocationMapView';
 import { useAirLabels } from '../../hooks/checkout';
 import { timelineStepsForOrder, formatStationAddress } from '../../lib/orderStatus';
 
@@ -354,7 +355,7 @@ export default function OrderDetailPage() {
 
         {order.shop_fulfillments?.length > 0 && (
           <section className="space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Marketplace shop delivery</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Marketplace shop orders</h2>
             {order.shop_fulfillments.map((sf) => (
               <div
                 key={sf.id}
@@ -370,8 +371,24 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-muted">
-                  Shop subtotal: {formatPrice(sf.subtotal)} — delivery fee is between you and the seller.
+                  {sf.fulfillment_mode === 'shop_pickup'
+                    ? `Shop subtotal: ${formatPrice(sf.subtotal)} — collect at the shop after the seller confirms.`
+                    : `Shop subtotal: ${formatPrice(sf.subtotal)} — delivery fee is between you and the seller.`}
                 </p>
+                {sf.fulfillment_mode === 'shop_pickup' && sf.shop_location?.has_map_pin && (
+                  <div className="mt-4 border-t border-black/5 pt-4 dark:border-white/10">
+                    <LocationMapView
+                      latitude={sf.shop_location.latitude}
+                      longitude={sf.shop_location.longitude}
+                      streetAddress={sf.shop_location.street_address}
+                      city={sf.shop_location.city}
+                      region={sf.shop_location.region}
+                      directionsUrl={sf.shop_location.directions_url}
+                      label="Pick up here"
+                      height={200}
+                    />
+                  </div>
+                )}
                 {(sf.tracking ?? []).length > 0 && (
                   <ul className="mt-3 space-y-2 border-t border-black/5 pt-3 dark:border-white/10">
                     {sf.tracking.map((t, idx) => (

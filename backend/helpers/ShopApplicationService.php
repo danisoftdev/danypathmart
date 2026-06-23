@@ -60,12 +60,14 @@ final class ShopApplicationService
         }
 
         try {
+            $coords = LocationHelper::parseLatLng($input);
             $pdo->prepare(
                 'INSERT INTO shop_applications
-                    (user_id, business_name, contact_name, email, phone, city, description, logo_url,
+                    (user_id, business_name, contact_name, email, phone, city, street_address, region,
+                     latitude, longitude, allows_shop_pickup, description, logo_url,
                      referred_by_shop_code, referred_by_shop_id, referred_by_type, referred_by_promoter_id,
                      bank_name, bank_account_name, bank_account_number, momo_number)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             )->execute([
                 $userId,
                 $businessName,
@@ -73,6 +75,11 @@ final class ShopApplicationService
                 $email,
                 $phone,
                 $city,
+                self::nullable($input['street_address'] ?? null),
+                self::nullable($input['region'] ?? null),
+                $coords['latitude'],
+                $coords['longitude'],
+                !empty($input['allows_shop_pickup']) ? 1 : 0,
                 self::nullable($input['description'] ?? null),
                 $logoUrl,
                 $referredCode,
@@ -180,6 +187,11 @@ final class ShopApplicationService
                 'contact_email'       => $app['email'],
                 'contact_phone'       => $app['phone'],
                 'city'                => $app['city'],
+                'street_address'      => $app['street_address'] ?? null,
+                'region'              => $app['region'] ?? null,
+                'latitude'            => $app['latitude'] ?? null,
+                'longitude'           => $app['longitude'] ?? null,
+                'allows_shop_pickup'  => !empty($app['allows_shop_pickup']),
                 'description'         => $app['description'],
                 'bank_name'           => $app['bank_name'],
                 'bank_account_name'   => $app['bank_account_name'],
@@ -264,6 +276,11 @@ final class ShopApplicationService
             'email'               => $row['email'],
             'phone'               => $row['phone'],
             'city'                => $row['city'],
+            'street_address'      => $row['street_address'] ?? null,
+            'region'              => $row['region'] ?? null,
+            'latitude'            => isset($row['latitude']) && $row['latitude'] !== null ? (float) $row['latitude'] : null,
+            'longitude'           => isset($row['longitude']) && $row['longitude'] !== null ? (float) $row['longitude'] : null,
+            'allows_shop_pickup'  => !empty($row['allows_shop_pickup'] ?? null),
             'description'         => $row['description'],
             'logo_url'            => $row['logo_url'] ?? null,
             'referred_by_shop_code' => $row['referred_by_shop_code'] ?? null,
