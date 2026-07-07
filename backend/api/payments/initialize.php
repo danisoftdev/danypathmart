@@ -83,7 +83,13 @@ $payloadData = [
 
 if (($order['payment_collector'] ?? 'dpm') === 'shop') {
     $shopId = (int) ($order['storefront_shop_id'] ?? 0);
-    $shop = $shopId > 0 ? ShopService::findById($pdo, $shopId) : null;
+    if ($shopId <= 0) {
+        Response::error('This shop cannot accept online payments right now.', 422, ['code' => 'shop_paystack_unavailable']);
+    }
+    $shop = ShopService::findById($pdo, $shopId);
+    if ($shop === null) {
+        Response::error('This shop cannot accept online payments right now.', 422, ['code' => 'shop_paystack_unavailable']);
+    }
     $subaccount = $shop['paystack_subaccount_code'] ?? null;
     if ($subaccount === null || trim((string) $subaccount) === '') {
         Response::error('This shop cannot accept online payments right now.', 422, ['code' => 'shop_paystack_unavailable']);

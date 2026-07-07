@@ -40,8 +40,13 @@ $products = array_map(
     $stmt->fetchAll()
 );
 
-$publicShop = ShopService::findBySlug($pdo, $slug);
-unset($publicShop['paystack_subaccount_code']);
+$publicShop = $shop;
+unset(
+    $publicShop['paystack_subaccount_code'],
+    $publicShop['bank_name'],
+    $publicShop['bank_account_name'],
+    $publicShop['bank_account_number']
+);
 
 Response::success([
     'shop'             => $publicShop,

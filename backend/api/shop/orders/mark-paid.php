@@ -13,6 +13,8 @@ if ($id <= 0) {
     Response::error('Invalid order.', 422);
 }
 
+$pdo = Database::pdo();
+
 try {
     StorefrontOrderService::markPaidByShop($pdo, $ctx['shop_id'], $id, (int) $ctx['user']['id']);
 } catch (RuntimeException $e) {
