@@ -15,13 +15,26 @@ function PolicyBody({ text }) {
     );
   }
 
+  const blocks = text.split(/\n\n+/);
+
   return (
     <div className="prose-policy mt-8 rounded-2xl border border-black/8 bg-white p-6 text-sm leading-relaxed dark:border-white/10 dark:bg-[#1E1E1E]">
-      {text.split(/\n\n+/).map((para) => (
-        <p key={para.slice(0, 48)} className="mb-4 last:mb-0 whitespace-pre-wrap">
-          {para}
-        </p>
-      ))}
+      {blocks.map((para) => {
+        const key = para.slice(0, 48);
+        const isHeading = /^\d+\.\s/.test(para.trim()) && para.length < 120;
+        if (isHeading) {
+          return (
+            <h2 key={key} className="mb-2 mt-6 text-base font-extrabold first:mt-0 text-[#111111] dark:text-white">
+              {para.trim()}
+            </h2>
+          );
+        }
+        return (
+          <p key={key} className="mb-4 last:mb-0 whitespace-pre-wrap text-muted">
+            {para}
+          </p>
+        );
+      })}
     </div>
   );
 }

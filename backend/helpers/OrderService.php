@@ -318,7 +318,9 @@ final class OrderService
         NotificationService::notifyOrderStatus($pdo, $orderId, 'pending', 'Your payment was received. We will prepare your order soon.');
         NotificationService::notifyOrderPaid($pdo, $orderId, $order, $channel);
         ReferralService::onOrderPaid($pdo, $orderId);
-        MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        if (($order['payment_collector'] ?? 'dpm') !== 'shop') {
+            MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        }
         ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
         InventoryService::commitOrderInventory($pdo, $orderId);
         return true;
@@ -347,7 +349,7 @@ final class OrderService
 
         self::sendConfirmation($pdo, $orderId, $userId);
         NotificationService::notifyOrderStatus($pdo, $orderId, 'pending', 'Your payment was received. We will prepare your order soon.');
-        $paidOrder = $pdo->prepare('SELECT total FROM orders WHERE id = ?');
+        $paidOrder = $pdo->prepare('SELECT total, payment_collector FROM orders WHERE id = ?');
         $paidOrder->execute([$orderId]);
         $orderRow = $paidOrder->fetch();
         if ($orderRow !== false) {
@@ -355,7 +357,9 @@ final class OrderService
         }
 
         ReferralService::onOrderPaid($pdo, $orderId);
-        MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        if (($orderRow['payment_collector'] ?? 'dpm') !== 'shop') {
+            MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        }
         ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
         InventoryService::commitOrderInventory($pdo, $orderId);
     }

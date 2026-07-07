@@ -4,6 +4,7 @@ import {
   useShopOrderDetail,
   useShopOrders,
   useUpdateShopOrderStatus,
+  useMarkShopOrderPaid,
 } from '../../hooks/shop';
 import { formatPrice, resolveImageUrl } from '../../lib/currency';
 import { downloadShopSalesExport, downloadShopSalesItemsExport } from '../../lib/shopExport';
@@ -33,6 +34,7 @@ export default function ShopOrdersPage() {
   const { data: orders = [], isLoading } = useShopOrders();
   const { data: detailData, isLoading: detailLoading } = useShopOrderDetail(selectedId);
   const updateStatus = useUpdateShopOrderStatus();
+  const markPaid = useMarkShopOrderPaid();
   const [nextStatus, setNextStatus] = useState('preparing');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
@@ -59,6 +61,7 @@ export default function ShopOrdersPage() {
   };
 
   const canUpdate = fulfillment && !['awaiting_payment', 'cancelled', 'delivered'].includes(fulfillment.status);
+  const awaitingPayment = fulfillment?.status === 'awaiting_payment';
 
   const runExport = async (fn) => {
     setExportError('');
@@ -78,7 +81,7 @@ export default function ShopOrdersPage() {
         <div>
           <h1 className="text-xl font-extrabold md:text-2xl">Orders</h1>
           <p className="mt-1 text-sm text-muted">
-            Paid marketplace orders — you deliver to the customer. Delivery fees are arranged offline with the buyer.
+            Orders from your shop link — you receive payment directly. Confirm MoMo/cash when received.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -185,6 +188,28 @@ export default function ShopOrdersPage() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {awaitingPayment && (
+                <div className="rounded-xl border border-brand-gold/40 bg-brand-gold/10 p-4">
+                  <p className="text-sm font-bold">Awaiting payment</p>
+                  <p className="mt-1 text-sm text-muted">Confirm when you receive MoMo or cash from the customer.</p>
+                  <button
+                    type="button"
+                    className="btn-primary mt-3 px-4 py-2 text-sm"
+                    disabled={markPaid.isPending}
+                    onClick={async () => {
+                      setError('');
+                      try {
+                        await markPaid.mutateAsync(selectedId);
+                      } catch (err) {
+                        setError(err.response?.data?.message || 'Could not confirm payment.');
+                      }
+                    }}
+                  >
+                    {markPaid.isPending ? 'Confirming…' : 'Mark as paid'}
+                  </button>
                 </div>
               )}
 

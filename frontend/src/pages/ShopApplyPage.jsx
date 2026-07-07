@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usePlatformFeatures } from '../hooks/checkout';
 import ShopLogoField from '../components/shop/ShopLogoField';
@@ -14,6 +14,7 @@ import {
 } from '../hooks/shop';
 import { useAuthStore } from '../store/authStore';
 import { formatPrice } from '../lib/currency';
+import { ShopApplyPolicyConsent, SellerPolicyLinks } from '../components/legal/SellerPolicyLinks';
 
 const EMPTY = {
   business_name: '',
@@ -70,6 +71,7 @@ export default function ShopApplyPage() {
   const [applicationId, setApplicationId] = useState(null);
   const [error, setError] = useState('');
   const [confirmingReturn, setConfirmingReturn] = useState(false);
+  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -224,8 +226,10 @@ export default function ShopApplyPage() {
 
       <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">Open your shop</h1>
       <p className="mt-2 text-sm text-muted">
-        List uniforms, books, and club materials alongside DanyPathMart. Products go live after admin review.
+        Get your own shop link on DanyPathMart. You keep 100% of sales — pay a subscription to keep your storefront active.
+        Products go live after admin review.
       </p>
+      <SellerPolicyLinks className="mt-3" />
 
       {billingSettings?.enabled && listFee > 0 && (
         <div className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
@@ -385,7 +389,13 @@ export default function ShopApplyPage() {
           </div>
         </div>
 
-        <button type="submit" className="btn-primary w-full min-h-[44px]" disabled={apply.isPending || flagsLoading || initPayment.isPending}>
+        <ShopApplyPolicyConsent
+          checked={acceptedPolicies}
+          onChange={setAcceptedPolicies}
+          disabled={apply.isPending || initPayment.isPending}
+        />
+
+        <button type="submit" className="btn-primary w-full min-h-[44px]" disabled={apply.isPending || flagsLoading || initPayment.isPending || !acceptedPolicies}>
           {apply.isPending || initPayment.isPending
             ? 'Submitting…'
             : requiresPayment

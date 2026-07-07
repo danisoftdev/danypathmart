@@ -51,6 +51,7 @@ import AdminHubLogisticsPage from './pages/admin/AdminHubLogisticsPage';
 import AdminDeliveryRunsPage from './pages/admin/AdminDeliveryRunsPage';
 import AdminReviewsPage from './pages/admin/AdminReviewsPage';
 import AdminMarketplacePage from './pages/admin/AdminMarketplacePage';
+import AdminTrustPage from './pages/admin/AdminTrustPage';
 import DriverLayout from './components/layout/DriverLayout';
 import DriverRunsPage from './pages/driver/DriverRunsPage';
 import StationLayout from './components/layout/StationLayout';
@@ -59,12 +60,15 @@ import AdminStationStaffPage from './pages/admin/AdminStationStaffPage';
 import AdminReportsPage from './pages/admin/AdminReportsPage';
 import ShopApplyPage from './pages/ShopApplyPage';
 import StorePage from './pages/StorePage';
+import StoreLayout from './components/layout/StoreLayout';
+import StoreCartPage from './pages/StoreCartPage';
+import StoreCheckoutPage from './pages/StoreCheckoutPage';
 import StoresPage from './pages/StoresPage';
 import ShopLayout from './components/layout/ShopLayout';
 import ShopDashboardPage from './pages/seller/ShopDashboardPage';
 import ShopProductsPage from './pages/seller/ShopProductsPage';
 import ShopOrdersPage from './pages/seller/ShopOrdersPage';
-import ShopWalletPage from './pages/seller/ShopWalletPage';
+import ShopPaymentsPage from './pages/seller/ShopPaymentsPage';
 import ShopSettingsPage from './pages/seller/ShopSettingsPage';
 import PromoterDashboardPage from './pages/promoter/PromoterDashboardPage';
 import AdminShippingPage from './pages/admin/AdminShippingPage';
@@ -96,6 +100,7 @@ import Setup2FAPage from './pages/admin/Setup2FAPage';
 import { useAuthStore } from './store/authStore';
 import { useCompanyStore } from './store/companyStore';
 import AnalyticsLoader from './components/analytics/AnalyticsLoader';
+import CautionAcknowledgeGate from './components/trust/CautionAcknowledgeGate';
 
 function Boot({ children }) {
   const [ready, setReady] = useState(false);
@@ -124,6 +129,7 @@ function Boot({ children }) {
   return (
     <>
       <AnalyticsLoader />
+      <CautionAcknowledgeGate />
       {children}
     </>
   );
@@ -169,7 +175,11 @@ export default function App() {
           <Route path="/sell" element={<ShopApplyPage />} />
           <Route path="/promoter" element={<PromoterDashboardPage />} />
           <Route path="/stores" element={<StoresPage />} />
-          <Route path="/stores/:slug" element={<StorePage />} />
+          <Route path="/stores/:slug" element={<StoreLayout />}>
+            <Route index element={<StorePage />} />
+            <Route path="cart" element={<StoreCartPage />} />
+            <Route path="checkout" element={<StoreCheckoutPage />} />
+          </Route>
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route
@@ -232,7 +242,8 @@ export default function App() {
             <Route index element={<ShopDashboardPage />} />
             <Route path="products" element={<ShopProductsPage />} />
             <Route path="orders" element={<ShopOrdersPage />} />
-            <Route path="wallet" element={<ShopWalletPage />} />
+            <Route path="payments" element={<ShopPaymentsPage />} />
+            <Route path="wallet" element={<Navigate to="/seller/payments" replace />} />
             <Route path="settings" element={<ShopSettingsPage />} />
           </Route>
           <Route
@@ -275,6 +286,7 @@ export default function App() {
             <Route path="delivery-runs" element={<AdminDeliveryRunsPage />} />
             <Route path="station-staff" element={<AdminStationStaffPage />} />
             <Route path="marketplace" element={<AdminMarketplacePage />} />
+            <Route path="trust" element={<AdminTrustPage />} />
             <Route path="pos" element={<AdminPosSettingsPage />} />
             <Route path="pos/shifts" element={<AdminPosShiftsPage />} />
             <Route path="pos/reports" element={<AdminPosReportsPage />} />

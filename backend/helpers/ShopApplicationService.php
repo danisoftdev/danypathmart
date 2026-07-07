@@ -226,6 +226,8 @@ final class ShopApplicationService
             )->execute(['approved', $shop['id'], $note, $adminUserId, $applicationId]);
 
             ShopBillingService::createSubscriptionOnApprove($pdo, (int) $shop['id']);
+            $pdo->prepare('UPDATE shops SET verified_at = COALESCE(verified_at, NOW()) WHERE id = ?')
+                ->execute([(int) $shop['id']]);
             SubscriptionReferralService::releaseOnApprove($pdo, $applicationId);
 
             $pdo->commit();

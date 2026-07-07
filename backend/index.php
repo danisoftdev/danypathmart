@@ -273,9 +273,21 @@ $routes = [
     'POST ' . 'shop/wallet/withdraw'        => 'shop/wallet/withdraw.php',
     'GET '  . 'shop/profile'                => 'shop/profile.php',
     'PUT '  . 'shop/profile'                => 'shop/profile.php',
+    'PUT '  . 'shop/payment-settings'       => 'shop/payment-settings.php',
     'POST ' . 'shop/upload-image'           => 'shop/upload-image.php',
     'POST ' . 'public/shop-applications/upload-image' => 'public/shop-applications/upload-image.php',
     'GET '  . 'public/shop-referral/validate'     => 'public/shop-referral/validate.php',
+
+    'POST ' . 'storefront/orders'           => 'storefront/orders/create.php',
+    'POST ' . 'shop-reports'                => 'shop-reports/create.php',
+    'POST ' . 'me/cautions/acknowledge'     => 'me/cautions/acknowledge.php',
+
+    'GET '  . 'admin/trust/reports'         => 'admin/trust/reports/index.php',
+    'POST ' . 'admin/trust/reports/resolve' => 'admin/trust/reports/resolve.php',
+    'GET '  . 'admin/trust/settings'        => 'admin/trust/settings.php',
+    'POST ' . 'admin/trust/settings'        => 'admin/trust/settings.php',
+    'POST ' . 'admin/users/caution'         => 'admin/users/caution.php',
+    'GET '  . 'admin/users/cautions'        => 'admin/users/cautions.php',
 
     // User dashboard: orders, settings, sessions, currency (Day 4B)
     'GET '  . 'orders'                      => 'orders/index.php',
@@ -499,6 +511,13 @@ if ($handlerFile === null && $method === 'GET'
     && preg_match('#^shop/orders/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'shop/orders/show.php';
+}
+
+// Dynamic route: POST shop/orders/{id}/mark-paid
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^shop/orders/([0-9]+)/mark-paid$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'shop/orders/mark-paid.php';
 }
 
 // Dynamic route: POST shop/orders/{id}/status

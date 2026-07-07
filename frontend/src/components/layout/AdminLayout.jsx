@@ -71,6 +71,7 @@ const NAV_GROUPS = [
     id: 'marketplace',
     label: 'Marketplace',
     items: [
+      { to: '/admin/trust', label: 'Trust & reports', permissions: ['resolve_shop_reports', 'manage_trust_automation', 'issue_user_caution'], icon: '🛡️' },
       { to: '/admin/marketplace', label: 'Marketplace', permissions: ['manage_marketplace', 'edit_company_settings', 'approve_shop_listings', 'view_shop_billing', 'manage_shop_fees', 'manage_shop_registration_promo', 'manage_referral_registration_discount', 'waive_shop_fees'], icon: '🏪' },
     ],
   },

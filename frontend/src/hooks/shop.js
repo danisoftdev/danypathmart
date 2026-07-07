@@ -203,3 +203,27 @@ export function useHasShopDashboard() {
     staleTime: 60_000,
   });
 }
+
+export function useUpdateShopPaymentSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.put('/shop/payment-settings', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shop-profile'] });
+      qc.invalidateQueries({ queryKey: ['shop-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['public-store'] });
+    },
+  });
+}
+
+export function useMarkShopOrderPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (fulfillmentId) =>
+      (await api.post(`/shop/orders/${fulfillmentId}/mark-paid`)).data,
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ['shop-orders'] });
+      qc.invalidateQueries({ queryKey: ['shop-order', id] });
+    },
+  });
+}

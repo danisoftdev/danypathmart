@@ -100,20 +100,11 @@ $hasShopItems = !empty($quote['has_shop_items']);
 $hasDpmItems = !empty($quote['has_dpm_items']);
 
 if ($hasShopItems) {
-    $shopPickupOrder = ($quote['shop_fulfillment_mode'] ?? 'delivery') === 'shop_pickup';
-    if (!$shopPickupOrder && $addressId === null) {
-        Response::error('A delivery address is required for marketplace items.', 422, ['code' => 'address_required']);
-    }
-    if ($shopPickupOrder && empty($quote['shop_pickup_available'])) {
-        Response::error('Shop pickup is not available for this cart.', 422, ['code' => 'shop_pickup_unavailable']);
-    }
-    if ($shopPickupOrder) {
-        $addressId = null;
-    }
-    if ($paymentMethod === 'pod') {
-        Response::error('Marketplace items must be paid in the app before delivery. Pay on delivery is not available for seller products.', 422, ['code' => 'shop_prepay_required']);
-    }
-    $pickupStationId = 0;
+    Response::error(
+        'Marketplace shop items must be purchased from the shop\'s own link. Open the seller\'s store page to checkout.',
+        422,
+        ['code' => 'shop_storefront_only']
+    );
 }
 
 if ($pickupEnabled && $hasDpmItems && !$hasShopItems) {

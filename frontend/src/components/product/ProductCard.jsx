@@ -16,12 +16,14 @@ import { addRecentlyViewed } from '../../lib/browseStorage';
 
 import { useAirLabels } from '../../hooks/checkout';
 import { useCartStore } from '../../store/cartStore';
+import { useStoreCartStore } from '../../store/storeCartStore';
 
 
 
-export default function ProductCard({ product, onQuickView }) {
+export default function ProductCard({ product, onQuickView, storeMode = false, shopSlug, shopName }) {
 
   const addItem = useCartStore((s) => s.addItem);
+  const addStoreItem = useStoreCartStore((s) => s.addItem);
   const labels = useAirLabels();
   const { data: catalogSettings } = useCatalogSettings();
   const inv = catalogSettings?.inventory;
@@ -209,7 +211,7 @@ export default function ProductCard({ product, onQuickView }) {
 
           type="button"
 
-          onClick={() => addItem(product, 1)}
+          onClick={() => (storeMode ? addStoreItem(product, 1, shopSlug, shopName) : addItem(product, 1))}
 
           disabled={outOfStock}
 

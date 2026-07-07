@@ -577,6 +577,51 @@ final class ShopBillingService
         return false;
     }
 
+    /** Public storefront visibility — no grace period; hidden when subscription lapses. */
+    public static function isShopPubliclyVisible(PDO $pdo, int $shopId): bool
+    {
+        if (!self::loadSettings($pdo)['shop_billing_enabled']) {
+            return true;
+        }
+        if (!self::renewalRequired($pdo)) {
+            return true;
+        }
+
+        $stmt = $pdo->prepare('SELECT status, period_end, waived_until FROM shop_subscriptions WHERE shop_id = ?');
+        $stmt->execute([$shopId]);
+        $row = $stmt->fetch();
+        if ($row === false) {
+            return true;
+        }
+
+        if ($row['status'] === 'waived') {
+            $until = $row['waived_until'] ?? null;
+
+            return $until === null || $until >= date('Y-m-d');
+        }
+
+        if ($row['status'] === 'active') {
+            $end = (string) ($row['period_end'] ?? '');
+
+            return $end !== '' && $end >= date('Y-m-d');
+        }
+
+        return false;
+    }
+
+    /** Days until subscription period_end (null if billing off or no end date). */
+    public static function daysUntilExpiry(PDO $pdo, int $shopId): ?int
+    {
+        $sub = self::subscriptionForShop($pdo, $shopId);
+        if ($sub === null || empty($sub['period_end'])) {
+            return null;
+        }
+        $end = (string) $sub['period_end'];
+        $today = date('Y-m-d');
+
+        return (int) floor((strtotime($end) - strtotime($today)) / 86400);
+    }
+
     /** @return array<string,mixed>|null */
     public static function subscriptionForShop(PDO $pdo, int $shopId): ?array
     {

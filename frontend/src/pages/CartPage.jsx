@@ -174,9 +174,27 @@ export default function CartPage() {
   }
 
   const itemCount = items.reduce((n, i) => n + i.qty, 0);
+  const shopItems = items.filter((i) => i.shop_id);
+  const hasShopItems = shopItems.length > 0;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-32 md:py-8 md:pb-8">
+      {hasShopItems && (
+        <div className="mb-4 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-4 py-3 text-sm">
+          <p className="font-bold">Shop products use their own checkout</p>
+          <p className="mt-1 text-muted">
+            Marketplace items must be bought from the seller&apos;s shop link, not the main DPM cart.
+            {shopItems[0]?.shop_name && (
+              <>
+                {' '}
+                <Link to={`/stores/${shopItems[0].shop_slug || ''}`} className="font-bold text-brand-green hover:underline">
+                  Go to {shopItems[0].shop_name}
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+      )}
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-extrabold sm:text-3xl">Shopping cart</h1>
@@ -267,7 +285,7 @@ export default function CartPage() {
               <button
                 type="button"
                 onClick={() => navigate('/checkout')}
-                disabled={items.length === 0}
+                disabled={items.length === 0 || hasShopItems}
                 className="btn-primary mt-5 min-h-[48px] w-full text-base disabled:opacity-50"
               >
                 Checkout ({itemCount})
@@ -294,6 +312,7 @@ export default function CartPage() {
             <button
               type="button"
               onClick={() => navigate('/checkout')}
+              disabled={items.length === 0 || hasShopItems}
               className="btn-primary shrink-0 px-6 py-3"
             >
               Checkout

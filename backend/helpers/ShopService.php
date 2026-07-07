@@ -29,7 +29,7 @@ final class ShopService
         if ($row === false) {
             return null;
         }
-        if (!ShopBillingService::isShopInGoodStanding($pdo, (int) $row['id'])) {
+        if (!ShopBillingService::isShopPubliclyVisible($pdo, (int) $row['id'])) {
             return null;
         }
 
@@ -51,7 +51,7 @@ final class ShopService
         $stmt->execute(['active']);
 
         $rows = array_filter($stmt->fetchAll(), static function (array $row) use ($pdo): bool {
-            return ShopBillingService::isShopInGoodStanding($pdo, (int) $row['id']);
+            return ShopBillingService::isShopPubliclyVisible($pdo, (int) $row['id']);
         });
 
         return array_map([self::class, 'formatPublicRow'], array_values($rows));
@@ -305,6 +305,54 @@ final class ShopService
         return self::update($pdo, $shopId, array_merge($existing, $patch));
     }
 
+    /**
+     * @param array<string,mixed> $input
+     * @return array<string,mixed>
+     */
+    public static function updatePaymentSettings(PDO $pdo, int $shopId, array $input): array
+    {
+        $existing = self::findById($pdo, $shopId);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('Shop not found.');
+        }
+        if (empty($existing['verified_at']) && !empty($input['payment_paystack_enabled'])) {
+            throw new \InvalidArgumentException('Paystack is available after your shop is verified.');
+        }
+
+        $paystack = !empty($input['payment_paystack_enabled']) ? 1 : 0;
+        $momo = array_key_exists('payment_momo_enabled', $input)
+            ? (!empty($input['payment_momo_enabled']) ? 1 : 0) : (int) ($existing['payment_momo_enabled'] ?? 1);
+        $physical = array_key_exists('payment_physical_enabled', $input)
+            ? (!empty($input['payment_physical_enabled']) ? 1 : 0) : (int) ($existing['payment_physical_enabled'] ?? 1);
+
+        if ($paystack === 0 && $momo === 0 && $physical === 0) {
+            throw new \InvalidArgumentException('Enable at least one payment method.');
+        }
+
+        $subaccount = array_key_exists('paystack_subaccount_code', $input)
+            ? trim((string) $input['paystack_subaccount_code'])
+            : (string) ($existing['paystack_subaccount_code'] ?? '');
+        $subaccount = $subaccount !== '' ? $subaccount : null;
+
+        if ($paystack === 1 && $subaccount === null) {
+            throw new \InvalidArgumentException('Paystack subaccount code is required when Paystack is enabled.');
+        }
+
+        $momoNumber = array_key_exists('momo_number', $input)
+            ? self::nullableString($input['momo_number'])
+            : ($existing['momo_number'] ?? null);
+        if ($momo === 1 && ($momoNumber === null || trim((string) $momoNumber) === '')) {
+            throw new \InvalidArgumentException('MoMo number is required when MoMo payments are enabled.');
+        }
+
+        $pdo->prepare(
+            'UPDATE shops SET payment_paystack_enabled = ?, payment_momo_enabled = ?, payment_physical_enabled = ?,
+             paystack_subaccount_code = ?, momo_number = ? WHERE id = ?'
+        )->execute([$paystack, $momo, $physical, $subaccount, $momoNumber, $shopId]);
+
+        return self::findById($pdo, $shopId) ?? [];
+    }
+
     public static function addOwner(PDO $pdo, int $shopId, int $userId): void
     {
         $pdo->prepare(
@@ -457,6 +505,11 @@ final class ShopService
             'bank_account_name'   => $row['bank_account_name'],
             'bank_account_number' => $row['bank_account_number'],
             'momo_number'         => $row['momo_number'],
+            'verified_at'         => $row['verified_at'] ?? null,
+            'payment_paystack_enabled' => (int) ($row['payment_paystack_enabled'] ?? 0) === 1,
+            'payment_momo_enabled'     => (int) ($row['payment_momo_enabled'] ?? 1) === 1,
+            'payment_physical_enabled' => (int) ($row['payment_physical_enabled'] ?? 1) === 1,
+            'paystack_subaccount_code' => $row['paystack_subaccount_code'] ?? null,
             'status'              => $row['status'],
             'is_published'        => (bool) $row['is_published'],
             'created_at'          => $row['created_at'],
@@ -491,6 +544,9 @@ final class ShopService
         }
         $shop = self::findById($pdo, $shopId);
         if ($shop === null || $shop['status'] !== 'active') {
+            return null;
+        }
+        if (!ShopBillingService::isShopPubliclyVisible($pdo, $shopId)) {
             return null;
         }
 

@@ -8,6 +8,7 @@ use App\Helpers\ProductPresenter;
 use App\Helpers\ProductQuery;
 use App\Helpers\Response;
 use App\Helpers\ShopService;
+use App\Helpers\StorefrontOrderService;
 
 $pdo = Database::pdo();
 if (!PlatformFeatures::load($pdo)['marketplace_enabled']) {
@@ -39,4 +40,12 @@ $products = array_map(
     $stmt->fetchAll()
 );
 
-Response::success(['shop' => ShopService::findBySlug($pdo, $slug), 'products' => $products]);
+$publicShop = ShopService::findBySlug($pdo, $slug);
+unset($publicShop['paystack_subaccount_code']);
+
+Response::success([
+    'shop'             => $publicShop,
+    'products'         => $products,
+    'payment_methods'  => StorefrontOrderService::paymentMethodsForShop($pdo, $shop),
+    'store_url'        => '/stores/' . $slug,
+]);

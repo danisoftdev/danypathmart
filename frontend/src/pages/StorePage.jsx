@@ -1,17 +1,26 @@
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useOutletContext, useParams } from 'react-router-dom';
 import { usePublicStore } from '../hooks/shop';
 import ProductCard from '../components/product/ProductCard';
 import LocationMapView from '../components/map/LocationMapView';
 import { resolveProductImageUrl } from '../lib/productImages';
 import EmptyState from '../components/ui/EmptyState';
 import { ProductGridSkeleton } from '../components/ui/Skeleton';
+import { useStoreCartStore } from '../store/storeCartStore';
 
 export default function StorePage() {
   const { slug } = useParams();
   const { data, isLoading, isError } = usePublicStore(slug);
+  const setShop = useStoreCartStore((s) => s.setShop);
+  const { shop: layoutShop } = useOutletContext() ?? {};
+  const [copied, setCopied] = useState(false);
 
-  const shop = data?.shop;
+  const shop = layoutShop || data?.shop;
   const products = data?.products ?? [];
+
+  useEffect(() => {
+    if (shop?.slug) setShop(shop.slug, shop.name);
+  }, [shop?.slug, shop?.name, setShop]);
 
   if (isLoading) {
     return (
@@ -25,24 +34,25 @@ export default function StorePage() {
   if (isError || !shop) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-20">
-        <EmptyState
-          title="Store not found"
-          message="This shop may be unpublished or the link is incorrect."
-          actionLabel="Browse shop"
-          actionTo="/shop"
-        />
+        <EmptyState title="Store not found" message="This shop may be inactive or the link is incorrect." />
       </div>
     );
   }
 
+  const storeUrl = typeof window !== 'undefined' ? `${window.location.origin}/stores/${shop.slug}` : `/stores/${shop.slug}`;
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(storeUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-24 md:py-10">
-      <nav className="mb-4 text-sm text-muted">
-        <Link to="/shop" className="hover:text-brand-green">Shop</Link>
-        {' / '}
-        <span>{shop.name}</span>
-      </nav>
-
       <header className="mb-8 flex flex-col gap-4 rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-[#1E1E1E] sm:flex-row sm:items-center">
         {shop.logo_url ? (
           <img src={resolveProductImageUrl(shop.logo_url)} alt="" className="h-20 w-20 rounded-2xl object-cover" />
@@ -54,15 +64,16 @@ export default function StorePage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">{shop.name}</h1>
           {shop.city && <p className="mt-1 text-sm text-muted">{shop.city}</p>}
-          {shop.description && (
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{shop.description}</p>
-          )}
+          {shop.description && <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{shop.description}</p>}
           {shop.allows_shop_pickup && (
             <p className="mt-2 inline-block rounded-full bg-brand-gold/15 px-2.5 py-0.5 text-xs font-bold text-brand-gold">
               In-person pickup available
             </p>
           )}
         </div>
+        <button type="button" onClick={copyLink} className="shrink-0 rounded-xl border-2 border-brand-green px-4 py-2 text-sm font-bold text-brand-green">
+          {copied ? 'Link copied!' : 'Share shop link'}
+        </button>
       </header>
 
       {shop.has_map_pin && (
@@ -85,7 +96,7 @@ export default function StorePage() {
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} storeMode shopSlug={shop.slug} shopName={shop.name} />
           ))}
         </div>
       )}

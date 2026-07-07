@@ -109,7 +109,8 @@ final class ProductQuery
             return ['shop_id IS NULL', []];
         }
 
-        return ["(shop_id IS NULL OR listing_status = 'approved')", []];
+        // Main catalogue: DPM products only — shop items sold via /stores/{slug}.
+        return ['shop_id IS NULL', []];
     }
 
     public static function orderBy(?string $sort): string

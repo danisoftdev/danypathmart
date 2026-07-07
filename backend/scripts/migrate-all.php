@@ -33,6 +33,7 @@ spl_autoload_register(static function (string $class): void {
 use App\Config\Database;
 use App\Helpers\CareerService;
 use App\Helpers\EmployeeService;
+use App\Helpers\LegalPolicySeeder;
 
 function tableExists(PDO $pdo, string $table): bool
 {
@@ -148,6 +149,22 @@ function postMigrateEmployees(PDO $pdo): void
     echo "  Backfilled {$count} employee record(s).\n";
 }
 
+function postMigrateLegalPolicies(PDO $pdo): void
+{
+    echo "\n── post: legal policies (storefront v2)\n";
+    if (!tableExists($pdo, 'legal_policies')) {
+        echo "  SKIP: legal_policies table not present\n";
+        return;
+    }
+
+    try {
+        $count = LegalPolicySeeder::seedStorefrontPolicies($pdo);
+        echo "  OK: upserted {$count} policy document(s) from docs/legal/policies\n";
+    } catch (Throwable $e) {
+        echo '  SKIP: ' . $e->getMessage() . "\n";
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 echo "DanyPathMart — migrate-all\n";
@@ -183,6 +200,7 @@ foreach ($files as $file) {
 
 postMigrateRoleTypes($pdo);
 postMigrateEmployees($pdo);
+postMigrateLegalPolicies($pdo);
 
 echo "\n" . str_repeat('=', 50) . "\n";
 echo "migrate-all complete.\n";

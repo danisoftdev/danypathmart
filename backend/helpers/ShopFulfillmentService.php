@@ -389,6 +389,26 @@ final class ShopFulfillmentService
         ];
     }
 
+    public static function notifyAwaitingPayment(PDO $pdo, int $shopId, int $orderId): void
+    {
+        $stmt = $pdo->prepare(
+            'SELECT id FROM shop_order_fulfillments WHERE order_id = ? AND shop_id = ? LIMIT 1'
+        );
+        $stmt->execute([$orderId, $shopId]);
+        $fid = (int) ($stmt->fetchColumn() ?: 0);
+        if ($fid <= 0) {
+            return;
+        }
+
+        self::notifyShopMembers(
+            $pdo,
+            $shopId,
+            $orderId,
+            $fid,
+            'New order awaiting payment — confirm when you receive MoMo or cash.'
+        );
+    }
+
     private static function notifyShopMembers(PDO $pdo, int $shopId, int $orderId, int $fulfillmentId, string $body): void
     {
         $members = $pdo->prepare(

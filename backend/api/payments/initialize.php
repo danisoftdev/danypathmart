@@ -6,6 +6,7 @@ use App\Config\Database;
 use App\Config\Env;
 use App\Helpers\PaymentSettings;
 use App\Helpers\Response;
+use App\Helpers\ShopService;
 use App\Middleware\AuthMiddleware;
 
 $user = AuthMiddleware::authenticate();
@@ -67,7 +68,7 @@ if (!$configured) {
     ]);
 }
 
-$payload = json_encode([
+$payloadData = [
     'email'        => $user['email'],
     'amount'       => $amount,
     'currency'     => 'GHS',
@@ -76,8 +77,22 @@ $payload = json_encode([
     'metadata'     => [
         'order_id' => $orderId,
         'user_id'  => (int) $user['id'],
+        'payment_collector' => $order['payment_collector'] ?? 'dpm',
     ],
-]);
+];
+
+if (($order['payment_collector'] ?? 'dpm') === 'shop') {
+    $shopId = (int) ($order['storefront_shop_id'] ?? 0);
+    $shop = $shopId > 0 ? ShopService::findById($pdo, $shopId) : null;
+    $subaccount = $shop['paystack_subaccount_code'] ?? null;
+    if ($subaccount === null || trim((string) $subaccount) === '') {
+        Response::error('This shop cannot accept online payments right now.', 422, ['code' => 'shop_paystack_unavailable']);
+    }
+    $payloadData['subaccount'] = trim((string) $subaccount);
+    $payloadData['bearer'] = 'account';
+}
+
+$payload = json_encode($payloadData);
 
 $ch = curl_init('https://api.paystack.co/transaction/initialize');
 curl_setopt_array($ch, [

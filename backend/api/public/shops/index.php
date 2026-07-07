@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\Response;
+use App\Helpers\ShopService;
 
 $pdo = Database::pdo();
 $q = trim((string) ($_GET['q'] ?? ''));
@@ -12,7 +13,17 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = min(50, max(1, (int) ($_GET['per_page'] ?? 24)));
 $offset = ($page - 1) * $perPage;
 
-$where = ["s.status = 'active'"];
+$publicShops = ShopService::listPublic($pdo);
+$publicIds = array_map(static fn (array $s): int => (int) $s['id'], $publicShops);
+if ($publicIds === []) {
+    Response::success([
+        'data' => [],
+        'meta' => ['total' => 0, 'page' => $page, 'pages' => 1],
+    ]);
+}
+
+$idList = implode(',', array_map('intval', $publicIds));
+$where = ["s.id IN ({$idList})"];
 $params = [];
 
 if ($q !== '') {
@@ -28,7 +39,6 @@ if ($city !== '') {
 }
 
 $whereSql = implode(' AND ', $where);
-
 $countStmt = $pdo->prepare("SELECT COUNT(*) FROM shops s WHERE {$whereSql}");
 $countStmt->execute($params);
 $total = (int) $countStmt->fetchColumn();

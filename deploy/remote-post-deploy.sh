@@ -30,4 +30,7 @@ php scripts/migrate-production.php
 echo "Running production env check..."
 php scripts/check-production-env.php
 
+echo "Running shop storefront cron (reminders + unpaid cleanup)..."
+php scripts/shop-storefront-cron.php || true
+
 echo "Post-deploy complete."

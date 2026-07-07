@@ -124,7 +124,7 @@ final class LegalPolicyService
     public static function checkoutTrustLinks(PDO $pdo): array
     {
         $links = [];
-        foreach (['returns', 'privacy', 'terms'] as $slug) {
+        foreach (['returns', 'privacy', 'terms', 'payments'] as $slug) {
             $policy = self::findPublishedBySlug($pdo, $slug);
             if ($policy === null) {
                 continue;

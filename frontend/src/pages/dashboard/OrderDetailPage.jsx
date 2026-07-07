@@ -10,6 +10,7 @@ import { isGroupOrder, printGroupRoster, printReceipt, rosterLinesFromOrder } fr
 import { useCompanyStore } from '../../store/companyStore';
 import { reorderOrder } from '../../lib/reorder';
 import { FormPanelSkeleton } from '../../components/ui/Skeleton';
+import ReportShopButton from '../../components/trust/ReportShopButton';
 import LocationMapView from '../../components/map/LocationMapView';
 import { useAirLabels } from '../../hooks/checkout';
 import { timelineStepsForOrder, formatStationAddress } from '../../lib/orderStatus';
@@ -400,6 +401,9 @@ export default function OrderDetailPage() {
                     ))}
                   </ul>
                 )}
+                <div className="mt-3 border-t border-black/5 pt-3 dark:border-white/10">
+                  <ReportShopButton orderId={order.id} shopName={sf.shop_name} />
+                </div>
               </div>
             ))}
           </section>

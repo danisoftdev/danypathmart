@@ -88,6 +88,9 @@ final class LaunchReadinessService
             'returns' => 'Returns & refunds',
             'privacy' => 'Privacy policy',
             'terms'   => 'Terms of service',
+            'payments' => 'Payment policy',
+            'shop-seller-policy' => 'Shop seller policy',
+            'seller-handbook' => 'Seller handbook',
         ];
 
         foreach ($requiredPolicies as $slug => $label) {
@@ -131,12 +134,14 @@ final class LaunchReadinessService
             $trustCount = 0;
         }
 
-        if ($trustCount >= 3) {
-            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'pass', 'Returns, privacy, and terms linked at checkout.', true, '/admin/legal-policies');
+        if ($trustCount >= 4) {
+            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'pass', 'Returns, privacy, terms, and payments linked at checkout.', true, '/admin/legal-policies');
+        } elseif ($trustCount >= 3) {
+            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'pass', 'Core checkout policies published.', true, '/admin/legal-policies');
         } elseif ($trustCount >= 1) {
-            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'warn', "Only {$trustCount}/3 checkout policies published.", true, '/admin/legal-policies');
+            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'warn', "Only {$trustCount}/4 checkout policies published.", true, '/admin/legal-policies');
         } else {
-            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'fail', 'Publish returns, privacy, and terms for checkout trust.', true, '/admin/legal-policies');
+            $checks[] = self::item('checkout_legal', 'Checkout legal links', 'fail', 'Publish returns, privacy, terms, and payments for checkout trust.', true, '/admin/legal-policies');
         }
 
         $repoRoot = realpath(__DIR__ . '/../../') ?: '';

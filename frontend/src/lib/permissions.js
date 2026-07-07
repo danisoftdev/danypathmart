@@ -57,6 +57,10 @@ export const PERMISSION_KEYS = [
   'manage_pos_shifts',
   'manage_pos_config',
   'view_pos_reports',
+  'issue_user_caution',
+  'restrict_users',
+  'resolve_shop_reports',
+  'manage_trust_automation',
 ];
 
 export const PERMISSION_LABELS = {
@@ -116,6 +120,10 @@ export const PERMISSION_LABELS = {
   manage_pos_shifts: 'Approve shifts, void sales & supervisor actions',
   manage_pos_config: 'Manage POS locations, registers & settings',
   view_pos_reports: 'View POS sales reports',
+  issue_user_caution: 'Issue cautions & notices to users',
+  restrict_users: 'Restrict or suspend user accounts',
+  resolve_shop_reports: 'Review & resolve shop reports',
+  manage_trust_automation: 'Configure trust automation rules',
 };
 
 export const PERMISSION_GROUPS = [
@@ -130,7 +138,7 @@ export const PERMISSION_GROUPS = [
   },
   {
     title: 'Customers & comms',
-    keys: ['view_users', 'edit_users', 'send_notifications', 'manage_contact_inbox', 'manage_support_bot', 'manage_messaging_integrations'],
+    keys: ['view_users', 'edit_users', 'send_notifications', 'manage_contact_inbox', 'manage_support_bot', 'manage_messaging_integrations', 'issue_user_caution', 'restrict_users', 'resolve_shop_reports', 'manage_trust_automation'],
   },
   {
     title: 'Staff & hiring',

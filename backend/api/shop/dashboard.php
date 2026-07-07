@@ -3,11 +3,9 @@
 declare(strict_types=1);
 
 use App\Config\Database;
-use App\Helpers\MarketplaceSplitService;
 use App\Helpers\Response;
 use App\Helpers\ShopBillingService;
 use App\Helpers\ShopReferralService;
-use App\Helpers\ShopWalletService;
 use App\Middleware\ShopMiddleware;
 
 $ctx = ShopMiddleware::requireShopMember();
@@ -22,25 +20,32 @@ $plStmt = $pdo->prepare("SELECT COUNT(*) FROM products WHERE shop_id = ? AND lis
 $plStmt->execute([$shopId]);
 $pendingListings = (int) $plStmt->fetchColumn();
 
-$wallet = ShopWalletService::getWallet($pdo, $shopId);
-$earnings = MarketplaceSplitService::earningsForShop($pdo, $shopId, 5);
 $billingSettings = ShopBillingService::publicSettings($pdo);
 $subscription = ShopBillingService::subscriptionForShop($pdo, $shopId);
 $inGoodStanding = ShopBillingService::isShopInGoodStanding($pdo, $shopId);
+$publiclyVisible = ShopBillingService::isShopPubliclyVisible($pdo, $shopId);
+$daysUntilExpiry = ShopBillingService::daysUntilExpiry($pdo, $shopId);
+
+$awaitingPay = $pdo->prepare(
+    "SELECT COUNT(*) FROM shop_order_fulfillments WHERE shop_id = ? AND status = 'awaiting_payment'"
+);
+$awaitingPay->execute([$shopId]);
 
 Response::success([
     'shop'             => $ctx['shop'],
-    'wallet'           => $wallet,
     'product_count'    => $productCount,
     'pending_listings' => $pendingListings,
-    'recent_earnings'  => $earnings,
+    'awaiting_payment_orders' => (int) $awaitingPay->fetchColumn(),
     'sharing'          => ShopReferralService::dashboardStats($pdo, $shopId),
     'billing'          => [
-        'settings'         => $billingSettings,
-        'subscription'     => $subscription,
-        'in_good_standing' => $inGoodStanding,
-        'renewal_due'      => $billingSettings['enabled']
+        'settings'           => $billingSettings,
+        'subscription'       => $subscription,
+        'in_good_standing'   => $inGoodStanding,
+        'publicly_visible'   => $publiclyVisible,
+        'days_until_expiry'  => $daysUntilExpiry,
+        'renewal_due'        => $billingSettings['enabled']
             && $billingSettings['renewal_fee'] > 0
             && !$inGoodStanding,
+        'renewal_soon'       => $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 7,
     ],
 ]);

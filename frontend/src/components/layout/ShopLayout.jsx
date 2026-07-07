@@ -5,12 +5,13 @@ import { useAuthStore } from '../../store/authStore';
 import UserAvatar from '../brand/UserAvatar';
 import { resolveProductImageUrl } from '../../lib/productImages';
 import { formatPrice } from '../../lib/currency';
+import { SellerPolicyLinks } from '../legal/SellerPolicyLinks';
 
 const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
   { to: '/seller/products', end: false, label: 'Products', icon: '🏷️' },
   { to: '/seller/orders', end: false, label: 'Orders', icon: '📦' },
-  { to: '/seller/wallet', end: false, label: 'Wallet', icon: '💰' },
+  { to: '/seller/payments', end: false, label: 'Payments', icon: '💳' },
   { to: '/seller/settings', end: false, label: 'Profile', icon: '⚙️' },
 ];
 
@@ -107,6 +108,9 @@ export default function ShopLayout() {
           <Link to={`/stores/${shop.slug}`} className="text-xs font-bold text-muted hover:text-brand-green">
             View public store →
           </Link>
+          <Link to="/policies/seller-handbook" className="mt-1 block text-xs font-bold text-brand-green hover:underline">
+            Seller handbook
+          </Link>
         </div>
         <UserAvatar user={user} className="h-12 w-12 shrink-0" />
       </div>
@@ -115,11 +119,25 @@ export default function ShopLayout() {
         <p className="mb-4 rounded-xl border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm">{renewalMsg}</p>
       )}
 
+      {!billing.publicly_visible && billing.settings?.enabled && (
+        <div className="mb-6 rounded-2xl border border-brand-red/30 bg-brand-red/10 p-4">
+          <p className="text-sm font-bold text-brand-red">Your shop link is hidden</p>
+          <p className="mt-1 text-sm text-muted">Customers cannot see /stores/{shop.slug} until you renew.</p>
+        </div>
+      )}
+
+      {billing.renewal_soon && !showRenewal && billing.days_until_expiry != null && (
+        <div className="mb-6 rounded-2xl border border-brand-gold/30 bg-brand-gold/5 p-4">
+          <p className="text-sm font-bold">Subscription ends in {billing.days_until_expiry} day(s)</p>
+          <p className="mt-1 text-sm text-muted">Renew early so your shop link stays active.</p>
+        </div>
+      )}
+
       {showRenewal && (
         <div className="mb-6 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 p-4">
           <p className="text-sm font-bold">Shop renewal due</p>
           <p className="mt-1 text-sm text-muted">
-            Pay {formatPrice(renewalFee)} to keep your shop listed ({billing.settings?.renewal_period || 'yearly'} plan).
+            Pay {formatPrice(renewalFee)} to keep your shop link active ({billing.settings?.renewal_period || 'yearly'} plan).
           </p>
           <button
             type="button"
