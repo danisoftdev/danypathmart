@@ -25,13 +25,26 @@ final class Database
 
         $dsn = "mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4";
 
-        self::$pdo = new PDO($dsn, $user, $pass, [
+        self::$pdo = self::connect($dsn, $user, $pass);
+
+        return self::$pdo;
+    }
+
+    /** Drop the cached connection and open a fresh one (used by migrators after PDO 2014). */
+    public static function reconnect(): PDO
+    {
+        self::$pdo = null;
+
+        return self::pdo();
+    }
+
+    private static function connect(string $dsn, string $user, string $pass): PDO
+    {
+        return new PDO($dsn, $user, $pass, [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES   => false,
             PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true,
         ]);
-
-        return self::$pdo;
     }
 }

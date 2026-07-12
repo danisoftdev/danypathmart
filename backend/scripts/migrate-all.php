@@ -105,36 +105,40 @@ function runSqlFile(PDO $pdo, string $path): void
         if ($statement === '' || str_starts_with($statement, '--')) {
             continue;
         }
+        // Always use the current cached connection (may have been reconnected after PDO 2014).
+        $pdo = Database::pdo();
         try {
-            $pdo->exec($statement);
-            drainPendingResults($pdo);
+            // Use query() + fetchAll + closeCursor so PREPARE/EXECUTE "skip" SELECTs
+            // do not leave an open unbuffered result (PDO 2014 on Hostinger).
+            $stmt = $pdo->query($statement);
+            if ($stmt instanceof PDOStatement) {
+                drainStatement($stmt);
+            }
             $preview = substr(preg_replace('/\s+/', ' ', $statement) ?? $statement, 0, 72);
             echo "  OK: {$preview}…\n";
         } catch (Throwable $e) {
             echo '  SKIP: ' . $e->getMessage() . "\n";
+            // If the connection is stuck mid-result-set, reconnect and continue.
+            if (str_contains($e->getMessage(), '2014') || str_contains($e->getMessage(), 'unbuffered')) {
+                Database::reconnect();
+            }
         }
     }
 }
 
-/** Idempotent migrations use EXECUTE with SELECT skip rows — drain any open result set. */
-function drainPendingResults(PDO $pdo): void
+/** Consume every rowset from a statement (EXECUTE may return SELECT skip rows). */
+function drainStatement(PDOStatement $stmt): void
 {
     try {
-        while ($pdo->nextRowset()) {
-            // discard additional result sets from prepared statements
-        }
-    } catch (Throwable $e) {
-        // PDO may not support nextRowset(); safe to ignore
+        do {
+            $stmt->fetchAll();
+        } while ($stmt->nextRowset());
+    } catch (Throwable) {
+        // ignore — some drivers throw when no further rowsets exist
     }
-
     try {
-        $probe = $pdo->query('SELECT 1');
-        if ($probe instanceof PDOStatement) {
-            $probe->fetchAll();
-            $probe->closeCursor();
-        }
-    } catch (Throwable $e) {
-        // connection probe failed; leave cursor state unchanged
+        $stmt->closeCursor();
+    } catch (Throwable) {
     }
 }
 
