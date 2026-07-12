@@ -512,8 +512,9 @@ final class ShopService
     }
 
     /**
-     * Permanently remove a shop. Caller must confirm the exact shop name.
-     * Products are unlinked (kept as inactive/rejected); billing history keeps null shop_id.
+     * Permanently remove a shop and all shop-owned data.
+     * Caller must confirm the exact shop name.
+     * Platform order history is kept (product/shop FKs cleared); shop catalog is deleted.
      */
     public static function delete(PDO $pdo, int $shopId, string $confirmName): array
     {
@@ -528,36 +529,47 @@ final class ShopService
         }
 
         $pdo->beginTransaction();
+        $productIds = [];
         try {
-            // Detach catalog so product FKs (ON DELETE SET NULL) do not leave live shop listings.
-            try {
-                $pdo->prepare(
-                    "UPDATE products SET shop_id = NULL, listing_status = 'rejected', is_active = 0
-                     WHERE shop_id = ?"
-                )->execute([$shopId]);
-            } catch (\Throwable) {
-                try {
-                    $pdo->prepare(
-                        "UPDATE products SET shop_id = NULL, listing_status = 'rejected' WHERE shop_id = ?"
-                    )->execute([$shopId]);
-                } catch (\Throwable) {
-                    $pdo->prepare('UPDATE products SET shop_id = NULL WHERE shop_id = ?')->execute([$shopId]);
-                }
+            self::execQuiet(
+                $pdo,
+                'UPDATE orders SET storefront_shop_id = NULL WHERE storefront_shop_id = ?',
+                [$shopId]
+            );
+            self::execQuiet(
+                $pdo,
+                'UPDATE shops SET referred_by_shop_id = NULL WHERE referred_by_shop_id = ?',
+                [$shopId]
+            );
+            self::execQuiet(
+                $pdo,
+                'UPDATE shop_applications SET referred_by_shop_id = NULL WHERE referred_by_shop_id = ?',
+                [$shopId]
+            );
+            self::execQuiet(
+                $pdo,
+                'UPDATE subscription_referrals SET referrer_shop_id = NULL WHERE referrer_shop_id = ?',
+                [$shopId]
+            );
+            self::execQuiet(
+                $pdo,
+                'UPDATE support_conversations SET shop_id = NULL WHERE shop_id = ?',
+                [$shopId]
+            );
+
+            // Remove shop-owned catalog completely (order_items keep SET NULL product refs).
+            $productIds = self::shopProductIds($pdo, $shopId);
+            if ($productIds !== []) {
+                self::deleteShopProducts($pdo, $productIds, $shopId);
             }
 
-            try {
-                $pdo->prepare('UPDATE orders SET storefront_shop_id = NULL WHERE storefront_shop_id = ?')
-                    ->execute([$shopId]);
-            } catch (\Throwable) {
-            }
+            self::execQuiet($pdo, 'DELETE FROM shop_billing_payments WHERE shop_id = ?', [$shopId]);
+            self::execQuiet($pdo, 'DELETE FROM shop_billing_payment_methods WHERE shop_id = ?', [$shopId]);
+            self::execQuiet($pdo, 'DELETE FROM shop_subscriptions WHERE shop_id = ?', [$shopId]);
+            self::execQuiet($pdo, 'DELETE FROM shop_invites WHERE shop_id = ?', [$shopId]);
+            self::execQuiet($pdo, 'DELETE FROM shop_applications WHERE shop_id = ?', [$shopId]);
 
-            try {
-                $pdo->prepare(
-                    'UPDATE shop_applications SET shop_id = NULL WHERE shop_id = ?'
-                )->execute([$shopId]);
-            } catch (\Throwable) {
-            }
-
+            // Cascade covers members, wallets, earnings, withdrawals, reports, fulfillments, etc.
             $pdo->prepare('DELETE FROM shops WHERE id = ?')->execute([$shopId]);
             $pdo->commit();
         } catch (\Throwable $e) {
@@ -565,15 +577,84 @@ final class ShopService
                 $pdo->rollBack();
             }
             throw new \InvalidArgumentException(
-                'Could not delete shop. It may still be linked to protected records: ' . $e->getMessage()
+                'Could not delete shop completely: ' . $e->getMessage()
             );
         }
 
         return [
-            'id'   => $shopId,
-            'name' => $expected,
-            'slug' => $shop['slug'] ?? null,
+            'id'               => $shopId,
+            'name'             => $expected,
+            'slug'             => $shop['slug'] ?? null,
+            'products_removed' => count($productIds),
         ];
+    }
+
+    /** @return list<int> */
+    private static function shopProductIds(PDO $pdo, int $shopId): array
+    {
+        try {
+            $stmt = $pdo->prepare('SELECT id FROM products WHERE shop_id = ?');
+            $stmt->execute([$shopId]);
+            return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** @param list<int> $productIds */
+    private static function deleteShopProducts(PDO $pdo, array $productIds, int $shopId): void
+    {
+        $placeholders = implode(',', array_fill(0, count($productIds), '?'));
+
+        // Clear RESTRICT FKs before deleting products.
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM quote_items WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM kit_template_items WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM wishlists WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM product_reviews WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM stock_alerts WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM image_search_alerts WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+        self::execQuiet(
+            $pdo,
+            "DELETE FROM order_customizations WHERE product_id IN ($placeholders)",
+            $productIds
+        );
+
+        $pdo->prepare("DELETE FROM products WHERE shop_id = ? OR id IN ($placeholders)")
+            ->execute(array_merge([$shopId], $productIds));
+    }
+
+    /** @param list<mixed> $params */
+    private static function execQuiet(PDO $pdo, string $sql, array $params = []): void
+    {
+        try {
+            $pdo->prepare($sql)->execute($params);
+        } catch (\Throwable) {
+            // Table/column may not exist on older DBs — skip.
+        }
     }
 
     /** @param array<string,mixed> $input */

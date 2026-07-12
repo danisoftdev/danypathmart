@@ -37,13 +37,13 @@ export default function ShopDashboardPage() {
         <StatCard
           label="Available balance"
           value={formatPrice(wallet.balance_available ?? 0)}
-          to="/seller/wallet"
+          to="/seller/payments"
         />
         <StatCard
           label="Pending earnings"
           value={formatPrice(wallet.balance_pending ?? 0)}
           hint="Released when orders complete"
-          to="/seller/wallet"
+          to="/seller/payments"
         />
       </div>
 
@@ -52,8 +52,8 @@ export default function ShopDashboardPage() {
       <section className="mt-8 rounded-2xl border border-black/8 bg-white p-4 dark:border-white/10 dark:bg-[#1E1E1E]">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Recent earnings</h2>
-          <Link to="/seller/wallet" className="text-xs font-bold text-brand-green hover:underline">
-            View wallet
+          <Link to="/seller/payments" className="text-xs font-bold text-brand-green hover:underline">
+            View payments
           </Link>
         </div>
         {earnings.length === 0 ? (

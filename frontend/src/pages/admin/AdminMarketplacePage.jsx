@@ -1679,7 +1679,7 @@ export default function AdminMarketplacePage() {
         title="Delete shop permanently"
         description={
           shopToDelete
-            ? `This removes "${shopToDelete.name}" — shop dashboard, members, and storefront. Products are unlinked (not deleted). Billing history is kept without the shop link.\n\nThis cannot be undone.`
+            ? `This permanently deletes "${shopToDelete.name}" and everything belonging to it: products, members, wallet, billing, and storefront.\n\nPast customer orders stay in platform history (without this shop link).\n\nThis cannot be undone.`
             : ''
         }
         label={`Type the shop name exactly to confirm`}

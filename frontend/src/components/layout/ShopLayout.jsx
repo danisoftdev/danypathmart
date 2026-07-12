@@ -5,7 +5,6 @@ import { useAuthStore } from '../../store/authStore';
 import UserAvatar from '../brand/UserAvatar';
 import { resolveProductImageUrl } from '../../lib/productImages';
 import { formatPrice } from '../../lib/currency';
-import { SellerPolicyLinks } from '../legal/SellerPolicyLinks';
 
 const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
@@ -23,6 +22,7 @@ export default function ShopLayout() {
   const confirmDev = useConfirmShopBillingDevPayment();
   const [searchParams, setSearchParams] = useSearchParams();
   const [renewalMsg, setRenewalMsg] = useState('');
+  const [renewalPeriod, setRenewalPeriod] = useState(null);
 
   useEffect(() => {
     const isRenewalReturn = searchParams.get('shop_payment') === 'renewal';
@@ -93,17 +93,19 @@ export default function ShopLayout() {
           ? [{ period: billing.settings?.renewal_period || 'yearly', fee: Number(billing.settings.renewal_fee), label: 'Renew' }]
           : []),
       ];
-  const [renewalPeriod, setRenewalPeriod] = useState(
-    () => billing.settings?.renewal_period || renewalOptions[0]?.period || 'yearly'
-  );
-  const selectedRenewal = renewalOptions.find((o) => o.period === renewalPeriod) || renewalOptions[0];
+  const selectedPeriod =
+    renewalPeriod
+    || billing.settings?.renewal_period
+    || renewalOptions[0]?.period
+    || 'yearly';
+  const selectedRenewal = renewalOptions.find((o) => o.period === selectedPeriod) || renewalOptions[0];
   const renewalFee = Number(selectedRenewal?.fee || billing.settings?.renewal_fee || 0);
   const showRenewal = billing.settings?.enabled && renewalOptions.length > 0 && billing.renewal_due;
 
   const payRenewal = async () => {
     setRenewalMsg('');
     try {
-      const pay = await initRenewal.mutateAsync(selectedRenewal?.period || renewalPeriod);
+      const pay = await initRenewal.mutateAsync(selectedRenewal?.period || selectedPeriod);
       if (pay.authorization_url) {
         window.location.href = pay.authorization_url;
       }
@@ -166,7 +168,7 @@ export default function ShopLayout() {
                   key={opt.period}
                   type="button"
                   className={`rounded-xl border px-3 py-2 text-sm font-bold ${
-                    (selectedRenewal?.period || renewalPeriod) === opt.period
+                    (selectedRenewal?.period || selectedPeriod) === opt.period
                       ? 'border-brand-green bg-brand-green/10 text-brand-green'
                       : 'border-black/10 dark:border-white/15'
                   }`}
