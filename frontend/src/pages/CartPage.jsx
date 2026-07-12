@@ -164,7 +164,7 @@ export default function CartPage() {
         <EmptyState
           icon={CartIcon}
           title="Your cart is empty"
-          message="Browse the shop to add uniforms, badges and more."
+          message="Browse the shop to add groceries and more."
           actionLabel="Go to Shop"
           actionTo="/shop"
         />

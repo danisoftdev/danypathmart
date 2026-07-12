@@ -10,8 +10,8 @@ export default function KitsIndexPage() {
   if (isLoading) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-2xl font-extrabold">Member kits</h1>
-        <p className="mt-1 text-sm text-muted">Everything your member needs — pick a kit to build your order.</p>
+        <h1 className="text-2xl font-extrabold">Product kits</h1>
+        <p className="mt-1 text-sm text-muted">Popular bundles — pick a kit to build your order.</p>
         <div className="mt-8">
           <ProductGridSkeleton count={4} />
         </div>
@@ -32,7 +32,7 @@ export default function KitsIndexPage() {
       <div className="mx-auto max-w-3xl px-4 py-20">
         <EmptyState
           title="No kits available yet"
-          message="Check back soon — club leaders will share kit links when ready."
+          message="Check back soon — kit links will appear here when ready."
           actionLabel="Browse shop"
           actionTo="/shop"
         />
@@ -45,12 +45,12 @@ export default function KitsIndexPage() {
       <nav className="mb-4 text-sm text-subtle">
         <Link to="/" className="hover:text-brand-green">Home</Link>
         {' / '}
-        <span>Member kits</span>
+        <span>Product kits</span>
       </nav>
 
-      <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">Member kits</h1>
+      <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">Product kits</h1>
       <p className="mt-2 max-w-2xl text-sm text-muted">
-        Pick a kit for your club or class. Tick items you already own, then add the rest to your cart in one go.
+        Pick a ready-made bundle. Tick items you already have, then add the rest to your cart in one go.
       </p>
 
       <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -92,7 +92,7 @@ export default function LoginPage() {
     <form onSubmit={submit} className="auth-card-lg">
       <div className="mb-8 text-center sm:text-left">
         <h1 className="text-2xl font-extrabold sm:text-3xl">Welcome back</h1>
-        <p className="mt-2 text-base text-muted">Sign in to track orders, save favourites, and shop club essentials across Ghana.</p>
+        <p className="mt-2 text-base text-muted">Sign in to track orders, save favourites, and shop groceries &amp; marketplace finds across Ghana.</p>
       </div>
 
       {notice && <AuthAlert type="success">{notice}</AuthAlert>}

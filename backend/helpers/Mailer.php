@@ -798,6 +798,80 @@ final class Mailer
     }
 
     /**
+     * Invite someone to register a shop on the marketplace.
+     *
+     * @param array{
+     *   invite_url:string,
+     *   invite_path?:string,
+     *   business_name?:?string,
+     *   contact_name?:?string,
+     *   note?:?string,
+     *   expires_at?:?string
+     * } $ctx
+     */
+    public static function shopInvite(string $toEmail, string $toName, array $ctx): bool
+    {
+        $h = static fn (?string $v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES);
+        $inviteUrl = trim((string) ($ctx['invite_url'] ?? ''));
+        if ($inviteUrl === '') {
+            $path = (string) ($ctx['invite_path'] ?? '/sell');
+            $inviteUrl = self::siteOrigin() . (str_starts_with($path, '/') ? $path : '/' . $path);
+        }
+
+        $business = trim((string) ($ctx['business_name'] ?? ''));
+        $note = trim((string) ($ctx['note'] ?? ''));
+        $expiresAt = trim((string) ($ctx['expires_at'] ?? ''));
+        $greetingName = trim($toName) !== '' ? $toName : 'there';
+
+        $bizLine = $business !== ''
+            ? '<p style="color:#444;font-size:15px;line-height:1.6;margin:0 0 12px;">'
+                . 'You are invited to register <strong>' . $h($business) . '</strong> on DanyPathMart.</p>'
+            : '<p style="color:#444;font-size:15px;line-height:1.6;margin:0 0 12px;">'
+                . 'You are invited to open a shop on DanyPathMart — our supermarket &amp; marketplace.</p>';
+
+        $noteBlock = $note !== ''
+            ? '<div style="background:#FEF3C7;border-radius:10px;padding:12px 14px;margin:0 0 16px;color:#7c4a03;font-size:13px;">'
+                . '<strong>Note:</strong> ' . $h($note) . '</div>'
+            : '';
+
+        $expiresLine = $expiresAt !== ''
+            ? '<p style="color:#666;font-size:13px;line-height:1.5;margin:16px 0 0;">'
+                . 'This invite link expires on <strong>' . $h($expiresAt) . '</strong>.</p>'
+            : '';
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . self::emailLogoHeader()
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:22px;margin:0 0 10px;">You\'re invited to sell on DanyPathMart</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0 0 12px;">Hi ' . $h($greetingName) . ',</p>'
+            . $bizLine
+            . $noteBlock
+            . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0 0 8px;">'
+            . 'Use this invite link to start your shop registration:</p>'
+            . '<p style="word-break:break-all;font-size:13px;line-height:1.5;margin:0 0 16px;">'
+            . '<a href="' . $h($inviteUrl) . '" style="color:#2C7A4B;">' . $h($inviteUrl) . '</a></p>'
+            . '<div style="text-align:center;margin:8px 0 0;">'
+            . '<a href="' . $h($inviteUrl) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Open invite link</a>'
+            . '</div>'
+            . $expiresLine
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">DanyPathMart marketplace</p>'
+            . '</div></body></html>';
+
+        $subjectBiz = $business !== '' ? $business : 'DanyPathMart';
+
+        return self::send(
+            $toEmail,
+            $toName !== '' ? $toName : 'Seller',
+            'Shop invite — ' . $subjectBiz,
+            $html
+        );
+    }
+
+    /**
      * @param array{order:array<string,mixed>,items:array<int,array<string,mixed>>,status:string,status_label:string,note:?string,tracking_ref:string} $ctx
      */
     private static function orderStatusHtml(array $ctx): string

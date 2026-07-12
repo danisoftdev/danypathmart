@@ -85,7 +85,7 @@ export default function AdminNotificationsPage() {
         </select>
         <input
           className="input-field w-full"
-          placeholder="Title (e.g. New uniforms arrived)"
+          placeholder="Title (e.g. Fresh produce arrived)"
           value={form.title}
           onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
           required
@@ -99,7 +99,7 @@ export default function AdminNotificationsPage() {
         />
         <input
           className="input-field w-full"
-          placeholder="Optional link (e.g. /shop?category=uniforms)"
+          placeholder="Optional link (e.g. /shop?category=groceries)"
           value={form.link_url}
           onChange={(e) => setForm((f) => ({ ...f, link_url: e.target.value }))}
         />

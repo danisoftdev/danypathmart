@@ -41,7 +41,7 @@ export default function Footer() {
         <div>
           <SiteLogo size="h-14 w-14" />
           <p className="mt-3 text-sm text-white/60">
-            Uniforms, badges, books, and club materials — delivered across Ghana.
+            Supermarket essentials and marketplace shops — delivered across Ghana.
           </p>
         </div>
 

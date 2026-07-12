@@ -48,7 +48,7 @@ export default function SearchOverlay() {
       </div>
       <div className="flex-1 overflow-y-auto px-4 py-4">
         <p className="text-sm text-muted">
-          Search uniforms, badges, books and more — or use image search from the camera icon.
+          Search groceries and marketplace products — or use image search from the camera icon.
         </p>
       </div>
     </div>

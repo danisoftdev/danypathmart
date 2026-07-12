@@ -109,7 +109,7 @@ function GuideEditor({ guideId, onClose, onSaved }) {
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block font-bold">Name</span>
-            <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. School uniforms" />
+            <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Apparel sizes" />
           </label>
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block font-bold">Notes (optional)</span>

@@ -64,7 +64,7 @@ def build() -> Document:
     doc.add_paragraph("")
     add_para(
         doc,
-        "SDA youth insignias, uniforms, books, and club materials — e-commerce platform "
+        "Supermarket and marketplace — e-commerce platform "
         "for Ghana (GHS). Stack: React (Vite) storefront + PHP 8.2 API + MySQL.",
     )
     doc.add_page_break()

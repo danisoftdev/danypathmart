@@ -3,8 +3,8 @@ import { CardIcon, ChatIcon, MapPinIcon, StarIcon } from '../icons';
 
 const VALUE_CARDS = [
   {
-    title: 'Official Pathfinder & club supplies',
-    desc: 'Uniforms, badges, insignia, and books from trusted sellers.',
+    title: 'Supermarket & marketplace',
+    desc: 'Everyday groceries and products from DanyPathMart and trusted local shops.',
     Icon: StarIcon,
     iconTone: 'text-brand-green',
     to: '/shop',
@@ -28,7 +28,7 @@ const VALUE_CARDS = [
   },
   {
     title: 'Need help?',
-    desc: 'Quotes for schools & clubs, or message our team.',
+    desc: 'Quotes for bulk orders, or message our team.',
     Icon: ChatIcon,
     iconTone: 'text-brand-green',
     to: '/contact',

@@ -177,12 +177,12 @@ function KitEditor({ kitId, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block font-bold">Kit name *</span>
-            <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pathfinder Class A" />
+            <input className="input-field" value={name} onChange={(e) => setName(e.target.value)} placeholder="Starter grocery pack" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-bold">URL slug</span>
-            <input className="input-field font-mono text-sm" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="pathfinder-class-a" />
-            <p className="mt-1 text-xs text-muted">Use lowercase letters, numbers and hyphens (e.g. pathfinder-class-a).</p>
+            <input className="input-field font-mono text-sm" value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="starter-grocery-pack" />
+            <p className="mt-1 text-xs text-muted">Use lowercase letters, numbers and hyphens (e.g. starter-grocery-pack).</p>
           </label>
           <label className="flex items-center gap-2 self-end text-sm font-medium">
             <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="h-4 w-4 accent-brand-green" />
@@ -194,7 +194,7 @@ function KitEditor({ kitId, onClose, onSaved }) {
           </label>
           <label className="text-sm sm:col-span-2">
             <span className="mb-1 block font-bold">Leader note (optional)</span>
-            <textarea className="input-field min-h-[56px] resize-y" value={leaderNote} onChange={(e) => setLeaderNote(e.target.value)} placeholder="Tips for club leaders ordering for new members" />
+            <textarea className="input-field min-h-[56px] resize-y" value={leaderNote} onChange={(e) => setLeaderNote(e.target.value)} placeholder="Tips for customers ordering this bundle" />
           </label>
           <KitCoverImageField value={imageUrl} onChange={setImageUrl} />
         </div>
@@ -310,7 +310,7 @@ export default function AdminKitsPage() {
     <div>
       <AdminPageHeader
         title="Kit templates"
-        subtitle="Bundle everything a member needs — leaders share a link like /kits/pathfinder-class-a."
+        subtitle="Bundle popular items — share a link like /kits/starter-grocery-pack."
         actions={
           <button type="button" onClick={() => setCreating(true)} className="btn-primary">
             + New kit

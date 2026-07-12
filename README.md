@@ -1,6 +1,6 @@
 # DanyPathMart
 
-SDA youth insignias, uniforms and materials — React + PHP e-commerce platform.
+Supermarket and marketplace — React + PHP e-commerce platform.
 
 - **Full project manual (Word):** [docs/DanyPathMart-Project-Documentation.docx](./docs/DanyPathMart-Project-Documentation.docx)
 - **Hostinger deploy guide (Word):** [docs/DanyPathMart-Hostinger-Deployment-Guide.docx](./docs/DanyPathMart-Hostinger-Deployment-Guide.docx)

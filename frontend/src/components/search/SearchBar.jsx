@@ -150,7 +150,7 @@ export default function SearchBar({ onNavigate, size = 'md', autoFocus = false }
             setOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Search uniforms, badges, books..."
+          placeholder="Search groceries, shops, products..."
           aria-label="Search products"
           aria-expanded={open}
           aria-autocomplete="list"

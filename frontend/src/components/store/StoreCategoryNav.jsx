@@ -39,7 +39,7 @@ export default function StoreCategoryNav() {
             to="/kits"
             className="shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-[#111111]/80 transition hover:bg-brand-green/10 hover:text-brand-green dark:text-white/80"
           >
-            Member kits
+            Kits
           </Link>
           <Link
             to="/group-order"

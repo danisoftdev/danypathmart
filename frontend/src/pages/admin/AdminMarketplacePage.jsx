@@ -17,6 +17,7 @@ import {
   useModerateListingBadge,
   useReviewMarketplaceListing,
   useUpdateAdminShop,
+  useDeleteAdminShop,
   useUpdateShopBillingSettings,
   useUpdateShopRegistrationPromo,
   useUpdateReferralRegistrationDiscount,
@@ -294,6 +295,7 @@ export default function AdminMarketplacePage() {
   const canCreateManual = hasPermission(user, 'create_shop_manual');
   const canPreapprove = hasPermission(user, 'create_shop_preapproved');
   const canInvite = hasPermission(user, 'invite_shop_owner');
+  const canDeleteShop = hasAnyPermission(user, ['manage_marketplace', 'edit_company_settings']);
   const canViewPolicy = hasAnyPermission(user, ['view_shop_policy_acceptances', 'manage_marketplace']);
   const canViewMap = hasAnyPermission(user, ['view_shops_map', 'manage_marketplace']);
   const canAccess = canOps || canViewBilling;
@@ -348,6 +350,7 @@ export default function AdminMarketplacePage() {
   const approveApp = useApproveShopApplication();
   const rejectApp = useRejectShopApplication();
   const updateShop = useUpdateAdminShop();
+  const deleteShop = useDeleteAdminShop();
   const createShop = useCreateAdminShop();
   const preapproveApp = usePreapproveShopApplication();
   const createInvite = useCreateShopInvite();
@@ -473,6 +476,21 @@ export default function AdminMarketplacePage() {
     }
   };
 
+  const handleDeleteShop = async (shop) => {
+    const ok = window.confirm(
+      `Delete "${shop.name}" permanently?\n\nThis removes the shop dashboard, members, and storefront. Products are unlinked (not sold as that shop anymore). Billing history is kept without the shop link.\n\nThis cannot be undone.`
+    );
+    if (!ok) return;
+    const typed = window.prompt(`Type the shop name exactly to confirm:\n${shop.name}`);
+    if (typed == null) return;
+    try {
+      await deleteShop.mutateAsync({ id: shop.id, confirm_name: typed.trim() });
+      showAlert(`Shop "${shop.name}" deleted.`);
+    } catch (e) {
+      showAlert(e.response?.data?.message || 'Could not delete shop.', 'error');
+    }
+  };
+
   const handleCreateShop = async (e) => {
     e.preventDefault();
     try {
@@ -522,8 +540,8 @@ export default function AdminMarketplacePage() {
     e.preventDefault();
     try {
       const res = await createInvite.mutateAsync(inviteForm);
-      setInviteResult(res.invite_path || res.invite?.invite_path || null);
-      showAlert('Invite created.');
+      setInviteResult(res.invite_url || res.invite?.invite_url || res.invite_path || res.invite?.invite_path || null);
+      showAlert('Invite created and sent with the invite link.');
       setInviteForm(EMPTY_INVITE_FORM);
     } catch (err) {
       showAlert(err.response?.data?.message || 'Could not create invite.', 'error');
@@ -691,6 +709,16 @@ export default function AdminMarketplacePage() {
                           <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => toggleShopStatus(shop)}>
                             {shop.status === 'active' ? 'Suspend' : 'Activate'}
                           </button>
+                          {canDeleteShop && (
+                            <button
+                              type="button"
+                              className="px-2 py-1 text-xs font-bold text-brand-red hover:underline disabled:opacity-50"
+                              disabled={deleteShop.isPending}
+                              onClick={() => handleDeleteShop(shop)}
+                            >
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1605,10 +1633,10 @@ export default function AdminMarketplacePage() {
             onSubmit={handleInvite}
           >
             <h3 className="text-lg font-extrabold">Invite shop owner</h3>
-            <p className="mt-1 text-xs text-muted">Creates a 14-day invite link to /sell?invite=TOKEN.</p>
+            <p className="mt-1 text-xs text-muted">Sends a 14-day invite email (and in-app / SMS / WhatsApp when available) with the registration link.</p>
             {inviteResult && (
               <p className="mt-3 rounded-xl bg-brand-green/10 px-3 py-2 text-sm">
-                Invite path: <CopyableText value={inviteResult} className="font-bold text-brand-green" />
+                Invite link: <CopyableText value={inviteResult} className="font-bold text-brand-green" />
               </p>
             )}
             <div className="mt-4 space-y-3">

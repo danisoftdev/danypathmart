@@ -30,7 +30,7 @@ export default function CustomProofFields({ productId, productName, value, onCha
           className="input-field mt-1 text-sm"
           value={value?.label_text || ''}
           onChange={(e) => onChange({ ...value, label_text: e.target.value })}
-          placeholder="e.g. Daniel M · Pathfinders 2026"
+          placeholder="e.g. Your name or order note"
         />
       </label>
       <label className="mt-3 block text-xs font-bold uppercase text-muted">

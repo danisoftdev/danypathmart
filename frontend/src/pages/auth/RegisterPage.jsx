@@ -80,7 +80,7 @@ export default function RegisterPage() {
     <form onSubmit={submit} className="auth-card-lg">
       <div className="mb-2 text-center sm:text-left">
         <h1 className="text-2xl font-extrabold sm:text-3xl">Create your account</h1>
-        <p className="mt-2 text-base text-muted">Join DanyPathMart — insignias, uniforms &amp; more.</p>
+        <p className="mt-2 text-base text-muted">Join DanyPathMart — your supermarket &amp; marketplace.</p>
       </div>
 
       <StepProgress step={step} total={2} labels={STEPS} />
@@ -99,7 +99,7 @@ export default function RegisterPage() {
               value={form.name}
               onChange={set('name')}
               autoComplete="name"
-              placeholder="Adventurer Name"
+              placeholder="Your full name"
             />
             {!fieldErrors.name && <AvailabilityHint check={nameCheck} />}
           </FormField>

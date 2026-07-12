@@ -4,12 +4,12 @@ const MAX_SEARCHES = 8;
 const MAX_VIEWED = 12;
 
 export const DEFAULT_POPULAR_SEARCHES = [
-  'pathfinder uniform',
-  'badges',
-  'scarf',
-  'adventurer',
-  'class pins',
-  'manual',
+  'rice',
+  'cooking oil',
+  'fresh produce',
+  'snacks',
+  'household',
+  'drinks',
 ];
 
 export function getRecentSearches() {

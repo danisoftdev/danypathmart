@@ -51,12 +51,12 @@ export default function RestockAlertButton({ productId, productName, tags = [] }
       <p className="text-sm font-bold text-[#111111] dark:text-white">Notify me when back in stock</p>
       <p className="mt-1 text-xs text-muted">
         Targeted alert for {productName}
-        {tags.length > 0 ? ` · optional club tag below` : ''}
+        {tags.length > 0 ? ` · optional note below` : ''}
       </p>
       {tags.length > 0 && (
         <input
           className="input-field mt-3 text-sm"
-          placeholder="Club tag (optional) e.g. Pathfinders"
+          placeholder="Optional note (e.g. preferred brand)"
           value={clubTag}
           onChange={(e) => setClubTag(e.target.value)}
           list={`club-tags-${productId}`}

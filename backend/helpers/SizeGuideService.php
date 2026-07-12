@@ -394,7 +394,7 @@ final class SizeGuideService
         if ($enabled) {
             $summary = $note !== ''
                 ? $note
-                : "Wrong size? Exchange within {$days} days of delivery (uniforms & sized items).";
+                : "Wrong size or weight? Exchange within {$days} days of delivery (eligible items).";
         }
 
         return [

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Config\Env;
 use PDO;
 
 /** Admin-issued shop registration invites. */
@@ -45,15 +46,23 @@ final class ShopInviteService
         ]);
 
         $id = (int) $pdo->lastInsertId();
-
-        return self::findById($pdo, $id) ?? [
-            'id'         => $id,
-            'token'      => $token,
-            'email'      => $email,
-            'invite_path'=> '/sell?invite=' . $token,
-            'expires_at' => $expiresAt,
-            'status'     => 'pending',
+        $invite = self::findById($pdo, $id) ?? [
+            'id'          => $id,
+            'token'       => $token,
+            'email'       => $email,
+            'invite_path' => '/sell?invite=' . $token,
+            'expires_at'  => $expiresAt,
+            'status'      => 'pending',
         ];
+
+        $invite['invite_url'] = self::absoluteInviteUrl((string) ($invite['invite_path'] ?? ('/sell?invite=' . $token)));
+        try {
+            self::notifyInvitee($pdo, $invite);
+        } catch (\Throwable $e) {
+            error_log('Shop invite notify failed: ' . $e->getMessage());
+        }
+
+        return $invite;
     }
 
     /** @return array<string,mixed>|null */
@@ -134,6 +143,129 @@ final class ShopInviteService
         )->execute(['accepted', $applicationId, $shopId, $invite['id'], 'pending']);
     }
 
+    /** Absolute storefront URL for /sell?invite=TOKEN. */
+    public static function absoluteInviteUrl(string $invitePath): string
+    {
+        Env::load();
+        $origin = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $path = str_starts_with($invitePath, '/') ? $invitePath : '/' . $invitePath;
+
+        return $origin . $path;
+    }
+
+    /**
+     * Email always; in-app/push/SMS/WhatsApp when the invitee already has an account.
+     * SMS/WhatsApp also sent to the invite phone when provided and no matching user.
+     *
+     * @param array<string,mixed> $invite
+     */
+    private static function notifyInvitee(PDO $pdo, array $invite): void
+    {
+        $email = strtolower(trim((string) ($invite['email'] ?? '')));
+        $invitePath = (string) ($invite['invite_path'] ?? '');
+        $inviteUrl = (string) ($invite['invite_url'] ?? self::absoluteInviteUrl($invitePath));
+        $business = trim((string) ($invite['business_name'] ?? ''));
+        $contactName = trim((string) ($invite['contact_name'] ?? ''));
+        $note = trim((string) ($invite['note'] ?? ''));
+        $expiresAt = (string) ($invite['expires_at'] ?? '');
+        $phone = trim((string) ($invite['phone'] ?? ''));
+
+        $title = $business !== ''
+            ? 'Shop invite — ' . $business
+            : 'You\'re invited to sell on DanyPathMart';
+
+        $bodyParts = [
+            $business !== ''
+                ? "You are invited to register \"{$business}\" on DanyPathMart."
+                : 'You are invited to open a shop on DanyPathMart.',
+        ];
+        if ($note !== '') {
+            $bodyParts[] = 'Note: ' . $note;
+        }
+        $bodyParts[] = 'Open your invite link to register:';
+        $bodyParts[] = $inviteUrl;
+        if ($expiresAt !== '') {
+            $bodyParts[] = 'This invite expires on ' . $expiresAt . '.';
+        }
+        $body = implode("\n\n", $bodyParts);
+
+        $mailCtx = [
+            'invite_url'    => $inviteUrl,
+            'invite_path'   => $invitePath,
+            'business_name' => $business !== '' ? $business : null,
+            'contact_name'  => $contactName !== '' ? $contactName : null,
+            'note'          => $note !== '' ? $note : null,
+            'expires_at'    => $expiresAt !== '' ? $expiresAt : null,
+        ];
+
+        $userId = null;
+        if ($email !== '') {
+            $stmt = $pdo->prepare(
+                "SELECT id, name FROM users WHERE LOWER(email) = ? AND status != 'disabled' LIMIT 1"
+            );
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+            if ($user !== false) {
+                $userId = (int) $user['id'];
+                if ($contactName === '') {
+                    $contactName = trim((string) ($user['name'] ?? ''));
+                }
+            }
+        }
+
+        if ($userId !== null && $userId > 0) {
+            NotificationService::notifyUser(
+                $pdo,
+                $userId,
+                $title,
+                $body,
+                $invitePath !== '' ? $invitePath : '/sell',
+                'shop_invite',
+                true,
+                true,
+                true,
+                true,
+                static function (string $toEmail, string $toName) use ($mailCtx, $contactName): void {
+                    Mailer::shopInvite(
+                        $toEmail,
+                        $contactName !== '' ? $contactName : $toName,
+                        $mailCtx
+                    );
+                }
+            );
+
+            return;
+        }
+
+        if ($email !== '') {
+            Mailer::shopInvite(
+                $email,
+                $contactName !== '' ? $contactName : 'Seller',
+                $mailCtx
+            );
+        }
+
+        if ($phone !== '') {
+            self::sendInviteToPhone($pdo, $phone, $title, $body);
+        }
+    }
+
+    private static function sendInviteToPhone(PDO $pdo, string $phone, string $title, string $body): void
+    {
+        try {
+            $settings = MessagingIntegrationService::load($pdo);
+            $text = NotificationChannelService::smsText($title, $body);
+            if ($settings['sms_api_enabled'] && $settings['sms_configured']) {
+                MessagingIntegrationService::sendSms($pdo, $phone, $text, $title);
+            }
+            if ($settings['whatsapp_api_enabled'] && $settings['whatsapp_configured']) {
+                MessagingIntegrationService::sendWhatsApp($pdo, $phone, $text, $title);
+            }
+        } catch (\Throwable $e) {
+            error_log('Shop invite messaging failed: ' . $e->getMessage());
+        }
+    }
+
     private static function isExpired(?string $expiresAt): bool
     {
         if ($expiresAt === null || $expiresAt === '') {
@@ -160,6 +292,7 @@ final class ShopInviteService
     private static function formatRow(array $row): array
     {
         $token = (string) $row['token'];
+        $invitePath = '/sell?invite=' . $token;
 
         return [
             'id'              => (int) $row['id'],
@@ -179,7 +312,8 @@ final class ShopInviteService
             'expires_at'      => $row['expires_at'],
             'accepted_at'     => $row['accepted_at'] ?? null,
             'created_at'      => $row['created_at'] ?? null,
-            'invite_path'     => '/sell?invite=' . $token,
+            'invite_path'     => $invitePath,
+            'invite_url'      => self::absoluteInviteUrl($invitePath),
         ];
     }
 }

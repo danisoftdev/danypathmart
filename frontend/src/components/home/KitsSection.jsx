@@ -5,14 +5,14 @@ export default function KitsSection({ kits = [] }) {
   if (!kits.length) return null;
 
   return (
-    <section aria-labelledby="member-kits-heading">
+    <section aria-labelledby="product-kits-heading">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 id="member-kits-heading" className="text-lg font-extrabold text-[#111111] dark:text-white md:text-xl">
-            Member kits
+          <h2 id="product-kits-heading" className="text-lg font-extrabold text-[#111111] dark:text-white md:text-xl">
+            Product kits
           </h2>
           <p className="mt-0.5 text-sm text-muted">
-            Everything your member needs — tick what they already have, add the rest.
+            Ready-made bundles — tick what you already have, add the rest.
           </p>
         </div>
         <Link to="/kits" className="text-sm font-bold text-brand-green hover:underline">

@@ -24,14 +24,14 @@ $columns = [
 ];
 
 $example = [
-    'slug'             => 'youth-pathfinder-scarf',
-    'name'             => 'Youth Pathfinder Scarf',
+    'slug'             => 'jollof-rice-5kg',
+    'name'             => 'Jollof Rice 5kg',
     'price'            => '45.00',
     'cost_price'       => '28.00',
     'stock_qty'        => 25,
     'status'           => 'active',
-    'category'         => 'Uniforms',
-    'tags'             => 'pathfinder; youth',
+    'category'         => 'Groceries',
+    'tags'             => 'rice; pantry',
     'is_preorder'      => 'no',
     'compare_at_price' => '55.00',
     'badge_label'      => 'New',

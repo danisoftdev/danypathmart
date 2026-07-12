@@ -687,7 +687,7 @@ export default function AdminProductsPage() {
           </label>
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={!!draft.requires_custom_proof} onChange={(e) => setDraft((d) => ({ ...d, requires_custom_proof: e.target.checked }))} className="h-4 w-4 accent-brand-green" />
-            Requires custom proof (badges)
+            Requires custom proof (engravings)
           </label>
           <ProductImagesField
             className="sm:col-span-2 lg:col-span-3"

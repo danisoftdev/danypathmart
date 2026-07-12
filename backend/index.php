@@ -490,6 +490,13 @@ if ($handlerFile === null && $method === 'PUT'
     $handlerFile = 'admin/shops/update.php';
 }
 
+// Dynamic route: DELETE admin/shops/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/shops/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/shops/delete.php';
+}
+
 // Dynamic route: POST admin/marketplace/listings/{id}/review
 if ($handlerFile === null && $method === 'POST'
     && preg_match('#^admin/marketplace/listings/([0-9]+)/review$#', $route, $m) === 1) {

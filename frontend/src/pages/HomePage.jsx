@@ -73,7 +73,7 @@ export default function HomePage() {
       <QuickCategoryCards categories={catData?.data ?? []} />
 
       {kitsLoading ? (
-        <HomeSectionSkeleton title="Member kits" />
+        <HomeSectionSkeleton title="Product kits" />
       ) : (
         <KitsSection kits={kits} />
       )}

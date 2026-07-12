@@ -343,7 +343,7 @@ export default function CompanySettings() {
 
         <Section title="Wrong-size exchanges">
           <p className="-mt-2 text-xs text-muted">
-            Shown at checkout when customers review their order. Helps build trust for uniforms and sized items.
+            Shown at checkout when customers review their order. Helps build trust for sized or weighed items.
           </p>
           <ToggleField
             label="Enable exchange policy at checkout"
@@ -371,7 +371,7 @@ export default function CompanySettings() {
                   className="modal-input min-h-[80px] resize-y"
                   value={form.exchange_policy_note || ''}
                   onChange={(e) => set('exchange_policy_note', e.target.value)}
-                  placeholder="Wrong size? Exchange within 7 days of delivery (uniforms & sized items)."
+                  placeholder="Wrong size or weight? Exchange within 7 days of delivery (eligible items)."
                 />
               </Field>
             </>

@@ -24,7 +24,8 @@ try {
 }
 
 Response::success([
-    'message'     => 'Invite created.',
+    'message'     => 'Invite created and sent.',
     'invite'      => $invite,
     'invite_path' => $invite['invite_path'] ?? ('/sell?invite=' . ($invite['token'] ?? '')),
+    'invite_url'  => $invite['invite_url'] ?? null,
 ], 201);

@@ -511,6 +511,71 @@ final class ShopService
         )->execute([$shopId, $userId, 'owner']);
     }
 
+    /**
+     * Permanently remove a shop. Caller must confirm the exact shop name.
+     * Products are unlinked (kept as inactive/rejected); billing history keeps null shop_id.
+     */
+    public static function delete(PDO $pdo, int $shopId, string $confirmName): array
+    {
+        $shop = self::findById($pdo, $shopId);
+        if ($shop === null) {
+            throw new \InvalidArgumentException('Shop not found.');
+        }
+
+        $expected = trim((string) ($shop['name'] ?? ''));
+        if ($expected === '' || strcasecmp(trim($confirmName), $expected) !== 0) {
+            throw new \InvalidArgumentException('Type the exact shop name to confirm deletion.');
+        }
+
+        $pdo->beginTransaction();
+        try {
+            // Detach catalog so product FKs (ON DELETE SET NULL) do not leave live shop listings.
+            try {
+                $pdo->prepare(
+                    "UPDATE products SET shop_id = NULL, listing_status = 'rejected', is_active = 0
+                     WHERE shop_id = ?"
+                )->execute([$shopId]);
+            } catch (\Throwable) {
+                try {
+                    $pdo->prepare(
+                        "UPDATE products SET shop_id = NULL, listing_status = 'rejected' WHERE shop_id = ?"
+                    )->execute([$shopId]);
+                } catch (\Throwable) {
+                    $pdo->prepare('UPDATE products SET shop_id = NULL WHERE shop_id = ?')->execute([$shopId]);
+                }
+            }
+
+            try {
+                $pdo->prepare('UPDATE orders SET storefront_shop_id = NULL WHERE storefront_shop_id = ?')
+                    ->execute([$shopId]);
+            } catch (\Throwable) {
+            }
+
+            try {
+                $pdo->prepare(
+                    'UPDATE shop_applications SET shop_id = NULL WHERE shop_id = ?'
+                )->execute([$shopId]);
+            } catch (\Throwable) {
+            }
+
+            $pdo->prepare('DELETE FROM shops WHERE id = ?')->execute([$shopId]);
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw new \InvalidArgumentException(
+                'Could not delete shop. It may still be linked to protected records: ' . $e->getMessage()
+            );
+        }
+
+        return [
+            'id'   => $shopId,
+            'name' => $expected,
+            'slug' => $shop['slug'] ?? null,
+        ];
+    }
+
     /** @param array<string,mixed> $input */
     private static function validateInput(array $input): array
     {

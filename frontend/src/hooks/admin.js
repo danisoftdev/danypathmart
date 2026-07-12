@@ -303,6 +303,19 @@ export function useUpdateAdminShop() {
   });
 }
 
+export function useDeleteAdminShop() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirm_name }) =>
+      (await api.delete(`/admin/shops/${id}`, { data: { confirm_name } })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+      qc.invalidateQueries({ queryKey: ['admin-shop-billing'] });
+      qc.invalidateQueries({ queryKey: ['admin-shop-applications'] });
+    },
+  });
+}
+
 export function useMarketplaceListings(listing = 'pending', enabled = true) {
   return useQuery({
     queryKey: ['admin-marketplace-listings', listing],
