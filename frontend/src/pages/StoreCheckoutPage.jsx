@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useStoreCartStore } from '../store/storeCartStore';

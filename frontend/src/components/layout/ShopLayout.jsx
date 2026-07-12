@@ -77,13 +77,32 @@ export default function ShopLayout() {
 
   const shop = data.shop;
   const billing = data.billing ?? {};
-  const renewalFee = Number(billing.settings?.renewal_fee || 0);
-  const showRenewal = billing.settings?.enabled && renewalFee > 0 && billing.renewal_due;
+  const renewalOptions = billing.settings?.renewal_options?.length
+    ? billing.settings.renewal_options
+    : [
+        ...(Number(billing.settings?.renewal_fee_monthly || 0) > 0
+          ? [{ period: 'monthly', fee: Number(billing.settings.renewal_fee_monthly), label: 'Monthly' }]
+          : []),
+        ...(Number(billing.settings?.renewal_fee_yearly || 0) > 0
+          ? [{ period: 'yearly', fee: Number(billing.settings.renewal_fee_yearly), label: 'Yearly' }]
+          : []),
+        ...(Number(billing.settings?.renewal_fee || 0) > 0
+          && !billing.settings?.renewal_fee_monthly
+          && !billing.settings?.renewal_fee_yearly
+          ? [{ period: billing.settings?.renewal_period || 'yearly', fee: Number(billing.settings.renewal_fee), label: 'Renew' }]
+          : []),
+      ];
+  const [renewalPeriod, setRenewalPeriod] = useState(
+    () => billing.settings?.renewal_period || renewalOptions[0]?.period || 'yearly'
+  );
+  const selectedRenewal = renewalOptions.find((o) => o.period === renewalPeriod) || renewalOptions[0];
+  const renewalFee = Number(selectedRenewal?.fee || billing.settings?.renewal_fee || 0);
+  const showRenewal = billing.settings?.enabled && renewalOptions.length > 0 && billing.renewal_due;
 
   const payRenewal = async () => {
     setRenewalMsg('');
     try {
-      const pay = await initRenewal.mutateAsync();
+      const pay = await initRenewal.mutateAsync(selectedRenewal?.period || renewalPeriod);
       if (pay.authorization_url) {
         window.location.href = pay.authorization_url;
       }
@@ -137,15 +156,35 @@ export default function ShopLayout() {
         <div className="mb-6 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 p-4">
           <p className="text-sm font-bold">Shop renewal due</p>
           <p className="mt-1 text-sm text-muted">
-            Pay {formatPrice(renewalFee)} to keep your shop link active ({billing.settings?.renewal_period || 'yearly'} plan).
+            Choose a plan to keep your shop link active.
           </p>
+          {renewalOptions.length > 1 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {renewalOptions.map((opt) => (
+                <button
+                  key={opt.period}
+                  type="button"
+                  className={`rounded-xl border px-3 py-2 text-sm font-bold ${
+                    (selectedRenewal?.period || renewalPeriod) === opt.period
+                      ? 'border-brand-green bg-brand-green/10 text-brand-green'
+                      : 'border-black/10 dark:border-white/15'
+                  }`}
+                  onClick={() => setRenewalPeriod(opt.period)}
+                >
+                  {opt.label} — {formatPrice(opt.fee)}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             type="button"
             className="btn-primary mt-3 min-h-[40px] px-4 text-sm"
-            disabled={initRenewal.isPending}
+            disabled={initRenewal.isPending || !selectedRenewal}
             onClick={payRenewal}
           >
-            {initRenewal.isPending ? 'Starting payment…' : `Renew — ${formatPrice(renewalFee)}`}
+            {initRenewal.isPending
+              ? 'Starting payment…'
+              : `Renew ${selectedRenewal?.label || ''} — ${formatPrice(renewalFee)}`}
           </button>
         </div>
       )}

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\NotificationService;
 use App\Helpers\Response;
 use App\Helpers\ShopPromoService;
 use App\Middleware\ShopMiddleware;
@@ -73,4 +74,13 @@ try {
 }
 
 $id = (int) $pdo->lastInsertId();
+
+$shopName = (string) ($ctx['shop']['name'] ?? '');
+NotificationService::notifyNewProductListingPending($pdo, [
+    'id'      => $id,
+    'name'    => $name,
+    'shop_id' => (int) $ctx['shop_id'],
+    'price'   => $price,
+], $shopName);
+
 Response::success(['message' => 'Product submitted for review.', 'id' => $id], 201);

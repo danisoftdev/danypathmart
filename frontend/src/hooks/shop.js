@@ -152,7 +152,8 @@ export function useConfirmShopBillingDevPayment() {
 
 export function useInitializeShopRenewalPayment() {
   return useMutation({
-    mutationFn: async () => (await api.post('/shop/billing/initialize-renewal')).data,
+    mutationFn: async (period) =>
+      (await api.post('/shop/billing/initialize-renewal', period ? { period } : {})).data,
   });
 }
 

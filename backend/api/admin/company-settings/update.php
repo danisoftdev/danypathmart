@@ -369,8 +369,10 @@ if (($user['role'] ?? '') === 'super_admin'
         $shopBillingEnabled = boolFlag($body['shop_billing_enabled'] ?? false);
         $shopRegFee = isset($body['shop_registration_fee_ghs'])
             ? max(0.0, round((float) $body['shop_registration_fee_ghs'], 2)) : 0.0;
-        $shopRenewFee = isset($body['shop_renewal_fee_ghs'])
-            ? max(0.0, round((float) $body['shop_renewal_fee_ghs'], 2)) : 0.0;
+        $shopMonthly = isset($body['shop_renewal_fee_monthly_ghs'])
+            ? max(0.0, round((float) $body['shop_renewal_fee_monthly_ghs'], 2)) : null;
+        $shopYearly = isset($body['shop_renewal_fee_yearly_ghs'])
+            ? max(0.0, round((float) $body['shop_renewal_fee_yearly_ghs'], 2)) : null;
         $shopRenewPeriod = trim((string) ($body['shop_renewal_period'] ?? 'yearly'));
         if (!in_array($shopRenewPeriod, ['monthly', 'yearly'], true)) {
             $shopRenewPeriod = 'yearly';
@@ -378,19 +380,64 @@ if (($user['role'] ?? '') === 'super_admin'
         $shopGraceDays = isset($body['shop_renewal_grace_days'])
             ? max(0, (int) $body['shop_renewal_grace_days']) : 7;
 
-        $pdo->prepare(
-            'UPDATE company_settings SET
-                shop_billing_enabled = ?,
-                shop_registration_fee_ghs = ?,
-                shop_renewal_fee_ghs = ?,
-                shop_renewal_period = ?,
-                shop_renewal_grace_days = ?
-             WHERE id = 1'
-        )->execute([$shopBillingEnabled, $shopRegFee, $shopRenewFee, $shopRenewPeriod, $shopGraceDays]);
+        // Legacy single fee fallback when new fields omitted.
+        if ($shopMonthly === null && $shopYearly === null && isset($body['shop_renewal_fee_ghs'])) {
+            $legacy = max(0.0, round((float) $body['shop_renewal_fee_ghs'], 2));
+            if ($shopRenewPeriod === 'monthly') {
+                $shopMonthly = $legacy;
+                $shopYearly = 0.0;
+            } else {
+                $shopYearly = $legacy;
+                $shopMonthly = 0.0;
+            }
+        }
+        $existingBilling = \App\Helpers\ShopBillingService::loadSettings($pdo);
+        if ($shopMonthly === null) {
+            $shopMonthly = (float) $existingBilling['shop_renewal_fee_monthly_ghs'];
+        }
+        if ($shopYearly === null) {
+            $shopYearly = (float) $existingBilling['shop_renewal_fee_yearly_ghs'];
+        }
+        if ($shopRenewPeriod === 'monthly' && $shopMonthly <= 0 && $shopYearly > 0) {
+            $shopRenewPeriod = 'yearly';
+        }
+        if ($shopRenewPeriod === 'yearly' && $shopYearly <= 0 && $shopMonthly > 0) {
+            $shopRenewPeriod = 'monthly';
+        }
+        $shopRenewFee = $shopRenewPeriod === 'monthly' ? $shopMonthly : $shopYearly;
+
+        try {
+            $pdo->prepare(
+                'UPDATE company_settings SET
+                    shop_billing_enabled = ?,
+                    shop_registration_fee_ghs = ?,
+                    shop_renewal_fee_ghs = ?,
+                    shop_renewal_fee_monthly_ghs = ?,
+                    shop_renewal_fee_yearly_ghs = ?,
+                    shop_renewal_period = ?,
+                    shop_renewal_grace_days = ?
+                 WHERE id = 1'
+            )->execute([
+                $shopBillingEnabled, $shopRegFee, $shopRenewFee,
+                $shopMonthly, $shopYearly, $shopRenewPeriod, $shopGraceDays,
+            ]);
+        } catch (\Throwable) {
+            $pdo->prepare(
+                'UPDATE company_settings SET
+                    shop_billing_enabled = ?,
+                    shop_registration_fee_ghs = ?,
+                    shop_renewal_fee_ghs = ?,
+                    shop_renewal_period = ?,
+                    shop_renewal_grace_days = ?
+                 WHERE id = 1'
+            )->execute([$shopBillingEnabled, $shopRegFee, $shopRenewFee, $shopRenewPeriod, $shopGraceDays]);
+        }
 
         $fields['shop_billing_enabled'] = (bool) $shopBillingEnabled;
         $fields['shop_registration_fee_ghs'] = $shopRegFee;
         $fields['shop_renewal_fee_ghs'] = $shopRenewFee;
+        $fields['shop_renewal_fee_monthly_ghs'] = $shopMonthly;
+        $fields['shop_renewal_fee_yearly_ghs'] = $shopYearly;
         $fields['shop_renewal_period'] = $shopRenewPeriod;
         $fields['shop_renewal_grace_days'] = $shopGraceDays;
     } catch (\Throwable) {

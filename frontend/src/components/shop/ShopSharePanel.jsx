@@ -15,25 +15,34 @@ function copyText(text) {
   return Promise.resolve();
 }
 
+const MODE_HINT = {
+  focused: 'Focused link — shop-only view with a soft exit to DanyPathMart.',
+  locked: 'Locked link — shop-only, not listed in Browse shops.',
+  open: 'Open link — customers can browse other DPM shops from your storefront.',
+};
+
 export default function ShopSharePanel({ sharing }) {
   const [copied, setCopied] = useState('');
 
+  const storePath = sharing?.store_url || sharing?.share_url || '';
   const storeUrl = useMemo(() => {
-    if (!sharing?.share_url) return '';
+    if (!storePath) return '';
     const base = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${base}${sharing.share_url}`;
-  }, [sharing?.share_url]);
+    return `${base}${storePath}`;
+  }, [storePath]);
 
   const applyUrl = useMemo(() => {
     if (!sharing?.referral_code) return '';
     const base = typeof window !== 'undefined' ? window.location.origin : '';
-    return `${base}/sell?ref=${encodeURIComponent(sharing.referral_code)}`;
-  }, [sharing?.referral_code]);
+    const path = sharing.referral_apply_url || `/sell?ref=${encodeURIComponent(sharing.referral_code)}`;
+    return `${base}${path}`;
+  }, [sharing?.referral_code, sharing?.referral_apply_url]);
 
   if (!sharing) return null;
 
   const program = sharing.program ?? {};
   const referred = sharing.referred_shops ?? [];
+  const mode = sharing.storefront_mode || 'focused';
 
   const handleCopy = async (label, value) => {
     if (!value) return;
@@ -45,7 +54,8 @@ export default function ShopSharePanel({ sharing }) {
   return (
     <section className="mt-8 rounded-2xl border border-brand-green/30 bg-brand-green/5 p-5 dark:border-brand-green/40">
       <p className="text-xs font-bold uppercase tracking-wide text-brand-green">Share your shop</p>
-      <h2 className="mt-1 text-lg font-extrabold">Store link & refer other sellers</h2>
+      <h2 className="mt-1 text-lg font-extrabold">Customer store link</h2>
+      <p className="mt-1 text-xs text-muted">{MODE_HINT[mode] || MODE_HINT.focused}</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-black/8 bg-white p-3 dark:border-white/10 dark:bg-[#1E1E1E]">
@@ -58,11 +68,15 @@ export default function ShopSharePanel({ sharing }) {
           >
             {copied === 'store' ? 'Copied!' : 'Copy shop link'}
           </button>
-          {storeUrl && (
-            <Link to={sharing.share_url} className="mt-2 block text-center text-xs font-bold text-brand-green hover:underline">
+          {storePath && (
+            <Link to={storePath} className="mt-2 block text-center text-xs font-bold text-brand-green hover:underline">
               Preview store →
             </Link>
           )}
+          <p className="mt-2 text-[11px] text-muted">
+            Change privacy in{' '}
+            <Link to="/seller/settings" className="font-bold text-brand-green hover:underline">Shop profile</Link>.
+          </p>
         </div>
 
         {program.enabled && (

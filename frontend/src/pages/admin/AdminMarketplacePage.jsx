@@ -972,27 +972,41 @@ export default function AdminMarketplacePage() {
                           value={billingSettings.shop_registration_fee_ghs ?? 0}
                           onChange={(e) => setBillingForm({ ...billingSettings, shop_registration_fee_ghs: Number(e.target.value) || 0 })}
                         />
+                        <span className="mt-1 block text-xs text-muted">0 = free registration</span>
                       </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block font-semibold">Renewal fee (GHS)</span>
+                        <span className="mb-1 block font-semibold">Monthly renewal (GHS)</span>
                         <input
                           type="number"
                           min="0"
                           step="0.01"
                           className="input-field w-full"
-                          value={billingSettings.shop_renewal_fee_ghs ?? 0}
-                          onChange={(e) => setBillingForm({ ...billingSettings, shop_renewal_fee_ghs: Number(e.target.value) || 0 })}
+                          value={billingSettings.shop_renewal_fee_monthly_ghs ?? 0}
+                          onChange={(e) => setBillingForm({ ...billingSettings, shop_renewal_fee_monthly_ghs: Number(e.target.value) || 0 })}
                         />
+                        <span className="mt-1 block text-xs text-muted">0 = monthly plan off</span>
                       </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block font-semibold">Renewal period</span>
+                        <span className="mb-1 block font-semibold">Yearly renewal (GHS)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="input-field w-full"
+                          value={billingSettings.shop_renewal_fee_yearly_ghs ?? 0}
+                          onChange={(e) => setBillingForm({ ...billingSettings, shop_renewal_fee_yearly_ghs: Number(e.target.value) || 0 })}
+                        />
+                        <span className="mt-1 block text-xs text-muted">0 = yearly plan off</span>
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Default plan preference</span>
                         <select
                           className="input-field w-full"
                           value={billingSettings.shop_renewal_period || 'yearly'}
                           onChange={(e) => setBillingForm({ ...billingSettings, shop_renewal_period: e.target.value })}
                         >
-                          <option value="monthly">Monthly</option>
-                          <option value="yearly">Yearly</option>
+                          <option value="monthly">Prefer monthly</option>
+                          <option value="yearly">Prefer yearly</option>
                         </select>
                       </label>
                       <label className="block text-sm">
@@ -1167,7 +1181,9 @@ export default function AdminMarketplacePage() {
                         {billingSettings.shop_referral_reg_discount_enabled && (
                           <> · Referral applicant discount on</>
                         )}
-                        {' '}· Renewal {formatPrice(billingSettings.shop_renewal_fee_ghs || 0)} / {billingSettings.shop_renewal_period}
+                        {' '}· Monthly {formatPrice(billingSettings.shop_renewal_fee_monthly_ghs || 0)}
+                        {' · '}Yearly {formatPrice(billingSettings.shop_renewal_fee_yearly_ghs || 0)}
+                        {' '}(default {billingSettings.shop_renewal_period})
                       </>
                     )}
                   </p>

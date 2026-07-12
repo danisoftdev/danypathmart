@@ -191,6 +191,15 @@ final class StorefrontOrderService
             ShopFulfillmentService::notifyAwaitingPayment($pdo, (int) $shop['id'], $orderId);
         }
 
+        NotificationService::notifyOrderStatus(
+            $pdo,
+            $orderId,
+            'placed',
+            $paymentMethod === 'paystack'
+                ? 'Complete online payment to confirm your order with ' . ($shop['name'] ?? 'the shop') . '.'
+                : 'Your order was placed with ' . ($shop['name'] ?? 'the shop') . '. Pay as instructed — the shop will confirm.'
+        );
+
         $out = [
             'order_id'                 => $orderId,
             'total'                    => $total,
@@ -247,17 +256,43 @@ final class StorefrontOrderService
         ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
         InventoryService::commitOrderInventory($pdo, $orderId);
 
-        $customerStmt = $pdo->prepare('SELECT user_id FROM orders WHERE id = ?');
+        $customerStmt = $pdo->prepare(
+            'SELECT o.user_id, o.total, o.payment_status, o.payment_method, o.payment_ref,
+                    u.email, u.name
+             FROM orders o INNER JOIN users u ON u.id = o.user_id WHERE o.id = ?'
+        );
         $customerStmt->execute([$orderId]);
-        $customerId = (int) $customerStmt->fetchColumn();
-        if ($customerId > 0) {
+        $customer = $customerStmt->fetch();
+        if ($customer !== false) {
+            $customerId = (int) $customer['user_id'];
+            $itemsStmt = $pdo->prepare(
+                'SELECT oi.quantity, oi.unit_price, p.name, p.images
+                 FROM order_items oi INNER JOIN products p ON p.id = oi.product_id
+                 WHERE oi.order_id = ? ORDER BY oi.id ASC'
+            );
+            $itemsStmt->execute([$orderId]);
+            $items = $itemsStmt->fetchAll();
+            $orderRow = [
+                'id'             => $orderId,
+                'total'          => (float) $customer['total'],
+                'payment_status' => (string) $customer['payment_status'],
+                'payment_method' => (string) ($customer['payment_method'] ?? ''),
+                'payment_ref'    => $customer['payment_ref'] ?? null,
+            ];
+            if (trim((string) $customer['email']) !== '') {
+                Mailer::orderConfirmation((string) $customer['email'], (string) $customer['name'], [
+                    'order' => $orderRow,
+                    'items' => $items,
+                ]);
+            }
             NotificationService::notifyUser(
                 $pdo,
                 $customerId,
                 'Payment confirmed — order #' . $orderId,
                 'The shop confirmed your payment. They will prepare your order soon.',
                 '/dashboard/orders/' . $orderId,
-                'order_update'
+                'order_update',
+                false
             );
         }
     }
@@ -284,6 +319,12 @@ final class StorefrontOrderService
             $pdo->prepare(
                 "INSERT INTO order_tracking (order_id, status, note) VALUES (?, 'cancelled', ?)"
             )->execute([$orderId, 'Unpaid order expired — stock released.']);
+            NotificationService::notifyOrderStatus(
+                $pdo,
+                $orderId,
+                'cancelled',
+                'Your unpaid shop order expired and was cancelled. Stock was released.'
+            );
             $count++;
         }
 

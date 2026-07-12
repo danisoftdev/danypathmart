@@ -9,10 +9,10 @@ use App\Middleware\AuthMiddleware;
 
 $pdo = Database::pdo();
 $body = Response::body();
-$user = AuthMiddleware::optional();
+$user = AuthMiddleware::authenticate();
 
 try {
-    $app = ShopApplicationService::submit($pdo, $body, $user !== null ? (int) $user['id'] : null);
+    $app = ShopApplicationService::submit($pdo, $body, (int) $user['id']);
 } catch (\InvalidArgumentException $e) {
     Response::error($e->getMessage(), 422);
 } catch (\Throwable) {

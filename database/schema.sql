@@ -271,6 +271,7 @@ CREATE TABLE email_verifications (
     id         BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id    BIGINT UNSIGNED NOT NULL,
     otp_hash   CHAR(64)        NOT NULL,
+    token_hash CHAR(64)        DEFAULT NULL,
     type       ENUM('registration','password_reset') NOT NULL DEFAULT 'registration',
     expires_at DATETIME        NOT NULL,
     attempts   TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -279,6 +280,7 @@ CREATE TABLE email_verifications (
     KEY idx_email_verifications_user (user_id),
     KEY idx_email_verifications_type (type),
     KEY idx_email_verifications_expires (expires_at),
+    KEY idx_email_verifications_token (token_hash),
     CONSTRAINT fk_email_verifications_user FOREIGN KEY (user_id)
         REFERENCES users (id) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

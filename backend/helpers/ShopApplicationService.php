@@ -17,6 +17,9 @@ final class ShopApplicationService
      */
     public static function submit(PDO $pdo, array $input, ?int $userId = null): array
     {
+        if ($userId === null || $userId <= 0) {
+            throw new \InvalidArgumentException('Sign in to your DanyPathMart account before applying for a shop.');
+        }
         if (!PlatformFeatures::load($pdo)['marketplace_enabled']) {
             throw new \InvalidArgumentException('Marketplace is not open yet.');
         }
@@ -47,11 +50,18 @@ final class ShopApplicationService
             throw new \InvalidArgumentException('Please fill in all required fields.');
         }
 
-        if ($userId !== null) {
-            $existingShop = ShopService::userShopId($pdo, $userId);
-            if ($existingShop !== null) {
-                throw new \InvalidArgumentException('You already have a shop on DanyPathMart.');
-            }
+        $accountStmt = $pdo->prepare('SELECT email FROM users WHERE id = ? LIMIT 1');
+        $accountStmt->execute([$userId]);
+        $accountEmail = strtolower(trim((string) ($accountStmt->fetchColumn() ?: '')));
+        if ($accountEmail === '') {
+            throw new \InvalidArgumentException('Your account needs a verified email before you can apply.');
+        }
+        // Keep shop contact email aligned with the DPM login email.
+        $email = $accountEmail;
+
+        $existingShop = ShopService::userShopId($pdo, $userId);
+        if ($existingShop !== null) {
+            throw new \InvalidArgumentException('You already have a shop on DanyPathMart.');
         }
 
         $inviteToken = self::nullable($input['invite_token'] ?? null);
@@ -145,7 +155,96 @@ final class ShopApplicationService
         $result = self::findById($pdo, $id) ?? [];
         $result['requires_payment'] = ShopBillingService::registrationRequired($pdo, $result);
 
+        self::notifyReviewers($pdo, $result);
+
         return $result;
+    }
+
+    /**
+     * In-app + email to staff who can approve shops, company email, and ADMIN_EMAIL.
+     *
+     * @param array<string,mixed> $app
+     */
+    public static function notifyReviewers(PDO $pdo, array $app, string $headline = 'New shop application'): void
+    {
+        $biz = trim((string) ($app['business_name'] ?? 'Shop'));
+        $contact = trim((string) ($app['contact_name'] ?? ''));
+        $email = trim((string) ($app['email'] ?? ''));
+        $phone = trim((string) ($app['phone'] ?? ''));
+        $csPhone = trim((string) ($app['customer_service_phone'] ?? ''));
+        $city = trim((string) ($app['city'] ?? ''));
+        $status = (string) ($app['status'] ?? 'new');
+        $id = (int) ($app['id'] ?? 0);
+
+        $bodyLines = [
+            "Business: {$biz}",
+            "Contact: {$contact}",
+            "Email: {$email}",
+            "Shop phone: {$phone}",
+        ];
+        if ($csPhone !== '' && $csPhone !== $phone) {
+            $bodyLines[] = "Customer service: {$csPhone}";
+        }
+        if ($city !== '') {
+            $bodyLines[] = "City: {$city}";
+        }
+        $addr = trim((string) ($app['street_address'] ?? ''));
+        if ($addr !== '') {
+            $bodyLines[] = "Address: {$addr}";
+        }
+        $region = trim((string) ($app['region'] ?? ''));
+        if ($region !== '') {
+            $bodyLines[] = "Region: {$region}";
+        }
+        $bodyLines[] = "Status: {$status}";
+        if (!empty($app['requires_payment'])) {
+            $bodyLines[] = 'Note: Registration fee payment still required.';
+        }
+        $ref = trim((string) ($app['referred_by_shop_code'] ?? ''));
+        if ($ref !== '') {
+            $bodyLines[] = "Referral: {$ref}";
+        }
+        $desc = trim((string) ($app['description'] ?? ''));
+        if ($desc !== '') {
+            $bodyLines[] = '';
+            $bodyLines[] = $desc;
+        }
+
+        $title = "{$headline} — {$biz}";
+        $body = implode("\n", $bodyLines);
+        $link = '/admin/marketplace';
+
+        $companyEmail = '';
+        try {
+            $settings = CompanySettingsService::loadForAdmin($pdo);
+            $companyEmail = trim((string) ($settings['email'] ?? ''));
+        } catch (\Throwable) {
+            $companyEmail = '';
+        }
+
+        $mailCtx = array_merge($app, [
+            'id' => $id,
+            'business_name' => $biz,
+            'contact_name' => $contact,
+            'email' => $email,
+            'phone' => $phone,
+            'customer_service_phone' => $csPhone !== '' ? $csPhone : null,
+            'city' => $city,
+            'status' => $status,
+        ]);
+
+        NotificationService::notifyStaffWithPermission(
+            $pdo,
+            ['approve_shop_applications', 'manage_marketplace', 'edit_company_settings'],
+            $title,
+            $body,
+            $link,
+            'admin_shop_application',
+            static function (string $toEmail) use ($mailCtx): void {
+                Mailer::shopApplicationToAdmin($toEmail, $mailCtx);
+            },
+            $companyEmail !== '' ? [$companyEmail] : []
+        );
     }
 
     /**
@@ -392,6 +491,8 @@ final class ShopApplicationService
         }
 
         $pdo->beginTransaction();
+        $ownerId = 0;
+        $shop = [];
         try {
             $shop = ShopService::create($pdo, [
                 'name'                   => $app['business_name'],
@@ -421,9 +522,12 @@ final class ShopApplicationService
                 $ownerId = $userStmt->fetchColumn();
                 $ownerId = $ownerId !== false ? (int) $ownerId : null;
             }
-            if ($ownerId !== null) {
-                ShopService::addOwner($pdo, (int) $shop['id'], $ownerId);
+            if ($ownerId === null || $ownerId <= 0) {
+                throw new \InvalidArgumentException(
+                    'This application is not linked to a DanyPathMart account. Ask the applicant to sign up and re-apply while logged in.'
+                );
             }
+            ShopService::addOwner($pdo, (int) $shop['id'], $ownerId);
 
             $referrerShopId = $app['referred_by_shop_id'] ?? null;
             if ($referrerShopId === null && ($app['referred_by_type'] ?? '') === 'shop' && !empty($app['referred_by_shop_code'])) {
@@ -449,7 +553,32 @@ final class ShopApplicationService
             throw $e;
         }
 
-        return ShopService::findById($pdo, (int) ($shop['id'] ?? 0)) ?? [];
+        $shopRow = ShopService::findById($pdo, (int) ($shop['id'] ?? 0)) ?? [];
+        if ($ownerId > 0 && $shopRow !== []) {
+            $slug = (string) ($shopRow['slug'] ?? '');
+            $shopName = (string) ($shopRow['name'] ?? $app['business_name'] ?? 'Your shop');
+            NotificationService::notifyUser(
+                $pdo,
+                $ownerId,
+                'Shop approved — ' . $shopName,
+                "Your shop \"{$shopName}\" is live. Sign in with your DanyPathMart account and open Seller dashboard to add products.",
+                '/seller',
+                'shop_approved',
+                true,
+                true,
+                true,
+                true,
+                static function (string $toEmail, string $toName) use ($shopRow, $app): void {
+                    Mailer::shopApproved($toEmail, $toName, [
+                        'shop_name' => (string) ($shopRow['name'] ?? $app['business_name'] ?? 'Your shop'),
+                        'slug'      => (string) ($shopRow['slug'] ?? ''),
+                        'logo_url'  => $shopRow['logo_url'] ?? $app['logo_url'] ?? null,
+                    ]);
+                }
+            );
+        }
+
+        return $shopRow;
     }
 
     public static function reject(PDO $pdo, int $applicationId, ?string $note = null): void
@@ -467,6 +596,29 @@ final class ShopApplicationService
         )->execute(['rejected', $note, $applicationId]);
 
         SubscriptionReferralService::reverseOnReject($pdo, $applicationId);
+
+        $ownerId = $app['user_id'] ?? null;
+        if ($ownerId === null) {
+            $userStmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
+            $userStmt->execute([$app['email']]);
+            $col = $userStmt->fetchColumn();
+            $ownerId = $col !== false ? (int) $col : null;
+        }
+        if ($ownerId !== null && $ownerId > 0) {
+            $biz = (string) ($app['business_name'] ?? 'your shop');
+            $reason = trim((string) ($note ?? ''));
+            $body = "We could not approve \"{$biz}\" at this time."
+                . ($reason !== '' ? "\n\nNote: {$reason}" : '')
+                . "\n\nYou can update details and apply again while signed in.";
+            NotificationService::notifyUser(
+                $pdo,
+                $ownerId,
+                'Shop application update',
+                $body,
+                '/sell',
+                'shop_rejected'
+            );
+        }
     }
 
     private static function nullable(mixed $value): ?string

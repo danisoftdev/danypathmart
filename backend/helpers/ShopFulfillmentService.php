@@ -121,7 +121,8 @@ final class ShopFulfillmentService
                 $fid,
                 $fulfillmentMode === 'shop_pickup'
                     ? 'New paid order — customer will pick up at your shop.'
-                    : 'New paid order — arrange delivery to the customer address on file.'
+                    : 'New paid order — arrange delivery to the customer address on file.',
+                true
             );
         }
     }
@@ -319,20 +320,15 @@ final class ShopFulfillmentService
         ]);
 
         $orderId = (int) $row['order_id'];
-        $orderUser = $pdo->prepare('SELECT user_id FROM orders WHERE id = ?');
-        $orderUser->execute([$orderId]);
-        $customerId = (int) $orderUser->fetchColumn();
+        $noteText = $note !== null && trim($note) !== '' ? trim($note) : $defaultNote;
 
-        if ($customerId > 0) {
-            NotificationService::notifyUser(
-                $pdo,
-                $customerId,
-                'Shop order update — #' . $orderId,
-                $defaultNote ?? 'Your marketplace order status was updated.',
-                '/dashboard/orders/' . $orderId,
-                'order_update'
-            );
-        }
+        NotificationService::notifyShopFulfillmentStatus(
+            $pdo,
+            $orderId,
+            $shopId,
+            $status,
+            $noteText
+        );
     }
 
     /** @param array<int,array<string,mixed>> $lines */
@@ -405,25 +401,123 @@ final class ShopFulfillmentService
             $shopId,
             $orderId,
             $fid,
-            'New order awaiting payment — confirm when you receive MoMo or cash.'
+            'New order awaiting payment — confirm when you receive MoMo or cash.',
+            false
         );
     }
 
-    private static function notifyShopMembers(PDO $pdo, int $shopId, int $orderId, int $fulfillmentId, string $body): void
-    {
+    /**
+     * Multi-channel shop order alert: members (in-app/push/SMS/WA) + shop emails via DPM SMTP
+     * with product line items, images, and paid status.
+     */
+    private static function notifyShopMembers(
+        PDO $pdo,
+        int $shopId,
+        int $orderId,
+        int $fulfillmentId,
+        string $body,
+        bool $paid = true
+    ): void {
+        try {
+            $detail = self::detailForShop($pdo, $shopId, $fulfillmentId);
+        } catch (\Throwable) {
+            $detail = [
+                'customer_name'  => null,
+                'customer_email' => null,
+                'customer_phone' => null,
+                'payment_status' => $paid ? 'paid' : 'pending',
+                'items'          => [],
+            ];
+        }
+
+        $shop = ShopService::findById($pdo, $shopId) ?? [];
+        $shopName = (string) ($shop['name'] ?? 'Your shop');
+        $logoUrl = $shop['logo_url'] ?? null;
+        $link = '/seller/orders?f=' . $fulfillmentId;
+        $title = ($paid ? 'Paid shop order #' : 'Shop order awaiting payment #') . $orderId;
+
+        $itemSummary = [];
+        foreach ($detail['items'] ?? [] as $item) {
+            $itemSummary[] = sprintf(
+                '%s × %d — GHS %s',
+                (string) ($item['name'] ?? 'Item'),
+                (int) ($item['quantity'] ?? 1),
+                number_format((float) ($item['line_total'] ?? 0), 2)
+            );
+        }
+        $fullBody = $body;
+        if ($itemSummary !== []) {
+            $fullBody .= "\n\nItems:\n" . implode("\n", $itemSummary);
+        }
+        $cust = trim((string) ($detail['customer_name'] ?? ''));
+        if ($cust !== '') {
+            $fullBody .= "\n\nCustomer: {$cust}";
+        }
+
+        $mailCtx = [
+            'order_id'       => $orderId,
+            'fulfillment_id' => $fulfillmentId,
+            'shop_name'      => $shopName,
+            'logo_url'       => $logoUrl,
+            'paid'           => $paid,
+            'payment_status' => (string) ($detail['payment_status'] ?? ($paid ? 'paid' : 'pending')),
+            'headline'       => $body,
+            'customer_name'  => $detail['customer_name'] ?? null,
+            'customer_email' => $detail['customer_email'] ?? null,
+            'customer_phone' => $detail['customer_phone'] ?? null,
+            'delivery'       => $detail['delivery_address'] ?? null,
+            'items'          => array_map(static function (array $i): array {
+                return [
+                    'name'       => (string) ($i['name'] ?? 'Item'),
+                    'quantity'   => (int) ($i['quantity'] ?? 1),
+                    'unit_price' => (float) ($i['unit_price'] ?? 0),
+                    'line_total' => (float) ($i['line_total'] ?? 0),
+                    'images'     => !empty($i['image']) ? json_encode([$i['image']]) : null,
+                ];
+            }, $detail['items'] ?? []),
+            'link_url'       => $link,
+        ];
+
         $members = $pdo->prepare(
             'SELECT u.id FROM shop_members sm INNER JOIN users u ON u.id = sm.user_id WHERE sm.shop_id = ?'
         );
         $members->execute([$shopId]);
+        $emailed = [];
         foreach ($members->fetchAll() as $m) {
             NotificationService::notifyUser(
                 $pdo,
                 (int) $m['id'],
-                'New shop order #' . $orderId,
-                $body,
-                '/seller/orders?f=' . $fulfillmentId,
-                'shop_order'
+                $title,
+                $fullBody,
+                $link,
+                'shop_order',
+                true,
+                true,
+                true,
+                true,
+                static function (string $toEmail, string $toName) use ($mailCtx, &$emailed): void {
+                    $key = strtolower($toEmail);
+                    if (isset($emailed[$key])) {
+                        return;
+                    }
+                    Mailer::shopOrderAlert($toEmail, $toName, $mailCtx);
+                    $emailed[$key] = true;
+                }
             );
+        }
+
+        // Always also send to shop contact email via DPM SMTP (even if no member account email).
+        $shopEmails = [];
+        $contactEmail = strtolower(trim((string) ($shop['contact_email'] ?? '')));
+        if ($contactEmail !== '') {
+            $shopEmails[] = $contactEmail;
+        }
+        foreach ($shopEmails as $shopEmail) {
+            if (isset($emailed[$shopEmail])) {
+                continue;
+            }
+            Mailer::shopOrderAlert($shopEmail, $shopName, $mailCtx);
+            $emailed[$shopEmail] = true;
         }
     }
 }

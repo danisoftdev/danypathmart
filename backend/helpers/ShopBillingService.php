@@ -17,6 +17,8 @@ final class ShopBillingService
             'shop_billing_enabled'              => false,
             'shop_registration_fee_ghs'         => 0.0,
             'shop_renewal_fee_ghs'              => 0.0,
+            'shop_renewal_fee_monthly_ghs'      => 0.0,
+            'shop_renewal_fee_yearly_ghs'       => 0.0,
             'shop_renewal_period'               => 'yearly',
             'shop_renewal_grace_days'           => 7,
             'shop_registration_free_until'    => null,
@@ -31,6 +33,7 @@ final class ShopBillingService
         try {
             $row = $pdo->query(
                 'SELECT shop_billing_enabled, shop_registration_fee_ghs, shop_renewal_fee_ghs,
+                        shop_renewal_fee_monthly_ghs, shop_renewal_fee_yearly_ghs,
                         shop_renewal_period, shop_renewal_grace_days,
                         shop_registration_free_until,
                         shop_first_reg_discount_enabled, shop_first_reg_discount_type, shop_first_reg_discount_value,
@@ -38,7 +41,18 @@ final class ShopBillingService
                  FROM company_settings ORDER BY id ASC LIMIT 1'
             )->fetch();
         } catch (\Throwable) {
-            return $defaults;
+            try {
+                $row = $pdo->query(
+                    'SELECT shop_billing_enabled, shop_registration_fee_ghs, shop_renewal_fee_ghs,
+                            shop_renewal_period, shop_renewal_grace_days,
+                            shop_registration_free_until,
+                            shop_first_reg_discount_enabled, shop_first_reg_discount_type, shop_first_reg_discount_value,
+                            shop_referral_reg_discount_enabled, shop_referral_reg_discount_type, shop_referral_reg_discount_value
+                     FROM company_settings ORDER BY id ASC LIMIT 1'
+                )->fetch();
+            } catch (\Throwable) {
+                return $defaults;
+            }
         }
 
         if ($row === false) {
@@ -46,12 +60,39 @@ final class ShopBillingService
         }
 
         $period = (string) ($row['shop_renewal_period'] ?? 'yearly');
+        if (!in_array($period, ['monthly', 'yearly'], true)) {
+            $period = 'yearly';
+        }
+
+        $legacyFee = max(0.0, (float) ($row['shop_renewal_fee_ghs'] ?? 0));
+        $monthly = array_key_exists('shop_renewal_fee_monthly_ghs', $row)
+            ? max(0.0, (float) $row['shop_renewal_fee_monthly_ghs'])
+            : ($period === 'monthly' ? $legacyFee : 0.0);
+        $yearly = array_key_exists('shop_renewal_fee_yearly_ghs', $row)
+            ? max(0.0, (float) $row['shop_renewal_fee_yearly_ghs'])
+            : ($period === 'yearly' ? $legacyFee : 0.0);
+
+        // If new columns exist but are both 0 and legacy fee is set, map legacy once.
+        if ($monthly <= 0 && $yearly <= 0 && $legacyFee > 0) {
+            if ($period === 'monthly') {
+                $monthly = $legacyFee;
+            } else {
+                $yearly = $legacyFee;
+            }
+        }
+
+        $legacyCompat = $period === 'monthly' ? $monthly : $yearly;
+        if ($legacyCompat <= 0) {
+            $legacyCompat = max($monthly, $yearly);
+        }
 
         return [
             'shop_billing_enabled'              => (int) ($row['shop_billing_enabled'] ?? 0) === 1,
             'shop_registration_fee_ghs'         => max(0.0, (float) ($row['shop_registration_fee_ghs'] ?? 0)),
-            'shop_renewal_fee_ghs'              => max(0.0, (float) ($row['shop_renewal_fee_ghs'] ?? 0)),
-            'shop_renewal_period'               => in_array($period, ['monthly', 'yearly'], true) ? $period : 'yearly',
+            'shop_renewal_fee_ghs'              => $legacyCompat,
+            'shop_renewal_fee_monthly_ghs'      => $monthly,
+            'shop_renewal_fee_yearly_ghs'       => $yearly,
+            'shop_renewal_period'               => $period,
             'shop_renewal_grace_days'           => max(0, (int) ($row['shop_renewal_grace_days'] ?? 7)),
             'shop_registration_free_until'      => $row['shop_registration_free_until'] ?? null,
             'shop_first_reg_discount_enabled'   => (int) ($row['shop_first_reg_discount_enabled'] ?? 0) === 1,
@@ -61,6 +102,67 @@ final class ShopBillingService
             'shop_referral_reg_discount_type'   => ($row['shop_referral_reg_discount_type'] ?? 'percent') === 'fixed' ? 'fixed' : 'percent',
             'shop_referral_reg_discount_value'  => max(0.0, (float) ($row['shop_referral_reg_discount_value'] ?? 0)),
         ];
+    }
+
+    /** @return list<array{period:string,fee:float,label:string}> */
+    public static function renewalOptions(array $settings): array
+    {
+        $options = [];
+        $monthly = max(0.0, (float) ($settings['shop_renewal_fee_monthly_ghs'] ?? 0));
+        $yearly = max(0.0, (float) ($settings['shop_renewal_fee_yearly_ghs'] ?? 0));
+        if ($monthly > 0) {
+            $options[] = ['period' => 'monthly', 'fee' => $monthly, 'label' => 'Monthly'];
+        }
+        if ($yearly > 0) {
+            $options[] = ['period' => 'yearly', 'fee' => $yearly, 'label' => 'Yearly'];
+        }
+
+        return $options;
+    }
+
+    public static function renewalFeeForPeriod(array $settings, string $period): float
+    {
+        $period = self::normalizePeriod($period, $settings);
+
+        return $period === 'monthly'
+            ? max(0.0, (float) ($settings['shop_renewal_fee_monthly_ghs'] ?? 0))
+            : max(0.0, (float) ($settings['shop_renewal_fee_yearly_ghs'] ?? 0));
+    }
+
+    public static function normalizePeriod(?string $period, ?array $settings = null): string
+    {
+        $period = strtolower(trim((string) ($period ?? '')));
+        if (in_array($period, ['monthly', 'yearly'], true)) {
+            return $period;
+        }
+        $fallback = (string) (($settings ?? [])['shop_renewal_period'] ?? 'yearly');
+
+        return $fallback === 'monthly' ? 'monthly' : 'yearly';
+    }
+
+    /** Prefer requested period if it has a fee; else first available paid option; else default. */
+    public static function resolveRenewalPeriod(array $settings, ?string $requested = null): string
+    {
+        $options = self::renewalOptions($settings);
+        $requested = $requested !== null ? self::normalizePeriod($requested, $settings) : null;
+
+        foreach ($options as $opt) {
+            if ($requested !== null && $opt['period'] === $requested) {
+                return $requested;
+            }
+        }
+        if ($options !== []) {
+            $default = self::normalizePeriod((string) ($settings['shop_renewal_period'] ?? 'yearly'), $settings);
+            foreach ($options as $opt) {
+                if ($opt['period'] === $default) {
+                    return $default;
+                }
+            }
+
+            return (string) $options[0]['period'];
+        }
+
+        return self::normalizePeriod((string) ($settings['shop_renewal_period'] ?? 'yearly'), $settings);
     }
 
     public static function isRegistrationFreePeriodActive(array $settings): bool
@@ -271,8 +373,11 @@ final class ShopBillingService
     public static function renewalRequired(PDO $pdo): bool
     {
         $s = self::loadSettings($pdo);
+        if (!$s['shop_billing_enabled']) {
+            return false;
+        }
 
-        return $s['shop_billing_enabled'] && $s['shop_renewal_fee_ghs'] > 0;
+        return self::renewalOptions($s) !== [];
     }
 
     /** @return array<string,mixed> */
@@ -280,6 +385,9 @@ final class ShopBillingService
     {
         $s = self::loadSettings($pdo);
         $quote = self::computeRegistrationPricing($pdo, []);
+        $options = self::renewalOptions($s);
+        $defaultPeriod = self::resolveRenewalPeriod($s, null);
+        $defaultFee = self::renewalFeeForPeriod($s, $defaultPeriod);
 
         return [
             'enabled'                       => $s['shop_billing_enabled'],
@@ -298,8 +406,11 @@ final class ShopBillingService
                 'type'    => $s['shop_referral_reg_discount_type'],
                 'value'   => $s['shop_referral_reg_discount_value'],
             ],
-            'renewal_fee'                   => $s['shop_renewal_fee_ghs'],
-            'renewal_period'                => $s['shop_renewal_period'],
+            'renewal_fee'                   => $defaultFee,
+            'renewal_fee_monthly'           => $s['shop_renewal_fee_monthly_ghs'],
+            'renewal_fee_yearly'            => $s['shop_renewal_fee_yearly_ghs'],
+            'renewal_period'                => $defaultPeriod,
+            'renewal_options'               => $options,
             'currency'                      => 'GHS',
         ];
     }
@@ -386,33 +497,46 @@ final class ShopBillingService
     }
 
     /**
-     * @return array{dev_mock:bool,reference:string,authorization_url:string,amount_ghs:float}
+     * @return array{dev_mock:bool,reference:string,authorization_url:string,amount_ghs:float,period:string}
      */
-    public static function initializeRenewalPayment(PDO $pdo, int $shopId, string $email): array
-    {
+    public static function initializeRenewalPayment(
+        PDO $pdo,
+        int $shopId,
+        string $email,
+        ?string $period = null
+    ): array {
         if (!self::renewalRequired($pdo)) {
-            throw new \InvalidArgumentException('Shop renewal billing is not enabled.');
+            throw new \InvalidArgumentException('Shop renewal billing is not enabled (set a monthly and/or yearly fee).');
         }
 
         $settings = self::loadSettings($pdo);
-        $amountGhs = $settings['shop_renewal_fee_ghs'];
+        $period = self::resolveRenewalPeriod($settings, $period);
+        $amountGhs = self::renewalFeeForPeriod($settings, $period);
+        if ($amountGhs <= 0) {
+            throw new \InvalidArgumentException('That renewal plan is not available (fee is 0). Choose another plan.');
+        }
 
         $frontend = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
         $callback = $frontend . '/seller?shop_payment=renewal';
 
-        return self::initializePaystack(
+        $result = self::initializePaystack(
             $pdo,
             $email,
             $amountGhs,
             $callback,
             [
-                'billing_type' => 'shop_renewal',
-                'shop_id'      => $shopId,
+                'billing_type'    => 'shop_renewal',
+                'shop_id'         => $shopId,
+                'billing_period'  => $period,
             ],
             'renewal',
             $shopId,
-            null
+            null,
+            $period
         );
+        $result['period'] = $period;
+
+        return $result;
     }
 
     public static function confirmFromWebhook(PDO $pdo, string $reference, array $paystackData): bool
@@ -434,7 +558,8 @@ final class ShopBillingService
         if ($type === 'shop_renewal') {
             $shopId = (int) ($meta['shop_id'] ?? 0);
             if ($shopId > 0) {
-                self::markRenewalPaid($pdo, $shopId, $reference);
+                $period = isset($meta['billing_period']) ? (string) $meta['billing_period'] : null;
+                self::markRenewalPaid($pdo, $shopId, $reference, $period);
 
                 return true;
             }
@@ -490,16 +615,60 @@ final class ShopBillingService
         if ($amountGhs > 0) {
             SubscriptionReferralService::payOnRegistration($pdo, $applicationId, $amountGhs, $reference);
         }
+
+        $paidApp = ShopApplicationService::findById($pdo, $applicationId);
+        if ($paidApp !== null) {
+            $paidApp['requires_payment'] = false;
+            ShopApplicationService::notifyReviewers($pdo, $paidApp, 'Shop registration paid — ready for review');
+        }
     }
 
-    public static function markRenewalPaid(PDO $pdo, int $shopId, string $reference): void
+    public static function markRenewalPaid(PDO $pdo, int $shopId, string $reference, ?string $period = null): void
     {
         $pdo->prepare(
             'UPDATE shop_billing_payments SET status = ?, paid_at = NOW() WHERE paystack_ref = ?'
         )->execute(['paid', $reference]);
 
-        self::extendSubscription($pdo, $shopId);
+        if ($period === null || $period === '') {
+            $period = self::inferPeriodFromPaymentRef($pdo, $reference);
+        }
+
+        self::extendSubscription($pdo, $shopId, $period);
         $pdo->prepare('UPDATE shops SET status = ?, is_published = 1 WHERE id = ?')->execute(['active', $shopId]);
+    }
+
+    private static function inferPeriodFromPaymentRef(PDO $pdo, string $reference): string
+    {
+        $settings = self::loadSettings($pdo);
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT amount_ghs, billing_period FROM shop_billing_payments WHERE paystack_ref = ? LIMIT 1'
+            );
+            $stmt->execute([$reference]);
+            $row = $stmt->fetch();
+        } catch (\Throwable) {
+            $stmt = $pdo->prepare(
+                'SELECT amount_ghs FROM shop_billing_payments WHERE paystack_ref = ? LIMIT 1'
+            );
+            $stmt->execute([$reference]);
+            $row = $stmt->fetch();
+        }
+
+        if (is_array($row) && !empty($row['billing_period'])) {
+            return self::normalizePeriod((string) $row['billing_period'], $settings);
+        }
+
+        $amount = is_array($row) ? round((float) ($row['amount_ghs'] ?? 0), 2) : 0.0;
+        $monthly = round((float) $settings['shop_renewal_fee_monthly_ghs'], 2);
+        $yearly = round((float) $settings['shop_renewal_fee_yearly_ghs'], 2);
+        if ($amount > 0 && $monthly > 0 && abs($amount - $monthly) < 0.011) {
+            return 'monthly';
+        }
+        if ($amount > 0 && $yearly > 0 && abs($amount - $yearly) < 0.011) {
+            return 'yearly';
+        }
+
+        return self::resolveRenewalPeriod($settings, null);
     }
 
     public static function waiveApplicationRegistration(PDO $pdo, int $applicationId, int $adminUserId, ?string $note = null): void
@@ -530,7 +699,8 @@ final class ShopBillingService
         }
 
         $settings = self::loadSettings($pdo);
-        $end = $settings['shop_renewal_period'] === 'monthly'
+        $period = self::resolveRenewalPeriod($settings, null);
+        $end = $period === 'monthly'
             ? date('Y-m-d', strtotime('+1 month'))
             : date('Y-m-d', strtotime('+1 year'));
 
@@ -656,11 +826,12 @@ final class ShopBillingService
         }
     }
 
-    private static function extendSubscription(PDO $pdo, int $shopId): void
+    private static function extendSubscription(PDO $pdo, int $shopId, ?string $period = null): void
     {
         $settings = self::loadSettings($pdo);
+        $period = self::resolveRenewalPeriod($settings, $period);
         $start = date('Y-m-d');
-        $end = $settings['shop_renewal_period'] === 'monthly'
+        $end = $period === 'monthly'
             ? date('Y-m-d', strtotime('+1 month'))
             : date('Y-m-d', strtotime('+1 year'));
 
@@ -683,7 +854,8 @@ final class ShopBillingService
         array $metadata,
         string $paymentType,
         ?int $shopId,
-        ?int $applicationId
+        ?int $applicationId,
+        ?string $billingPeriod = null
     ): array {
         $amountPesewas = (int) round($amountGhs * 100);
         if ($amountPesewas <= 0) {
@@ -695,7 +867,7 @@ final class ShopBillingService
 
         if (!$configured) {
             $ref = 'SHOP-DEV-' . bin2hex(random_bytes(6));
-            self::insertPendingPayment($pdo, $ref, $amountGhs, $paymentType, $shopId, $applicationId);
+            self::insertPendingPayment($pdo, $ref, $amountGhs, $paymentType, $shopId, $applicationId, $billingPeriod);
 
             return [
                 'dev_mock'          => true,
@@ -736,7 +908,7 @@ final class ShopBillingService
         }
 
         $ref = (string) $data['data']['reference'];
-        self::insertPendingPayment($pdo, $ref, $amountGhs, $paymentType, $shopId, $applicationId);
+        self::insertPendingPayment($pdo, $ref, $amountGhs, $paymentType, $shopId, $applicationId, $billingPeriod);
 
         return [
             'dev_mock'          => false,
@@ -752,11 +924,19 @@ final class ShopBillingService
         float $amountGhs,
         string $paymentType,
         ?int $shopId,
-        ?int $applicationId
+        ?int $applicationId,
+        ?string $billingPeriod = null
     ): void {
-        $pdo->prepare(
-            'INSERT INTO shop_billing_payments (shop_id, application_id, payment_type, amount_ghs, paystack_ref, status)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$shopId, $applicationId, $paymentType, $amountGhs, $ref, 'pending']);
+        try {
+            $pdo->prepare(
+                'INSERT INTO shop_billing_payments (shop_id, application_id, payment_type, billing_period, amount_ghs, paystack_ref, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)'
+            )->execute([$shopId, $applicationId, $paymentType, $billingPeriod, $amountGhs, $ref, 'pending']);
+        } catch (\Throwable) {
+            $pdo->prepare(
+                'INSERT INTO shop_billing_payments (shop_id, application_id, payment_type, amount_ghs, paystack_ref, status)
+                 VALUES (?, ?, ?, ?, ?, ?)'
+            )->execute([$shopId, $applicationId, $paymentType, $amountGhs, $ref, 'pending']);
+        }
     }
 }

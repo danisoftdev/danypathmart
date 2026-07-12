@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Config\Database;
 use App\Helpers\PlatformFeatures;
 use App\Helpers\Response;
+use App\Middleware\AuthMiddleware;
+
+AuthMiddleware::authenticate();
 
 $pdo = Database::pdo();
 $flags = PlatformFeatures::load($pdo);

@@ -9,6 +9,45 @@ use PDO;
 /** Marketplace shop records and membership (Phase M4). */
 final class ShopService
 {
+    public const STOREFRONT_MODES = ['open', 'focused', 'locked'];
+    public const DEFAULT_STOREFRONT_MODE = 'focused';
+
+    private static ?bool $hasStorefrontMode = null;
+
+    public static function hasStorefrontModeColumn(PDO $pdo): bool
+    {
+        if (self::$hasStorefrontMode !== null) {
+            return self::$hasStorefrontMode;
+        }
+        try {
+            $pdo->query('SELECT storefront_mode FROM shops LIMIT 0');
+            self::$hasStorefrontMode = true;
+        } catch (\Throwable) {
+            self::$hasStorefrontMode = false;
+        }
+
+        return self::$hasStorefrontMode;
+    }
+
+    public static function normalizeStorefrontMode(mixed $value): string
+    {
+        $mode = strtolower(trim((string) ($value ?? self::DEFAULT_STOREFRONT_MODE)));
+        if (!in_array($mode, self::STOREFRONT_MODES, true)) {
+            return self::DEFAULT_STOREFRONT_MODE;
+        }
+
+        return $mode;
+    }
+
+    public static function persistStorefrontMode(PDO $pdo, int $shopId, string $mode): void
+    {
+        if (!self::hasStorefrontModeColumn($pdo)) {
+            return;
+        }
+        $mode = self::normalizeStorefrontMode($mode);
+        $pdo->prepare('UPDATE shops SET storefront_mode = ? WHERE id = ?')->execute([$mode, $shopId]);
+    }
+
     /** @return array<string,mixed>|null */
     public static function findById(PDO $pdo, int $id): ?array
     {
@@ -51,7 +90,12 @@ final class ShopService
         $stmt->execute(['active']);
 
         $rows = array_filter($stmt->fetchAll(), static function (array $row) use ($pdo): bool {
-            return ShopBillingService::isShopPubliclyVisible($pdo, (int) $row['id']);
+            if (!ShopBillingService::isShopPubliclyVisible($pdo, (int) $row['id'])) {
+                return false;
+            }
+            // Locked shops stay off the public directory; direct link still works.
+            $mode = self::normalizeStorefrontMode($row['storefront_mode'] ?? self::DEFAULT_STOREFRONT_MODE);
+            return $mode !== 'locked';
         });
 
         return array_map([self::class, 'formatPublicRow'], array_values($rows));
@@ -197,6 +241,12 @@ final class ShopService
         $id = (int) $pdo->lastInsertId();
         $pdo->prepare('INSERT INTO shop_wallets (shop_id) VALUES (?)')->execute([$id]);
 
+        self::persistStorefrontMode(
+            $pdo,
+            $id,
+            (string) ($input['storefront_mode'] ?? self::DEFAULT_STOREFRONT_MODE)
+        );
+
         ShopReferralService::ensureReferralCode($pdo, $id);
         if (!empty($input['referred_by_shop_id'])) {
             ShopReferralService::registerReferredShop($pdo, $id, (int) $input['referred_by_shop_id']);
@@ -316,6 +366,14 @@ final class ShopService
             }
         }
 
+        if (array_key_exists('storefront_mode', $input) || array_key_exists('storefront_mode', $data)) {
+            self::persistStorefrontMode(
+                $pdo,
+                $id,
+                (string) ($input['storefront_mode'] ?? $data['storefront_mode'] ?? self::DEFAULT_STOREFRONT_MODE)
+            );
+        }
+
         return self::findById($pdo, $id) ?? [];
     }
 
@@ -333,8 +391,12 @@ final class ShopService
         }
 
         $patch = [];
-        foreach (['name', 'description', 'contact_phone', 'customer_service_phone', 'city', 'street_address', 'region', 'latitude', 'longitude', 'allows_shop_pickup', 'logo_url', 'banner_url', 'bank_name', 'bank_account_name', 'bank_account_number', 'momo_number'] as $key) {
+        foreach (['name', 'description', 'contact_phone', 'customer_service_phone', 'city', 'street_address', 'region', 'latitude', 'longitude', 'allows_shop_pickup', 'logo_url', 'banner_url', 'bank_name', 'bank_account_name', 'bank_account_number', 'momo_number', 'storefront_mode'] as $key) {
             if (!array_key_exists($key, $input)) {
+                continue;
+            }
+            if ($key === 'storefront_mode') {
+                $patch[$key] = self::normalizeStorefrontMode($input[$key]);
                 continue;
             }
             if ($key === 'logo_url' || $key === 'banner_url') {
@@ -371,7 +433,22 @@ final class ShopService
             return $existing;
         }
 
-        return self::update($pdo, $shopId, array_merge($existing, $patch));
+        $mode = null;
+        if (array_key_exists('storefront_mode', $patch)) {
+            $mode = $patch['storefront_mode'];
+            unset($patch['storefront_mode']);
+        }
+
+        $updated = $patch === []
+            ? $existing
+            : self::update($pdo, $shopId, array_merge($existing, $patch));
+
+        if ($mode !== null) {
+            self::persistStorefrontMode($pdo, $shopId, $mode);
+            $updated = self::findById($pdo, $shopId) ?? $updated;
+        }
+
+        return $updated;
     }
 
     /**
@@ -479,6 +556,7 @@ final class ShopService
             'momo_number'         => self::nullableString($input['momo_number'] ?? null),
             'status'              => $status,
             'is_published'        => !empty($input['is_published']) ? 1 : 0,
+            'storefront_mode'     => self::normalizeStorefrontMode($input['storefront_mode'] ?? self::DEFAULT_STOREFRONT_MODE),
         ];
     }
 
@@ -583,6 +661,7 @@ final class ShopService
             'paystack_subaccount_code' => $row['paystack_subaccount_code'] ?? null,
             'status'              => $row['status'],
             'is_published'        => (bool) $row['is_published'],
+            'storefront_mode'     => self::normalizeStorefrontMode($row['storefront_mode'] ?? self::DEFAULT_STOREFRONT_MODE),
             'created_at'          => $row['created_at'],
             'updated_at'          => $row['updated_at'],
         ];

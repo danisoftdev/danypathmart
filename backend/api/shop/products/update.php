@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\NotificationService;
 use App\Helpers\Response;
 use App\Helpers\ShopPromoService;
 use App\Middleware\ShopMiddleware;
@@ -58,14 +59,35 @@ if (array_key_exists('shop_badge_label', $body) || array_key_exists('shop_promo_
     $params[] = $promo['shop_promo_free_delivery'];
 }
 
+$resubmitted = false;
 if ($fields !== []) {
     if (($existing['listing_status'] ?? '') === 'approved') {
         $fields[] = "listing_status = 'pending'";
         $fields[] = "status = 'inactive'";
+        $resubmitted = true;
     }
     $params[] = $id;
     $params[] = $ctx['shop_id'];
     $pdo->prepare('UPDATE products SET ' . implode(', ', $fields) . ' WHERE id = ? AND shop_id = ?')->execute($params);
+}
+
+if ($resubmitted) {
+    $prodName = $name !== '' ? $name : (string) ($existing['name'] ?? 'Product');
+    if ($name === '') {
+        $nStmt = $pdo->prepare('SELECT name, price FROM products WHERE id = ?');
+        $nStmt->execute([$id]);
+        $nRow = $nStmt->fetch();
+        if ($nRow !== false) {
+            $prodName = (string) $nRow['name'];
+            $price = (float) $nRow['price'];
+        }
+    }
+    NotificationService::notifyNewProductListingPending($pdo, [
+        'id'      => $id,
+        'name'    => $prodName,
+        'shop_id' => (int) $ctx['shop_id'],
+        'price'   => $price ?? 0,
+    ], (string) ($ctx['shop']['name'] ?? ''));
 }
 
 Response::success(['message' => 'Product updated.', 'id' => $id]);

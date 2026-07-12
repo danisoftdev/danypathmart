@@ -66,6 +66,8 @@ const EMPTY = {
   shop_billing_enabled: false,
   shop_registration_fee_ghs: 0,
   shop_renewal_fee_ghs: 0,
+  shop_renewal_fee_monthly_ghs: 0,
+  shop_renewal_fee_yearly_ghs: 0,
   shop_renewal_period: 'yearly',
   shop_renewal_grace_days: 7,
   image_search_enabled: false,
@@ -507,13 +509,13 @@ export default function CompanySettings() {
               <p className="text-xs font-bold uppercase tracking-wide text-brand-gold">Shop billing (Paystack)</p>
               <ToggleField
                 label="Charge shop registration & renewal fees"
-                hint="When on, new shops pay a registration fee on apply and renew on a monthly or yearly cycle."
+                hint="Registration fee is optional (0 = free). Set monthly and/or yearly renewal amounts separately — leave either at 0 to disable that plan."
                 checked={!!form.shop_billing_enabled}
                 onChange={(v) => set('shop_billing_enabled', v)}
               />
               {form.shop_billing_enabled && (
                 <>
-                  <Field label="Registration fee (GHS)">
+                  <Field label="Registration fee (GHS)" hint="One-time on apply. Set 0 for free registration.">
                     <input
                       className="modal-input"
                       type="number"
@@ -523,24 +525,37 @@ export default function CompanySettings() {
                       onChange={(e) => set('shop_registration_fee_ghs', Number(e.target.value) || 0)}
                     />
                   </Field>
-                  <Field label="Renewal fee (GHS)">
+                  <Field label="Monthly renewal fee (GHS)" hint="Optional. Set 0 to turn off monthly renewals.">
                     <input
                       className="modal-input"
                       type="number"
                       min="0"
                       step="0.01"
-                      value={form.shop_renewal_fee_ghs ?? 0}
-                      onChange={(e) => set('shop_renewal_fee_ghs', Number(e.target.value) || 0)}
+                      value={form.shop_renewal_fee_monthly_ghs ?? 0}
+                      onChange={(e) => set('shop_renewal_fee_monthly_ghs', Number(e.target.value) || 0)}
                     />
                   </Field>
-                  <Field label="Renewal period">
+                  <Field label="Yearly renewal fee (GHS)" hint="Optional. Set 0 to turn off yearly renewals.">
+                    <input
+                      className="modal-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.shop_renewal_fee_yearly_ghs ?? 0}
+                      onChange={(e) => set('shop_renewal_fee_yearly_ghs', Number(e.target.value) || 0)}
+                    />
+                  </Field>
+                  <Field
+                    label="Default renewal plan"
+                    hint="Used for new shops and when a seller does not pick a plan. Only plans with a fee above 0 are offered."
+                  >
                     <select
                       className="modal-input"
                       value={form.shop_renewal_period || 'yearly'}
                       onChange={(e) => set('shop_renewal_period', e.target.value)}
                     >
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
+                      <option value="monthly">Prefer monthly</option>
+                      <option value="yearly">Prefer yearly</option>
                     </select>
                   </Field>
                   <Field label="Grace days after expiry" hint="Shop stays visible briefly after renewal date before listing is hidden.">

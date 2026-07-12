@@ -42,8 +42,8 @@ final class PushNotificationService
 
     public static function notifyUser(PDO $pdo, int $userId, string $title, string $body, ?string $url = null): void
     {
+        // Full multi-channel path (in-app + email + push + SMS/WhatsApp when enabled).
         NotificationService::notifyUser($pdo, $userId, $title, $body, $url, 'push');
-        self::deliverPush($pdo, $userId, $title, $body, $url);
     }
 
     /** Browser push only — use when in-app notification was already created. */

@@ -87,17 +87,27 @@ export default function ShopApplyPage() {
   const requiresPayment = billingSettings?.enabled && amountDue > 0;
 
   useEffect(() => {
+    if (!user?.email) return;
+    setForm((f) => ({
+      ...f,
+      email: user.email,
+      contact_name: f.contact_name || user.name || '',
+    }));
+  }, [user?.email, user?.name]);
+
+  useEffect(() => {
     const invite = inviteData?.invite;
     if (!invite) return;
     setForm((f) => ({
       ...f,
-      email: invite.email || f.email,
+      // Keep login email — invite email is informational only.
+      email: user?.email || f.email,
       business_name: invite.business_name || f.business_name,
-      contact_name: invite.contact_name || f.contact_name,
+      contact_name: invite.contact_name || f.contact_name || user?.name || '',
       phone: invite.phone || f.phone,
       city: invite.city || f.city,
     }));
-  }, [inviteData]);
+  }, [inviteData, user?.email, user?.name]);
 
   const startPayment = async (appId, email) => {
     const pay = await initPayment.mutateAsync({ application_id: appId, email });
@@ -215,9 +225,12 @@ export default function ShopApplyPage() {
         <h1 className="text-2xl font-extrabold text-brand-green">Application received</h1>
         <p className="mt-3 text-sm text-muted">
           {paymentReturn || (requiresPayment && !feeQuote?.free_period_active)
-            ? 'Your registration fee is paid. We will review your shop application and email you when your seller dashboard is ready.'
-            : 'We will review your shop application and email you when your seller dashboard is ready.'}
+            ? 'Your registration fee is paid. We will review your shop application and notify you (email + in-app) when your seller dashboard is ready — sign in with this same DanyPathMart account.'
+            : 'We will review your shop application and notify you when your seller dashboard is ready. Use this same DanyPathMart login to open Seller.'}
         </p>
+        <Link to="/seller" className="mt-6 mr-4 inline-block text-sm font-bold text-brand-green hover:underline">
+          Seller dashboard
+        </Link>
         <Link to="/" className="mt-6 inline-block text-sm font-bold text-brand-green hover:underline">
           Back to store
         </Link>
@@ -256,9 +269,13 @@ export default function ShopApplyPage() {
       <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">Open your shop</h1>
       <p className="mt-2 text-sm text-muted">
         Get your own shop link on DanyPathMart. You keep 100% of sales — pay a subscription to keep your storefront active.
-        Products go live after admin review.
+        Products go live after admin review. You must use your DanyPathMart login; after approval, open Seller dashboard with the same account.
       </p>
       <SellerPolicyLinks className="mt-3" />
+
+      <p className="mt-4 rounded-xl border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm">
+        Signed in as <strong>{user?.email || user?.name}</strong>. Your shop will be linked to this account.
+      </p>
 
       {inviteToken && inviteError && (
         <p className="mt-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">
@@ -301,14 +318,6 @@ export default function ShopApplyPage() {
         </div>
       )}
 
-      {!user && (
-        <p className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
-          Already have an account?{' '}
-          <Link to="/login" className="font-bold text-brand-green hover:underline">Sign in</Link>
-          {' '}so we can link your shop dashboard to your profile.
-        </p>
-      )}
-
       <form onSubmit={submit} className="mt-8 space-y-4 rounded-2xl border border-black/8 bg-white p-5 dark:border-white/10 dark:bg-[#1E1E1E]">
         {error && <p className="rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">{error}</p>}
 
@@ -322,8 +331,9 @@ export default function ShopApplyPage() {
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="mb-1 block font-semibold">Email *</span>
-            <input type="email" className="input-field w-full" value={form.email} onChange={set('email')} required />
+            <span className="mb-1 block font-semibold">Account email</span>
+            <input type="email" className="input-field w-full bg-black/5 dark:bg-white/5" value={form.email} readOnly />
+            <span className="mt-1 block text-xs text-muted">Locked to your DanyPathMart login — used for shop access.</span>
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Phone *</span>

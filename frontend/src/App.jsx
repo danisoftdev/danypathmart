@@ -172,14 +172,16 @@ export default function App() {
           <Route path="/careers" element={<CareersPage />} />
           <Route path="/careers/drivers" element={<DriverSignupPage />} />
           <Route path="/careers/apply/:jobId" element={<JobApplyPage />} />
-          <Route path="/sell" element={<ShopApplyPage />} />
+          <Route
+            path="/sell"
+            element={(
+              <ProtectedRoute>
+                <ShopApplyPage />
+              </ProtectedRoute>
+            )}
+          />
           <Route path="/promoter" element={<PromoterDashboardPage />} />
           <Route path="/stores" element={<StoresPage />} />
-          <Route path="/stores/:slug" element={<StoreLayout />}>
-            <Route index element={<StorePage />} />
-            <Route path="cart" element={<StoreCartPage />} />
-            <Route path="checkout" element={<StoreCheckoutPage />} />
-          </Route>
           <Route path="/cart" element={<CartPage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route
@@ -303,6 +305,20 @@ export default function App() {
           >
             <Route index element={<PosTerminalPage />} />
           </Route>
+        </Route>
+
+        {/* Isolated shop storefront — no main DPM marketplace chrome */}
+        <Route path="/stores/:slug" element={<StoreLayout />}>
+          <Route index element={<StorePage />} />
+          <Route path="cart" element={<StoreCartPage />} />
+          <Route
+            path="checkout"
+            element={(
+              <ProtectedRoute>
+                <StoreCheckoutPage />
+              </ProtectedRoute>
+            )}
+          />
         </Route>
 
         <Route element={<AuthLayout />}>

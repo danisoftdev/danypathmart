@@ -19,6 +19,7 @@ export default function ShopSettingsPage() {
     latitude: initialShop?.latitude ?? null,
     longitude: initialShop?.longitude ?? null,
     allows_shop_pickup: !!initialShop?.allows_shop_pickup,
+    storefront_mode: initialShop?.storefront_mode || 'focused',
     logo_url: initialShop?.logo_url || '',
     bank_name: initialShop?.bank_name || '',
     bank_account_name: initialShop?.bank_account_name || '',
@@ -41,6 +42,7 @@ export default function ShopSettingsPage() {
         latitude: initialShop.latitude ?? null,
         longitude: initialShop.longitude ?? null,
         allows_shop_pickup: !!initialShop.allows_shop_pickup,
+        storefront_mode: initialShop.storefront_mode || 'focused',
         logo_url: initialShop.logo_url || '',
         bank_name: initialShop.bank_name || '',
         bank_account_name: initialShop.bank_account_name || '',
@@ -109,6 +111,54 @@ export default function ShopSettingsPage() {
           <span className="mb-1 block font-semibold">About your shop</span>
           <textarea className="input-field w-full" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
         </label>
+
+        <div className="rounded-xl border border-black/8 p-4 dark:border-white/10">
+          <p className="text-xs font-bold uppercase tracking-wide text-muted">Customer link privacy</p>
+          <p className="mt-1 text-xs text-muted">
+            Controls what customers see when they open your shop link. Checkout still runs on DanyPathMart.
+          </p>
+          <div className="mt-3 space-y-2">
+            {[
+              {
+                value: 'focused',
+                title: 'Focused (recommended)',
+                hint: 'Shop-only experience. Soft link to explore DanyPathMart. Listed in Browse shops.',
+              },
+              {
+                value: 'locked',
+                title: 'Locked',
+                hint: 'Shop-only — no marketplace exit links. Hidden from Browse shops; your link still works.',
+              },
+              {
+                value: 'open',
+                title: 'Open',
+                hint: 'Customers can jump to Browse shops, DPM catalog, and home from your storefront.',
+              },
+            ].map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 text-sm ${
+                  form.storefront_mode === opt.value
+                    ? 'border-brand-green bg-brand-green/5'
+                    : 'border-black/8 dark:border-white/10'
+                }`}
+              >
+                <input
+                  type="radio"
+                  className="mt-1"
+                  name="storefront_mode"
+                  value={opt.value}
+                  checked={form.storefront_mode === opt.value}
+                  onChange={() => set('storefront_mode', opt.value)}
+                />
+                <span>
+                  <span className="font-semibold">{opt.title}</span>
+                  <span className="mt-0.5 block text-xs text-muted">{opt.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
 
         <div className="rounded-xl border border-black/8 p-4 dark:border-white/10">
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Location & pickup</p>

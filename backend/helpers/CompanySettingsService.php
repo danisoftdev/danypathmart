@@ -297,11 +297,13 @@ final class CompanySettingsService
             return ShopBillingService::loadSettings($pdo);
         } catch (\Throwable) {
             return [
-                'shop_billing_enabled'      => false,
-                'shop_registration_fee_ghs' => 0.0,
-                'shop_renewal_fee_ghs'      => 0.0,
-                'shop_renewal_period'       => 'yearly',
-                'shop_renewal_grace_days'   => 7,
+                'shop_billing_enabled'         => false,
+                'shop_registration_fee_ghs'    => 0.0,
+                'shop_renewal_fee_ghs'         => 0.0,
+                'shop_renewal_fee_monthly_ghs' => 0.0,
+                'shop_renewal_fee_yearly_ghs'  => 0.0,
+                'shop_renewal_period'          => 'yearly',
+                'shop_renewal_grace_days'      => 7,
             ];
         }
     }

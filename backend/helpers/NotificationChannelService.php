@@ -73,19 +73,17 @@ final class NotificationChannelService
         bool $sms = true,
         bool $whatsapp = true
     ): void {
-        if ($push) {
-            PushNotificationService::notifyUser($pdo, $userId, $title, $body, $linkUrl);
-        } else {
-            $userStmt = $pdo->prepare("SELECT id FROM users WHERE id = ? AND role = 'customer'");
-            $userStmt->execute([$userId]);
-            if ($userStmt->fetch()) {
-                $pdo->prepare(
-                    'INSERT INTO user_notifications (user_id, title, body, link_url, category)
-                     VALUES (?, ?, ?, ?, ?)'
-                )->execute([$userId, $title, $body, $linkUrl, 'order_update']);
-            }
-        }
-
-        self::sendExternalToUser($pdo, $userId, $title, $body, $sms, $whatsapp);
+        NotificationService::notifyUser(
+            $pdo,
+            $userId,
+            $title,
+            $body,
+            $linkUrl,
+            'order_update',
+            true,
+            $push,
+            $sms,
+            $whatsapp
+        );
     }
 }

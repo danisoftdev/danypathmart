@@ -340,7 +340,10 @@ final class ShopReferralService
 
         return [
             'referral_code'   => $code,
-            'share_url'       => '/sell?ref=' . urlencode($code),
+            'share_url'       => '/stores/' . rawurlencode((string) ($shop['slug'] ?? '')),
+            'store_url'       => '/stores/' . rawurlencode((string) ($shop['slug'] ?? '')),
+            'storefront_mode' => ShopService::normalizeStorefrontMode($shop['storefront_mode'] ?? ShopService::DEFAULT_STOREFRONT_MODE),
+            'referral_apply_url' => '/sell?ref=' . urlencode($code),
             'referral_apply_hint' => "Tell new sellers to enter {$code} when they apply",
             'program'         => SubscriptionReferralService::settings($pdo),
             'referred_shops'  => $referred,

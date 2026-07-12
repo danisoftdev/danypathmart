@@ -343,20 +343,34 @@ final class Mailer
     }
 
     /**
-     * Branded password-reset email with a one-hour magic link.
+     * Branded password-reset email with a 6-digit code and a one-hour magic link.
      */
-    public static function passwordResetLink(string $toEmail, string $toName, string $link): bool
-    {
+    public static function passwordResetEmail(
+        string $toEmail,
+        string $toName,
+        string $link,
+        string $otp
+    ): bool {
         $safeLink = htmlspecialchars($link, ENT_QUOTES);
+        $digits = '';
+        foreach (str_split(preg_replace('/\D+/', '', $otp) ?? '') as $d) {
+            $digits .= '<span style="display:inline-block;min-width:42px;font-size:30px;'
+                . 'font-weight:800;color:#F59E0B;background:#1c1c1c;border-radius:10px;'
+                . 'padding:12px 4px;margin:0 4px;letter-spacing:1px;">'
+                . htmlspecialchars($d, ENT_QUOTES) . '</span>';
+        }
+
         $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;'
             . 'font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
             . self::emailLogoHeader()
             . '<div style="background:#FFFBF5;border-radius:16px;padding:32px 24px;">'
             . '<h1 style="color:#111;font-size:22px;margin:0 0 12px;">Reset your password</h1>'
-            . '<p style="color:#444;font-size:15px;line-height:1.5;margin:0 0 20px;">'
-            . 'We received a request to reset your DanyPathMart password. Click the button below to '
-            . 'choose a new one. This link expires in 1 hour.</p>'
+            . '<p style="color:#444;font-size:15px;line-height:1.5;margin:0 0 18px;">'
+            . 'We received a request to reset your DanyPathMart password. Use the code below '
+            . 'on the reset page, or click the button for a one-step link. Both expire in 1 hour.</p>'
+            . '<p style="color:#888;font-size:13px;margin:0 0 10px;text-align:center;">Your reset code</p>'
+            . '<div style="text-align:center;margin:0 0 22px;">' . $digits . '</div>'
             . '<div style="text-align:center;margin:0 0 20px;">'
             . '<a href="' . $safeLink . '" style="display:inline-block;background:#2C7A4B;color:#fff;'
             . 'text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;">Reset password</a></div>'
@@ -370,6 +384,12 @@ final class Mailer
             . '</div></body></html>';
 
         return self::send($toEmail, $toName, 'Reset your DanyPathMart password', $html);
+    }
+
+    /** @deprecated Use passwordResetEmail() */
+    public static function passwordResetLink(string $toEmail, string $toName, string $link): bool
+    {
+        return self::passwordResetEmail($toEmail, $toName, $link, '000000');
     }
 
     /**
@@ -448,10 +468,8 @@ final class Mailer
 
         $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
             . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
-            . '<div style="text-align:center;margin-bottom:20px;">'
-            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
-            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span>'
-            . '<p style="color:#888;font-size:12px;margin:8px 0 0;">Admin alert</p></div>'
+            . self::emailLogoHeader()
+            . '<p style="text-align:center;color:#888;font-size:12px;margin:0 0 16px;">Admin alert</p>'
             . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
             . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">' . $safeTitle . '</h1>'
             . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0;">' . $safeBody . '</p>'
@@ -553,6 +571,230 @@ final class Mailer
             . '</div></body></html>';
 
         return self::send($toEmail, 'DanyPathMart Admin', 'Career application: ' . $ctx['job_title'], $html);
+    }
+
+    /**
+     * @param array{
+     *   id:int,business_name:string,contact_name:string,email:string,phone:string,
+     *   customer_service_phone?:?string,city:string,street_address?:?string,region?:?string,
+     *   description?:?string,status?:string,source?:string,requires_payment?:bool,
+     *   referred_by_shop_code?:?string,bank_name?:?string,momo_number?:?string
+     * } $ctx
+     */
+    public static function shopApplicationToAdmin(string $toEmail, array $ctx): bool
+    {
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $inboxLink = $appUrl . '/admin/marketplace';
+        $h = static fn (?string $v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES);
+
+        $lines = [
+            ['Business', $ctx['business_name'] ?? ''],
+            ['Contact', $ctx['contact_name'] ?? ''],
+            ['Email', $ctx['email'] ?? ''],
+            ['Shop phone', $ctx['phone'] ?? ''],
+            ['Customer service', $ctx['customer_service_phone'] ?? ''],
+            ['City', $ctx['city'] ?? ''],
+            ['Address', $ctx['street_address'] ?? ''],
+            ['Region', $ctx['region'] ?? ''],
+            ['Status', $ctx['status'] ?? 'new'],
+            ['Source', $ctx['source'] ?? 'public'],
+            ['Referral code', $ctx['referred_by_shop_code'] ?? ''],
+            ['Bank', $ctx['bank_name'] ?? ''],
+            ['MoMo', $ctx['momo_number'] ?? ''],
+        ];
+
+        $details = '';
+        foreach ($lines as [$label, $val]) {
+            $val = trim((string) $val);
+            if ($val === '') {
+                continue;
+            }
+            if ($label === 'Email') {
+                $safe = $h($val);
+                $details .= '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>'
+                    . $h($label) . ':</strong> <a href="mailto:' . $safe . '" style="color:#2C7A4B;">'
+                    . $safe . '</a></p>';
+            } else {
+                $details .= '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>'
+                    . $h($label) . ':</strong> ' . $h($val) . '</p>';
+            }
+        }
+
+        $desc = trim((string) ($ctx['description'] ?? ''));
+        if ($desc !== '') {
+            $details .= '<div style="background:#fff;border-radius:10px;padding:14px;border:1px solid #eee;margin-top:10px;">'
+                . '<p style="color:#888;font-size:12px;margin:0 0 6px;"><strong>Description</strong></p>'
+                . '<p style="color:#333;font-size:14px;line-height:1.6;margin:0;">'
+                . nl2br($h($desc)) . '</p></div>';
+        }
+
+        $payNote = !empty($ctx['requires_payment'])
+            ? '<p style="color:#b45309;font-size:13px;margin:12px 0 0;">Registration fee payment still required before full review.</p>'
+            : '';
+
+        $logoBlock = '';
+        $logoSrc = self::resolveEmailImageUrl(isset($ctx['logo_url']) ? (string) $ctx['logo_url'] : null);
+        if ($logoSrc !== null) {
+            $logoBlock = '<div style="text-align:center;margin:0 0 16px;">'
+                . '<img src="' . htmlspecialchars($logoSrc, ENT_QUOTES) . '" alt="Shop logo" width="72" height="72" '
+                . 'style="width:72px;height:72px;object-fit:cover;border-radius:12px;border:1px solid #eee;" />'
+                . '</div>';
+        }
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . self::emailLogoHeader()
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . $logoBlock
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">New shop application</h1>'
+            . $details
+            . $payNote
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($inboxLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Open Marketplace</a></div>'
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Application #' . (int) ($ctx['id'] ?? 0) . ' &middot; DanyPathMart admin</p>'
+            . '</div></body></html>';
+
+        $biz = trim((string) ($ctx['business_name'] ?? 'Shop'));
+        return self::send($toEmail, 'DanyPathMart Admin', 'Shop application: ' . $biz, $html);
+    }
+
+    /**
+     * @param array{
+     *   order_id:int,fulfillment_id?:int,shop_name:string,logo_url?:?string,paid:bool,
+     *   payment_status?:string,headline?:string,customer_name?:?string,customer_email?:?string,
+     *   customer_phone?:?string,delivery?:?string,items?:list<array<string,mixed>>,link_url?:string
+     * } $ctx
+     */
+    public static function shopOrderAlert(string $toEmail, string $toName, array $ctx): bool
+    {
+        $appUrl = self::siteOrigin();
+        $link = $appUrl . (string) ($ctx['link_url'] ?? '/seller/orders');
+        $h = static fn (?string $v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES);
+        $paid = !empty($ctx['paid']);
+        $statusLabel = $paid ? 'Paid' : 'Awaiting payment';
+        $payStatus = trim((string) ($ctx['payment_status'] ?? ($paid ? 'paid' : 'pending')));
+
+        $logoBlock = '';
+        $logoSrc = self::resolveEmailImageUrl(isset($ctx['logo_url']) ? (string) $ctx['logo_url'] : null);
+        if ($logoSrc !== null) {
+            $logoBlock = '<div style="text-align:center;margin:0 0 12px;">'
+                . '<img src="' . htmlspecialchars($logoSrc, ENT_QUOTES) . '" alt="' . $h($ctx['shop_name'] ?? 'Shop') . '" '
+                . 'width="64" height="64" style="width:64px;height:64px;object-fit:cover;border-radius:12px;" />'
+                . '</div>';
+        }
+
+        $rows = '';
+        foreach ($ctx['items'] ?? [] as $item) {
+            $name = (string) ($item['name'] ?? 'Product');
+            $qty = (int) ($item['quantity'] ?? 1);
+            $line = number_format((float) ($item['line_total'] ?? 0), 2);
+            $rows .= '<tr>'
+                . self::orderItemImageCell($item, $name)
+                . '<td style="padding:8px 6px;border-bottom:1px solid #eee;color:#222;">' . $h($name) . '</td>'
+                . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:center;color:#222;">' . $qty . '</td>'
+                . '<td style="padding:8px 6px;border-bottom:1px solid #eee;text-align:right;color:#222;">GHS ' . $line . '</td>'
+                . '</tr>';
+        }
+        if ($rows === '') {
+            $rows = '<tr><td colspan="4" style="padding:12px;color:#888;">No line items listed.</td></tr>';
+        }
+
+        $custBits = '';
+        foreach ([
+            ['Customer', $ctx['customer_name'] ?? ''],
+            ['Email', $ctx['customer_email'] ?? ''],
+            ['Phone', $ctx['customer_phone'] ?? ''],
+            ['Delivery', $ctx['delivery'] ?? ''],
+        ] as [$label, $val]) {
+            $val = trim((string) $val);
+            if ($val === '') {
+                continue;
+            }
+            $custBits .= '<p style="color:#444;font-size:13px;margin:0 0 4px;"><strong>'
+                . $h($label) . ':</strong> ' . $h($val) . '</p>';
+        }
+
+        $headline = trim((string) ($ctx['headline'] ?? ''));
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:600px;margin:0 auto;padding:32px 24px;">'
+            . self::emailLogoHeader()
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . $logoBlock
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 6px;">Order #' . (int) ($ctx['order_id'] ?? 0) . '</h1>'
+            . '<p style="color:#2C7A4B;font-size:14px;font-weight:700;margin:0 0 8px;">'
+            . $h($ctx['shop_name'] ?? 'Shop') . ' &middot; ' . $h($statusLabel)
+            . ' (' . $h($payStatus) . ')</p>'
+            . ($headline !== '' ? '<p style="color:#444;font-size:14px;margin:0 0 12px;">' . $h($headline) . '</p>' : '')
+            . $custBits
+            . '<table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0 16px;">'
+            . '<thead><tr>'
+            . '<th style="padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;width:56px;"></th>'
+            . '<th style="text-align:left;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Item</th>'
+            . '<th style="text-align:center;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Qty</th>'
+            . '<th style="text-align:right;padding:6px;border-bottom:2px solid #2C7A4B;color:#2C7A4B;">Total</th>'
+            . '</tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($link, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Open seller orders</a></div>'
+            . '</div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">'
+            . 'Shop order via DanyPathMart SMTP</p>'
+            . '</div></body></html>';
+
+        $subject = ($paid ? 'Paid order #' : 'Order awaiting payment #')
+            . (int) ($ctx['order_id'] ?? 0) . ' — ' . ($ctx['shop_name'] ?? 'Shop');
+
+        return self::send($toEmail, $toName !== '' ? $toName : 'Shop', $subject, $html);
+    }
+
+    /**
+     * @param array{shop_name:string,slug?:string,logo_url?:?string} $ctx
+     */
+    public static function shopApproved(string $toEmail, string $toName, array $ctx): bool
+    {
+        $appUrl = self::siteOrigin();
+        $sellerLink = $appUrl . '/seller';
+        $storeLink = $appUrl . '/stores/' . rawurlencode((string) ($ctx['slug'] ?? ''));
+        $h = static fn (?string $v): string => htmlspecialchars((string) ($v ?? ''), ENT_QUOTES);
+        $name = (string) ($ctx['shop_name'] ?? 'Your shop');
+
+        $logoBlock = '';
+        $logoSrc = self::resolveEmailImageUrl(isset($ctx['logo_url']) ? (string) $ctx['logo_url'] : null);
+        if ($logoSrc !== null) {
+            $logoBlock = '<div style="text-align:center;margin:0 0 16px;">'
+                . '<img src="' . htmlspecialchars($logoSrc, ENT_QUOTES) . '" alt="' . $h($name) . '" '
+                . 'width="80" height="80" style="width:80px;height:80px;object-fit:cover;border-radius:14px;" />'
+                . '</div>';
+        }
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . self::emailLogoHeader()
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . $logoBlock
+            . '<h1 style="color:#111;font-size:22px;margin:0 0 10px;">Your shop is approved</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.6;margin:0 0 12px;">'
+            . '<strong>' . $h($name) . '</strong> is live on DanyPathMart. Sign in with the same account you used to apply, '
+            . 'then open Seller dashboard to add products.</p>'
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($sellerLink, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;margin:0 6px 8px;">Open seller dashboard</a>'
+            . (($ctx['slug'] ?? '') !== ''
+                ? '<a href="' . htmlspecialchars($storeLink, ENT_QUOTES) . '" '
+                    . 'style="display:inline-block;background:#F59E0B;color:#111;text-decoration:none;'
+                    . 'padding:12px 24px;border-radius:10px;font-weight:700;margin:0 6px 8px;">View storefront</a>'
+                : '')
+            . '</div></div>'
+            . '<p style="text-align:center;color:#666;font-size:12px;margin-top:20px;">DanyPathMart marketplace</p>'
+            . '</div></body></html>';
+
+        return self::send($toEmail, $toName, 'Shop approved — ' . $name, $html);
     }
 
     /**

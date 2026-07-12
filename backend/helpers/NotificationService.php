@@ -168,6 +168,151 @@ final class NotificationService
         NotificationChannelService::sendExternalToUser($pdo, (int) $order['user_id'], $title, $body);
     }
 
+    /**
+     * Buyer notification for shop self-delivery / pickup steps — includes that shop's products + images.
+     */
+    public static function notifyShopFulfillmentStatus(
+        PDO $pdo,
+        int $orderId,
+        int $shopId,
+        string $status,
+        ?string $note = null
+    ): void {
+        $stmt = $pdo->prepare(
+            'SELECT o.id, o.user_id, o.total, o.payment_ref, o.payment_status,
+                    u.email, u.name,
+                    s.name AS shop_name, s.logo_url AS shop_logo
+             FROM orders o
+             INNER JOIN users u ON u.id = o.user_id
+             INNER JOIN shops s ON s.id = ?
+             WHERE o.id = ?'
+        );
+        $stmt->execute([$shopId, $orderId]);
+        $order = $stmt->fetch();
+        if ($order === false) {
+            return;
+        }
+
+        $itemsStmt = $pdo->prepare(
+            'SELECT oi.quantity, oi.unit_price, p.name, p.images
+             FROM order_items oi
+             INNER JOIN products p ON p.id = oi.product_id
+             WHERE oi.order_id = ? AND p.shop_id = ?
+             ORDER BY oi.id ASC'
+        );
+        $itemsStmt->execute([$orderId, $shopId]);
+        $items = $itemsStmt->fetchAll();
+
+        $trackingRef = 'DPM-' . str_pad((string) $orderId, 6, '0', STR_PAD_LEFT);
+        $statusLabel = self::statusLabel($status);
+        $shopName = (string) ($order['shop_name'] ?? 'Shop');
+        $title = "{$shopName} — {$statusLabel} (#{$orderId})";
+
+        $itemLines = [];
+        foreach ($items as $item) {
+            $itemLines[] = sprintf(
+                '• %s × %d',
+                (string) ($item['name'] ?? 'Item'),
+                (int) ($item['quantity'] ?? 1)
+            );
+        }
+        $bodyParts = [
+            self::orderNotificationBody($status, $statusLabel, $note, $trackingRef, $order, $items),
+            'Shop: ' . $shopName,
+        ];
+        if ($itemLines !== []) {
+            $bodyParts[] = "Items:\n" . implode("\n", $itemLines);
+        }
+        $body = implode("\n\n", $bodyParts);
+        $linkUrl = '/dashboard/orders/' . $orderId;
+
+        $pdo->prepare(
+            'INSERT INTO user_notifications (user_id, title, body, link_url, category)
+             VALUES (?, ?, ?, ?, ?)'
+        )->execute([(int) $order['user_id'], $title, $body, $linkUrl, 'order_update']);
+
+        $email = trim((string) ($order['email'] ?? ''));
+        if ($email !== '') {
+            Mailer::orderStatusUpdate($email, (string) $order['name'], [
+                'order'        => $order,
+                'items'        => $items,
+                'status'       => $status,
+                'status_label' => $shopName . ' — ' . $statusLabel,
+                'note'         => $note,
+                'tracking_ref' => $trackingRef,
+            ]);
+        }
+
+        PushNotificationService::sendPushOnly($pdo, (int) $order['user_id'], $title, $body, $linkUrl);
+        NotificationChannelService::sendExternalToUser($pdo, (int) $order['user_id'], $title, $body);
+    }
+
+    /**
+     * Notify shop owners that a product listing was approved or rejected.
+     *
+     * @param array{id:int,name:string,shop_id:int,slug?:string} $product
+     */
+    public static function notifyProductListingDecision(
+        PDO $pdo,
+        array $product,
+        string $action,
+        ?string $note = null
+    ): void {
+        $shopId = (int) ($product['shop_id'] ?? 0);
+        $productId = (int) ($product['id'] ?? 0);
+        $name = trim((string) ($product['name'] ?? 'Product'));
+        if ($shopId <= 0 || $productId <= 0) {
+            return;
+        }
+
+        $approved = $action === 'approve' || $action === 'approved';
+        $title = $approved
+            ? "Product approved — {$name}"
+            : "Product needs changes — {$name}";
+        $body = $approved
+            ? "\"{$name}\" is live on your shop storefront."
+            : ("\"{$name}\" was not approved."
+                . ($note !== null && trim($note) !== '' ? "\n\nNote: " . trim($note) : '')
+                . "\n\nEdit and resubmit from Seller → Products.");
+        $link = '/seller/products';
+
+        $members = $pdo->prepare(
+            'SELECT u.id FROM shop_members sm INNER JOIN users u ON u.id = sm.user_id WHERE sm.shop_id = ?'
+        );
+        $members->execute([$shopId]);
+        foreach ($members->fetchAll() as $m) {
+            self::notifyUser($pdo, (int) $m['id'], $title, $body, $link, 'shop_listing');
+        }
+    }
+
+    /**
+     * Alert staff who can review marketplace product listings.
+     *
+     * @param array{id:int,name:string,shop_id:int,price?:float} $product
+     */
+    public static function notifyNewProductListingPending(PDO $pdo, array $product, string $shopName = ''): void
+    {
+        $name = trim((string) ($product['name'] ?? 'Product'));
+        $id = (int) ($product['id'] ?? 0);
+        $price = isset($product['price']) ? (float) $product['price'] : null;
+        $shopLabel = $shopName !== '' ? $shopName : ('Shop #' . (int) ($product['shop_id'] ?? 0));
+
+        $title = "New product listing — {$name}";
+        $body = "{$shopLabel} submitted \"{$name}\" for review."
+            . ($price !== null ? "\nPrice: GHS " . number_format($price, 2) : '')
+            . "\nReview in Admin → Marketplace → Listings.";
+        $link = '/admin/marketplace';
+
+        self::notifyStaffWithPermission(
+            $pdo,
+            ['approve_shop_listings', 'manage_marketplace', 'add_edit_products'],
+            $title,
+            $body,
+            $link,
+            'admin_listing'
+        );
+    }
+
     public static function statusLabel(string $status): string
     {
         return match ($status) {
@@ -175,6 +320,7 @@ final class NotificationService
             'payment_confirmed'  => 'Payment confirmed',
             'pending'            => 'Awaiting preparation',
             'processing'         => 'Processing',
+            'preparing'          => 'Preparing your items',
             'shipped'            => 'Shipped',
             'out_for_delivery'   => 'Out for delivery',
             'delivered'          => 'Delivered',
@@ -183,20 +329,28 @@ final class NotificationService
             'ready_for_pickup'   => 'Ready for pickup',
             'collected'          => 'Collected',
             'cancelled'          => 'Cancelled',
+            'awaiting_payment'   => 'Awaiting payment',
             default              => ucfirst(str_replace('_', ' ', $status)),
         };
     }
 
-    /** In-app + email notification for any customer event. */
+    /** In-app + email (+ push/SMS/WhatsApp when enabled) for any active user. */
     public static function notifyUser(
         PDO $pdo,
         int $userId,
         string $title,
         string $body,
         ?string $linkUrl,
-        string $category = 'system'
+        string $category = 'system',
+        bool $sendEmail = true,
+        bool $sendPush = true,
+        bool $sendSms = true,
+        bool $sendWhatsapp = true,
+        ?callable $emailFn = null
     ): void {
-        $userStmt = $pdo->prepare("SELECT name, email FROM users WHERE id = ? AND role = 'customer'");
+        $userStmt = $pdo->prepare(
+            "SELECT name, email FROM users WHERE id = ? AND status != 'disabled' LIMIT 1"
+        );
         $userStmt->execute([$userId]);
         $user = $userStmt->fetch();
         if ($user === false) {
@@ -208,13 +362,35 @@ final class NotificationService
              VALUES (?, ?, ?, ?, ?)'
         )->execute([$userId, $title, $body, $linkUrl, $category]);
 
-        Mailer::customerNotification(
-            (string) $user['email'],
-            (string) $user['name'],
-            $title,
-            $body,
-            $linkUrl
-        );
+        $email = trim((string) ($user['email'] ?? ''));
+        if ($sendEmail && $email !== '') {
+            if ($emailFn !== null) {
+                $emailFn($email, (string) ($user['name'] ?? ''));
+            } else {
+                Mailer::customerNotification(
+                    $email,
+                    (string) $user['name'],
+                    $title,
+                    $body,
+                    $linkUrl
+                );
+            }
+        }
+
+        if ($sendPush) {
+            PushNotificationService::sendPushOnly($pdo, $userId, $title, $body, $linkUrl);
+        }
+
+        if ($sendSms || $sendWhatsapp) {
+            NotificationChannelService::sendExternalToUser(
+                $pdo,
+                $userId,
+                $title,
+                $body,
+                $sendSms,
+                $sendWhatsapp
+            );
+        }
     }
 
     /**
@@ -255,12 +431,114 @@ final class NotificationService
         );
         foreach ($admins as $admin) {
             $insert->execute([(int) $admin['id'], $title, $body, $linkUrl, $category]);
+            PushNotificationService::sendPushOnly($pdo, (int) $admin['id'], $title, $body, $linkUrl);
+            NotificationChannelService::sendExternalToUser(
+                $pdo,
+                (int) $admin['id'],
+                $title,
+                $body,
+                true,
+                true
+            );
         }
 
         Env::load();
         $adminEmail = trim((string) Env::get('ADMIN_EMAIL', ''));
         if ($adminEmail !== '') {
             Mailer::adminAlert($adminEmail, $title, $body, $linkUrl);
+        }
+    }
+
+    /**
+     * Staff / super_admins who hold any of the given permissions (super_admin = all).
+     *
+     * @param list<string> $permissions
+     * @return array<int,array{id:int,email:string,name:string,role:string}>
+     */
+    public static function staffWithAnyPermission(PDO $pdo, array $permissions): array
+    {
+        $rows = $pdo->query(
+            "SELECT id, email, name, role FROM users
+             WHERE role IN ('super_admin', 'staff') AND status != 'disabled'"
+        )->fetchAll();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $id = (int) $r['id'];
+            $role = (string) $r['role'];
+            if (!StaffPermission::userHasAny($id, $role, $permissions)) {
+                continue;
+            }
+            $out[] = [
+                'id'    => $id,
+                'email' => trim((string) ($r['email'] ?? '')),
+                'name'  => (string) ($r['name'] ?? ''),
+                'role'  => $role,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * In-app + email for staff with permission; also emails company + ADMIN_EMAIL once.
+     *
+     * @param list<string> $permissions
+     * @param callable(string $toEmail):void|null $emailFn  Custom mailer per recipient; default adminAlert
+     * @param list<string> $extraEmails  e.g. company settings email
+     */
+    public static function notifyStaffWithPermission(
+        PDO $pdo,
+        array $permissions,
+        string $title,
+        string $body,
+        ?string $linkUrl,
+        string $category = 'admin_alert',
+        ?callable $emailFn = null,
+        array $extraEmails = []
+    ): void {
+        $staff = self::staffWithAnyPermission($pdo, $permissions);
+
+        $insert = $pdo->prepare(
+            'INSERT INTO user_notifications (user_id, title, body, link_url, category)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        foreach ($staff as $member) {
+            $insert->execute([(int) $member['id'], $title, $body, $linkUrl, $category]);
+            PushNotificationService::sendPushOnly($pdo, (int) $member['id'], $title, $body, $linkUrl);
+            NotificationChannelService::sendExternalToUser(
+                $pdo,
+                (int) $member['id'],
+                $title,
+                $body,
+                true,
+                true
+            );
+        }
+
+        $send = $emailFn ?? static function (string $toEmail) use ($title, $body, $linkUrl): void {
+            Mailer::adminAlert($toEmail, $title, $body, $linkUrl);
+        };
+
+        $sent = [];
+        foreach ($staff as $member) {
+            $email = strtolower(trim($member['email']));
+            if ($email === '' || isset($sent[$email])) {
+                continue;
+            }
+            $send($email);
+            $sent[$email] = true;
+        }
+
+        Env::load();
+        $extras = array_merge($extraEmails, [trim((string) Env::get('ADMIN_EMAIL', ''))]);
+        foreach ($extras as $extra) {
+            $email = strtolower(trim((string) $extra));
+            if ($email === '' || isset($sent[$email])) {
+                continue;
+            }
+            $send($email);
+            $sent[$email] = true;
         }
     }
 
