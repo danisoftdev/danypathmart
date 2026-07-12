@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\AccountDeletionService;
 use App\Helpers\AuthTokens;
 use App\Helpers\NotificationService;
 use App\Helpers\Response;
@@ -26,12 +27,22 @@ if (!$limit['allowed']) {
 }
 
 $pdo = Database::pdo();
-$stmt = $pdo->prepare(
-    'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled
-     FROM users WHERE email = ?'
-);
-$stmt->execute([$email]);
-$user = $stmt->fetch();
+try {
+    $stmt = $pdo->prepare(
+        'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled,
+                deletion_requested_at
+         FROM users WHERE email = ?'
+    );
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+} catch (\Throwable) {
+    $stmt = $pdo->prepare(
+        'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled
+         FROM users WHERE email = ?'
+    );
+    $stmt->execute([$email]);
+    $user = $stmt->fetch();
+}
 
 // Uniform failure message to avoid user enumeration.
 if ($user === false || empty($user['password_hash']) || !password_verify($password, (string) $user['password_hash'])) {
@@ -41,6 +52,8 @@ if ($user === false || empty($user['password_hash']) || !password_verify($passwo
 if ($user['status'] === 'disabled') {
     Response::error('This account has been disabled.', 403);
 }
+
+$deletionGate = AccountDeletionService::gateLogin($pdo, $user);
 
 if ($user['status'] === 'unverified') {
     Response::error('Please verify your email before logging in.', 403, [
@@ -77,4 +90,9 @@ if (($user['role'] ?? '') === 'customer') {
     );
 }
 
-Response::success(['message' => 'Logged in successfully.'] + $tokens);
+$payload = ['message' => 'Logged in successfully.'] + $tokens;
+if (!empty($deletionGate['restored'])) {
+    $payload['message'] = 'Welcome back — your account deletion was cancelled and your account is active again.';
+    $payload['account_restored'] = true;
+}
+Response::success($payload);

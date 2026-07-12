@@ -228,7 +228,31 @@ foreach ($files as $file) {
 postMigrateRoleTypes($pdo);
 postMigrateEmployees($pdo);
 postMigrateLegalPolicies($pdo);
+postMigratePurgeDeletedAccounts($pdo);
+postMigrateShopAutoRenew($pdo);
 
 echo "\n" . str_repeat('=', 50) . "\n";
 echo "migrate-all complete.\n";
 echo "Next: php backend/scripts/check-production-env.php (before production deploy)\n";
+
+function postMigratePurgeDeletedAccounts(PDO $pdo): void
+{
+    echo "\n── post: purge expired soft-deleted accounts\n";
+    try {
+        $count = \App\Helpers\AccountDeletionService::purgeExpired($pdo);
+        echo "  Purged {$count} account(s).\n";
+    } catch (Throwable $e) {
+        echo '  SKIP: ' . $e->getMessage() . "\n";
+    }
+}
+
+function postMigrateShopAutoRenew(PDO $pdo): void
+{
+    echo "\n── post: shop subscription auto-renew charges\n";
+    try {
+        $count = \App\Helpers\ShopBillingReceiptService::runAutoRenewDue($pdo);
+        echo "  Charged {$count} shop(s).\n";
+    } catch (Throwable $e) {
+        echo '  SKIP: ' . $e->getMessage() . "\n";
+    }
+}

@@ -1,15 +1,29 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../store/authStore';
-import { useUpdateProfile, useUploadAvatar } from '../../../hooks/account';
+import { useDeleteAccount, useUpdateProfile, useUploadAvatar } from '../../../hooks/account';
 import { canChangeProfilePhoto } from '../../../lib/brand';
 import UserAvatar from '../../brand/UserAvatar';
 import { CameraIcon } from '../../icons';
 import ChangeEmailModal from './ChangeEmailModal';
+import { AvailabilityHint, useAvailabilityCheck } from '../../../hooks/useAvailabilityCheck';
+import api from '../../../lib/api';
+
+const FALLBACK_REASONS = {
+  not_using: 'I no longer use DanyPathMart',
+  privacy: 'Privacy concerns',
+  too_many_emails: 'Too many emails / notifications',
+  duplicate: 'I have another account',
+  other: 'Other',
+};
 
 export default function ProfileTab() {
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
+  const deleteAccount = useDeleteAccount();
   const fileRef = useRef(null);
   const allowPhotoChange = canChangeProfilePhoto(user);
 
@@ -18,6 +32,37 @@ export default function ProfileTab() {
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
   const [emailModal, setEmailModal] = useState(false);
+
+  const [reasons, setReasons] = useState(FALLBACK_REASONS);
+  const [retentionDays, setRetentionDays] = useState(14);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteDetail, setDeleteDetail] = useState('');
+  const [deleteErr, setDeleteErr] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+
+  const nameCheck = useAvailabilityCheck('name', name, {
+    excludeUserId: user?.id,
+    minLength: 2,
+    enabled: !!name.trim() && name.trim() !== (user?.name || ''),
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get('/users/account/deletion');
+        if (cancelled) return;
+        if (data.reasons) setReasons(data.reasons);
+        if (data.retention_days) setRetentionDays(data.retention_days);
+      } catch {
+        /* keep fallbacks */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onPickAvatar = async (e) => {
     const file = e.target.files?.[0];
@@ -38,6 +83,10 @@ export default function ProfileTab() {
     setErr('');
     setMsg('');
     if (!name.trim()) return setErr('Your name is required.');
+    if (name.trim() !== (user?.name || '')) {
+      if (nameCheck.checking) return setErr('Please wait while we verify your name.');
+      if (nameCheck.available === false) return setErr(nameCheck.message || 'This name is already in use.');
+    }
     try {
       await updateProfile.mutateAsync({ name: name.trim(), phone: phone.trim() });
       setMsg('Profile saved.');
@@ -45,6 +94,36 @@ export default function ProfileTab() {
       setErr(e2.response?.data?.message || 'Could not save your profile.');
     }
   };
+
+  const onDelete = async (e) => {
+    e.preventDefault();
+    setDeleteErr('');
+    if (!deleteReason) {
+      setDeleteErr('Please select a reason.');
+      return;
+    }
+    if (deleteReason === 'other' && !deleteDetail.trim()) {
+      setDeleteErr('Please write a short reason.');
+      return;
+    }
+    if (deleteConfirm.trim().toUpperCase() !== 'DELETE') {
+      setDeleteErr('Type DELETE to confirm.');
+      return;
+    }
+    try {
+      await deleteAccount.mutateAsync({ reason: deleteReason, detail: deleteDetail.trim() || undefined });
+      await logout();
+      navigate('/login', {
+        state: {
+          message: `Account scheduled for deletion. Sign in within ${retentionDays} days to restore it.`,
+        },
+      });
+    } catch (e2) {
+      setDeleteErr(e2.response?.data?.message || 'Could not schedule deletion.');
+    }
+  };
+
+  const isStaff = user?.role === 'super_admin' || user?.role === 'staff';
 
   return (
     <>
@@ -87,6 +166,11 @@ export default function ProfileTab() {
         <div>
           <label className="mb-1 block text-sm font-medium">Full name</label>
           <input className="modal-input" value={name} onChange={(e) => setName(e.target.value)} />
+          {name.trim() !== (user?.name || '') ? (
+            <AvailabilityHint check={nameCheck} />
+          ) : name.trim() ? (
+            <p className="mt-1.5 text-xs font-semibold text-brand-green">Verified — your current name</p>
+          ) : null}
         </div>
 
         <div>
@@ -123,6 +207,85 @@ export default function ProfileTab() {
           {updateProfile.isPending ? 'Saving...' : 'Save changes'}
         </button>
       </form>
+
+      {!isStaff && (
+        <div className="card-panel mt-8 max-w-xl space-y-4 border border-brand-red/20">
+          <h2 className="text-base font-extrabold text-brand-red">Delete account</h2>
+          <p className="text-sm text-muted">
+            Your account stays recoverable for {retentionDays} days. If you sign in again during that window,
+            it is restored automatically. After {retentionDays} days it is permanently removed.
+          </p>
+          {!deleteOpen ? (
+            <button type="button" className="btn-ghost text-sm text-brand-red" onClick={() => setDeleteOpen(true)}>
+              I want to delete my account
+            </button>
+          ) : (
+            <form onSubmit={onDelete} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Reason</label>
+                <select
+                  className="modal-input"
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  required
+                >
+                  <option value="">Select a reason…</option>
+                  {Object.entries(reasons).map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {(deleteReason === 'other' || deleteReason) && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium">
+                    {deleteReason === 'other' ? 'Write your reason *' : 'More detail (optional)'}
+                  </label>
+                  <textarea
+                    className="modal-input min-h-[80px]"
+                    value={deleteDetail}
+                    onChange={(e) => setDeleteDetail(e.target.value)}
+                    maxLength={500}
+                    placeholder="Tell us more…"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="mb-1 block text-sm font-medium">Type DELETE to confirm</label>
+                <input
+                  className="modal-input"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder="DELETE"
+                  autoComplete="off"
+                />
+              </div>
+              {deleteErr && <p className="text-sm text-brand-red">{deleteErr}</p>}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  className="rounded-xl bg-brand-red px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  disabled={deleteAccount.isPending}
+                >
+                  {deleteAccount.isPending ? 'Scheduling…' : 'Delete my account'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost text-sm"
+                  onClick={() => {
+                    setDeleteOpen(false);
+                    setDeleteErr('');
+                    setDeleteConfirm('');
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
 
       <ChangeEmailModal
         open={emailModal}

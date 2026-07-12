@@ -55,6 +55,11 @@ final class AuthMiddleware
         if ($user['status'] === 'disabled') {
             Response::error('Account disabled', 403);
         }
+        if ($user['status'] === 'pending_deletion') {
+            Response::error('Account is scheduled for deletion. Sign in again to restore it.', 403, [
+                'code' => 'pending_deletion',
+            ]);
+        }
 
         self::$user = $user;
         return $user;
@@ -195,7 +200,7 @@ final class AuthMiddleware
         $stmt->execute([$userId]);
         $user = $stmt->fetch();
 
-        if ($user === false || $user['status'] === 'disabled') {
+        if ($user === false || $user['status'] === 'disabled' || $user['status'] === 'pending_deletion') {
             return null;
         }
 

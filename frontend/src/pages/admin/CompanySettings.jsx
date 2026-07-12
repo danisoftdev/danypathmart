@@ -69,7 +69,12 @@ const EMPTY = {
   shop_renewal_fee_monthly_ghs: 0,
   shop_renewal_fee_yearly_ghs: 0,
   shop_renewal_period: 'yearly',
-  shop_renewal_grace_days: 7,
+  shop_renewal_grace_days: 0,
+  shop_new_shop_free_month_enabled: false,
+  paystack_fee_mode: 'absorb',
+  paystack_fee_percent: 1.95,
+  paystack_fee_flat_ghs: 0,
+  paystack_fee_note: '',
   image_search_enabled: false,
   vision_api_configured: false,
 };
@@ -558,14 +563,48 @@ export default function CompanySettings() {
                       <option value="yearly">Prefer yearly</option>
                     </select>
                   </Field>
-                  <Field label="Grace days after expiry" hint="Shop stays visible briefly after renewal date before listing is hidden.">
+                  <ToggleField
+                    label="Free first month for new shops"
+                    hint="When on, new shops pay nothing to apply — first month of subscription is free with no payment. Turn off to charge registration/renewal as usual."
+                    checked={!!form.shop_new_shop_free_month_enabled}
+                    onChange={(v) => set('shop_new_shop_free_month_enabled', v)}
+                  />
+                  <Field label="Paystack fee handling" hint="Tax is not included yet. This only controls how processor fees appear on shop subscription charges.">
+                    <select
+                      className="modal-input"
+                      value={form.paystack_fee_mode || 'absorb'}
+                      onChange={(e) => set('paystack_fee_mode', e.target.value)}
+                    >
+                      <option value="absorb">Absorb fees (seller pays listed fee only)</option>
+                      <option value="pass_to_payer">Pass fees to seller (add estimate on top)</option>
+                    </select>
+                  </Field>
+                  <Field label="Paystack fee %">
                     <input
                       className="modal-input"
                       type="number"
                       min="0"
-                      max="90"
-                      value={form.shop_renewal_grace_days ?? 7}
-                      onChange={(e) => set('shop_renewal_grace_days', Math.max(0, Number(e.target.value) || 0))}
+                      step="0.01"
+                      value={form.paystack_fee_percent ?? 1.95}
+                      onChange={(e) => set('paystack_fee_percent', Number(e.target.value) || 0)}
+                    />
+                  </Field>
+                  <Field label="Paystack flat fee (GHS)">
+                    <input
+                      className="modal-input"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={form.paystack_fee_flat_ghs ?? 0}
+                      onChange={(e) => set('paystack_fee_flat_ghs', Number(e.target.value) || 0)}
+                    />
+                  </Field>
+                  <Field label="Fee note on receipts">
+                    <input
+                      className="modal-input"
+                      value={form.paystack_fee_note || ''}
+                      onChange={(e) => set('paystack_fee_note', e.target.value)}
+                      placeholder="Optional note for sellers"
                     />
                   </Field>
                 </>

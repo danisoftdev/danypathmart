@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Config\Database;
 use App\Config\Env;
 use App\Helpers\Response;
+use App\Helpers\ShopBillingReceiptService;
 use App\Helpers\ShopBillingService;
 
 /** Dev-only: confirm mock shop billing payment when Paystack is not configured. */
@@ -33,14 +34,51 @@ if ($row === false) {
     Response::error('Payment not found or already confirmed.', 404);
 }
 
-if ($type === 'renewal' && $shopId > 0) {
-    ShopBillingService::markRenewalPaid($pdo, $shopId, $reference);
+$resolvedShopId = $shopId > 0 ? $shopId : (int) ($row['shop_id'] ?? 0);
+
+if (($type === 'card_setup' || ($row['payment_type'] ?? '') === 'card_setup') && $resolvedShopId > 0) {
+    $pdo->prepare(
+        'UPDATE shop_billing_payments SET status = ?, paid_at = NOW() WHERE paystack_ref = ?'
+    )->execute(['paid', $reference]);
+    ShopBillingReceiptService::finalizePaidReceipt($pdo, $reference, [
+        'channel'       => 'card',
+        'authorization' => [
+            'authorization_code' => 'AUTH_DEV_' . $resolvedShopId,
+            'reusable'           => true,
+            'card_type'          => 'visa',
+            'last4'              => '4242',
+            'exp_month'          => '12',
+            'exp_year'           => '2030',
+            'bank'               => 'TEST BANK',
+        ],
+        'customer' => ['customer_code' => 'CUS_DEV_' . $resolvedShopId],
+    ]);
+    ShopBillingReceiptService::saveAuthorization(
+        $pdo,
+        $resolvedShopId,
+        [
+            'authorization_code' => 'AUTH_DEV_' . $resolvedShopId,
+            'reusable'           => true,
+            'card_type'          => 'visa',
+            'last4'              => '4242',
+            'exp_month'          => '12',
+            'exp_year'           => '2030',
+            'bank'               => 'TEST BANK',
+        ],
+        'CUS_DEV_' . $resolvedShopId
+    );
+} elseif ($type === 'renewal' && $resolvedShopId > 0) {
+    ShopBillingService::markRenewalPaid($pdo, $resolvedShopId, $reference);
+    ShopBillingReceiptService::finalizePaidReceipt($pdo, $reference, ['channel' => 'card']);
 } elseif ($applicationId > 0) {
     ShopBillingService::markRegistrationPaid($pdo, $applicationId, $reference);
+    ShopBillingReceiptService::finalizePaidReceipt($pdo, $reference);
 } elseif ($row['application_id']) {
     ShopBillingService::markRegistrationPaid($pdo, (int) $row['application_id'], $reference);
+    ShopBillingReceiptService::finalizePaidReceipt($pdo, $reference);
 } elseif ($row['shop_id']) {
     ShopBillingService::markRenewalPaid($pdo, (int) $row['shop_id'], $reference);
+    ShopBillingReceiptService::finalizePaidReceipt($pdo, $reference, ['channel' => 'card']);
 } else {
     Response::error('Could not resolve payment target.', 422);
 }

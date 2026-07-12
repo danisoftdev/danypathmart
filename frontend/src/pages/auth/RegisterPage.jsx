@@ -6,6 +6,7 @@ import StepProgress from '../../components/auth/StepProgress';
 import FormField, { AuthAlert } from '../../components/auth/FormField';
 import SocialAuthButtons, { SocialAuthSetupHint } from '../../components/auth/SocialAuthButtons';
 import { meetsPolicy } from '../../lib/password';
+import { AvailabilityHint, useAvailabilityCheck } from '../../hooks/useAvailabilityCheck';
 
 const STEPS = ['Your details', 'Secure password'];
 
@@ -17,6 +18,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const nameCheck = useAvailabilityCheck('name', form.name, { minLength: 2 });
+  const emailCheck = useAvailabilityCheck('email', form.email, { minLength: 5 });
+
   const set = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.value }));
     setFieldErrors((fe) => ({ ...fe, [key]: '' }));
@@ -27,8 +31,14 @@ export default function RegisterPage() {
   const validateStep1 = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Please enter your full name.';
+    else if (nameCheck.available === false) errs.name = nameCheck.message || 'This name is already in use.';
     if (!form.email.trim()) errs.email = 'Email is required.';
     else if (!emailValid) errs.email = 'Enter a valid email address.';
+    else if (emailCheck.available === false) errs.email = emailCheck.message || 'This email is already registered.';
+    if (nameCheck.checking || emailCheck.checking) {
+      setError('Please wait while we verify your details.');
+      return false;
+    }
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -91,14 +101,10 @@ export default function RegisterPage() {
               autoComplete="name"
               placeholder="Adventurer Name"
             />
+            {!fieldErrors.name && <AvailabilityHint check={nameCheck} />}
           </FormField>
 
-          <FormField
-            label="Email address"
-            required
-            error={fieldErrors.email}
-            success={form.email && emailValid ? 'Email looks good' : undefined}
-          >
+          <FormField label="Email address" required error={fieldErrors.email}>
             <input
               type="email"
               className="input-field min-h-[48px] text-base"
@@ -107,9 +113,20 @@ export default function RegisterPage() {
               autoComplete="email"
               placeholder="you@example.com"
             />
+            {!fieldErrors.email && <AvailabilityHint check={emailCheck} />}
           </FormField>
 
-          <button type="button" onClick={nextStep} className="btn-primary mt-2 min-h-[48px] w-full text-base">
+          <button
+            type="button"
+            onClick={nextStep}
+            className="btn-primary mt-2 min-h-[48px] w-full text-base"
+            disabled={
+              nameCheck.checking ||
+              emailCheck.checking ||
+              nameCheck.available === false ||
+              emailCheck.available === false
+            }
+          >
             Continue
           </button>
         </>

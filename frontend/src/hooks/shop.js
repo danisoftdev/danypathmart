@@ -152,8 +152,49 @@ export function useConfirmShopBillingDevPayment() {
 
 export function useInitializeShopRenewalPayment() {
   return useMutation({
-    mutationFn: async (period) =>
-      (await api.post('/shop/billing/initialize-renewal', period ? { period } : {})).data,
+    mutationFn: async (periodOrPayload) => {
+      const payload =
+        typeof periodOrPayload === 'string' || periodOrPayload == null
+          ? periodOrPayload
+            ? { period: periodOrPayload }
+            : {}
+          : periodOrPayload;
+      return (await api.post('/shop/billing/initialize-renewal', payload)).data;
+    },
+  });
+}
+
+export function useShopBillingLedger(enabled = true) {
+  return useQuery({
+    queryKey: ['shop-billing-ledger'],
+    queryFn: async () => (await api.get('/shop/billing')).data,
+    enabled,
+  });
+}
+
+export function useShopBillingAutoRenew() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/shop/billing/auto-renew', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shop-billing-ledger'] });
+      qc.invalidateQueries({ queryKey: ['shop-dashboard'] });
+    },
+  });
+}
+
+export function useShopBillingPaymentMethods() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => {
+      if (payload?.action === 'remove') {
+        return (await api.delete('/shop/billing/payment-methods', { data: { method_id: payload.method_id } })).data;
+      }
+      return (await api.post('/shop/billing/payment-methods', payload)).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shop-billing-ledger'] });
+    },
   });
 }
 

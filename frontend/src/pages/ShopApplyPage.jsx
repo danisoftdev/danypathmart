@@ -16,6 +16,7 @@ import {
 import { useAuthStore } from '../store/authStore';
 import { formatPrice } from '../lib/currency';
 import { ShopApplyPolicyConsent, SellerPolicyLinks } from '../components/legal/SellerPolicyLinks';
+import { AvailabilityHint, useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
 
 const EMPTY = {
   business_name: '',
@@ -81,10 +82,17 @@ export default function ShopApplyPage() {
 
   const acceptedPolicies = acceptedTerms && acceptedPrivacy && acceptedSellerPolicy;
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const shopNameCheck = useAvailabilityCheck('shop_name', form.business_name, { minLength: 2 });
 
   const listFee = feeQuote?.list_fee ?? billingSettings?.registration_list_fee ?? billingSettings?.registration_fee ?? 0;
   const amountDue = feeQuote?.amount_due ?? billingSettings?.registration_amount_due ?? listFee;
-  const requiresPayment = billingSettings?.enabled && amountDue > 0;
+  const freeMonthActive =
+    !!(feeQuote?.free_month_active ?? billingSettings?.free_month_active ?? billingSettings?.new_shop_free_month);
+  const requiresPayment =
+    billingSettings?.enabled &&
+    !freeMonthActive &&
+    !(feeQuote?.free_period_active || billingSettings?.free_period_active) &&
+    amountDue > 0;
 
   useEffect(() => {
     if (!user?.email) return;
@@ -192,6 +200,14 @@ export default function ShopApplyPage() {
       setError('Please accept Terms, Privacy, and Shop seller policy.');
       return;
     }
+    if (shopNameCheck.checking) {
+      setError('Please wait while we verify the shop name.');
+      return;
+    }
+    if (shopNameCheck.available === false) {
+      setError(shopNameCheck.message || 'This shop name is already taken.');
+      return;
+    }
     try {
       const res = await apply.mutateAsync({
         ...form,
@@ -224,9 +240,11 @@ export default function ShopApplyPage() {
       <div className="mx-auto max-w-3xl px-4 py-8 pb-24 md:py-12">
         <h1 className="text-2xl font-extrabold text-brand-green">Application received</h1>
         <p className="mt-3 text-sm text-muted">
-          {paymentReturn || (requiresPayment && !feeQuote?.free_period_active)
+          {paymentReturn
             ? 'Your registration fee is paid. We will review your shop application and notify you (email + in-app) when your seller dashboard is ready — sign in with this same DanyPathMart account.'
-            : 'We will review your shop application and notify you when your seller dashboard is ready. Use this same DanyPathMart login to open Seller.'}
+            : freeMonthActive
+              ? 'No payment was required — your first month is free. We will review your application and notify you when your seller dashboard is ready. Use this same DanyPathMart login to open Seller.'
+              : 'We will review your shop application and notify you when your seller dashboard is ready. Use this same DanyPathMart login to open Seller.'}
         </p>
         <Link to="/seller" className="mt-6 mr-4 inline-block text-sm font-bold text-brand-green hover:underline">
           Seller dashboard
@@ -268,14 +286,25 @@ export default function ShopApplyPage() {
 
       <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">Open your shop</h1>
       <p className="mt-2 text-sm text-muted">
-        Get your own shop link on DanyPathMart. You keep 100% of sales — pay a subscription to keep your storefront active.
-        Products go live after admin review. You must use your DanyPathMart login; after approval, open Seller dashboard with the same account.
+        {freeMonthActive
+          ? 'Get your own shop link on DanyPathMart. Your first month is free — no payment to apply. You keep 100% of sales. Products go live after admin review. Use your DanyPathMart login; after approval, open Seller with the same account.'
+          : 'Get your own shop link on DanyPathMart. You keep 100% of sales — pay a subscription to keep your storefront active. Products go live after admin review. You must use your DanyPathMart login; after approval, open Seller dashboard with the same account.'}
       </p>
       <SellerPolicyLinks className="mt-3" />
 
       <p className="mt-4 rounded-xl border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm">
         Signed in as <strong>{user?.email || user?.name}</strong>. Your shop will be linked to this account.
       </p>
+
+      {freeMonthActive && (
+        <div className="mt-4 rounded-xl border border-brand-green/40 bg-brand-green/10 px-4 py-3 text-sm">
+          <p className="font-extrabold text-brand-green">No payment required</p>
+          <p className="mt-1 text-muted">
+            Your first month is free. Submit this application with no fee — after approval your shop stays active for
+            one month before any renewal payment is due.
+          </p>
+        </div>
+      )}
 
       {inviteToken && inviteError && (
         <p className="mt-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">
@@ -288,7 +317,7 @@ export default function ShopApplyPage() {
         </p>
       )}
 
-      {billingSettings?.enabled && listFee > 0 && (
+      {billingSettings?.enabled && listFee > 0 && !freeMonthActive && (
         <div className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
           {feeQuote?.free_period_active ? (
             <p>
@@ -324,6 +353,7 @@ export default function ShopApplyPage() {
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">Business name *</span>
           <input className="input-field w-full" value={form.business_name} onChange={set('business_name')} required />
+          <AvailabilityHint check={shopNameCheck} />
         </label>
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">Contact name *</span>
@@ -462,9 +492,11 @@ export default function ShopApplyPage() {
         <button type="submit" className="btn-primary w-full min-h-[44px]" disabled={apply.isPending || flagsLoading || initPayment.isPending || !acceptedPolicies}>
           {apply.isPending || initPayment.isPending
             ? 'Submitting…'
-            : requiresPayment
-              ? `Submit & pay ${formatPrice(amountDue)}`
-              : 'Submit application'}
+            : freeMonthActive
+              ? 'Submit application — no payment required'
+              : requiresPayment
+                ? `Submit & pay ${formatPrice(amountDue)}`
+                : 'Submit application'}
         </button>
       </form>
     </div>

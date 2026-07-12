@@ -303,7 +303,8 @@ final class CompanySettingsService
                 'shop_renewal_fee_monthly_ghs' => 0.0,
                 'shop_renewal_fee_yearly_ghs'  => 0.0,
                 'shop_renewal_period'          => 'yearly',
-                'shop_renewal_grace_days'      => 7,
+                'shop_renewal_grace_days'      => 0,
+                'shop_new_shop_free_month_enabled' => false,
             ];
         }
     }

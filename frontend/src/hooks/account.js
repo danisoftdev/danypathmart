@@ -96,3 +96,11 @@ export function useDisable2FA() {
     },
   });
 }
+
+export function useDeleteAccount() {
+  return useMutation({
+    mutationFn: async ({ reason, detail }) =>
+      (await api.post('/users/account/deletion', { reason, detail })).data,
+  });
+}
+

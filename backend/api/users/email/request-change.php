@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\AvailabilityService;
 use App\Helpers\Mailer;
 use App\Helpers\OTPService;
 use App\Helpers\Response;
@@ -35,10 +36,9 @@ if ($newEmail === strtolower((string) $row['email'])) {
 }
 
 // The new email must not belong to another account.
-$taken = $pdo->prepare('SELECT 1 FROM users WHERE email = ? AND id <> ?');
-$taken->execute([$newEmail, (int) $user['id']]);
-if ($taken->fetchColumn() !== false) {
-    Response::error('That email is already in use.', 409, ['code' => 'email_taken']);
+$emailCheck = AvailabilityService::check($pdo, 'email', $newEmail, (int) $user['id']);
+if (!$emailCheck['available']) {
+    Response::error($emailCheck['message'], 409, ['code' => 'email_taken']);
 }
 
 // Throttle: at most 3 change requests per hour.

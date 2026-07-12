@@ -377,8 +377,20 @@ if (($user['role'] ?? '') === 'super_admin'
         if (!in_array($shopRenewPeriod, ['monthly', 'yearly'], true)) {
             $shopRenewPeriod = 'yearly';
         }
-        $shopGraceDays = isset($body['shop_renewal_grace_days'])
-            ? max(0, (int) $body['shop_renewal_grace_days']) : 7;
+        $shopGraceDays = 0;
+        $existingBilling = \App\Helpers\ShopBillingService::loadSettings($pdo);
+        if (array_key_exists('shop_new_shop_free_month_enabled', $body)) {
+            $v = $body['shop_new_shop_free_month_enabled'];
+            if (is_bool($v)) {
+                $freeMonth = $v ? 1 : 0;
+            } elseif (is_numeric($v)) {
+                $freeMonth = (int) $v !== 0 ? 1 : 0;
+            } else {
+                $freeMonth = in_array(strtolower(trim((string) $v)), ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
+            }
+        } else {
+            $freeMonth = !empty($existingBilling['shop_new_shop_free_month_enabled']) ? 1 : 0;
+        }
 
         // Legacy single fee fallback when new fields omitted.
         if ($shopMonthly === null && $shopYearly === null && isset($body['shop_renewal_fee_ghs'])) {
@@ -391,7 +403,6 @@ if (($user['role'] ?? '') === 'super_admin'
                 $shopMonthly = 0.0;
             }
         }
-        $existingBilling = \App\Helpers\ShopBillingService::loadSettings($pdo);
         if ($shopMonthly === null) {
             $shopMonthly = (float) $existingBilling['shop_renewal_fee_monthly_ghs'];
         }
@@ -406,6 +417,20 @@ if (($user['role'] ?? '') === 'super_admin'
         }
         $shopRenewFee = $shopRenewPeriod === 'monthly' ? $shopMonthly : $shopYearly;
 
+        $feeMode = trim((string) ($body['paystack_fee_mode'] ?? $existingBilling['paystack_fee_mode'] ?? 'absorb'));
+        if (!in_array($feeMode, ['absorb', 'pass_to_payer'], true)) {
+            $feeMode = 'absorb';
+        }
+        $feePercent = isset($body['paystack_fee_percent'])
+            ? max(0.0, min(100.0, round((float) $body['paystack_fee_percent'], 2)))
+            : (float) ($existingBilling['paystack_fee_percent'] ?? 1.95);
+        $feeFlat = isset($body['paystack_fee_flat_ghs'])
+            ? max(0.0, round((float) $body['paystack_fee_flat_ghs'], 2))
+            : (float) ($existingBilling['paystack_fee_flat_ghs'] ?? 0);
+        $feeNote = array_key_exists('paystack_fee_note', $body)
+            ? (trim((string) $body['paystack_fee_note']) !== '' ? trim((string) $body['paystack_fee_note']) : null)
+            : ($existingBilling['paystack_fee_note'] ?? null);
+
         try {
             $pdo->prepare(
                 'UPDATE company_settings SET
@@ -415,22 +440,46 @@ if (($user['role'] ?? '') === 'super_admin'
                     shop_renewal_fee_monthly_ghs = ?,
                     shop_renewal_fee_yearly_ghs = ?,
                     shop_renewal_period = ?,
-                    shop_renewal_grace_days = ?
+                    shop_renewal_grace_days = ?,
+                    shop_new_shop_free_month_enabled = ?,
+                    paystack_fee_mode = ?,
+                    paystack_fee_percent = ?,
+                    paystack_fee_flat_ghs = ?,
+                    paystack_fee_note = ?
                  WHERE id = 1'
             )->execute([
                 $shopBillingEnabled, $shopRegFee, $shopRenewFee,
-                $shopMonthly, $shopYearly, $shopRenewPeriod, $shopGraceDays,
+                $shopMonthly, $shopYearly, $shopRenewPeriod, $shopGraceDays, $freeMonth,
+                $feeMode, $feePercent, $feeFlat, $feeNote,
             ]);
         } catch (\Throwable) {
-            $pdo->prepare(
-                'UPDATE company_settings SET
-                    shop_billing_enabled = ?,
-                    shop_registration_fee_ghs = ?,
-                    shop_renewal_fee_ghs = ?,
-                    shop_renewal_period = ?,
-                    shop_renewal_grace_days = ?
-                 WHERE id = 1'
-            )->execute([$shopBillingEnabled, $shopRegFee, $shopRenewFee, $shopRenewPeriod, $shopGraceDays]);
+            try {
+                $pdo->prepare(
+                    'UPDATE company_settings SET
+                        shop_billing_enabled = ?,
+                        shop_registration_fee_ghs = ?,
+                        shop_renewal_fee_ghs = ?,
+                        shop_renewal_fee_monthly_ghs = ?,
+                        shop_renewal_fee_yearly_ghs = ?,
+                        shop_renewal_period = ?,
+                        shop_renewal_grace_days = ?,
+                        shop_new_shop_free_month_enabled = ?
+                     WHERE id = 1'
+                )->execute([
+                    $shopBillingEnabled, $shopRegFee, $shopRenewFee,
+                    $shopMonthly, $shopYearly, $shopRenewPeriod, $shopGraceDays, $freeMonth,
+                ]);
+            } catch (\Throwable) {
+                $pdo->prepare(
+                    'UPDATE company_settings SET
+                        shop_billing_enabled = ?,
+                        shop_registration_fee_ghs = ?,
+                        shop_renewal_fee_ghs = ?,
+                        shop_renewal_period = ?,
+                        shop_renewal_grace_days = ?
+                     WHERE id = 1'
+                )->execute([$shopBillingEnabled, $shopRegFee, $shopRenewFee, $shopRenewPeriod, $shopGraceDays]);
+            }
         }
 
         $fields['shop_billing_enabled'] = (bool) $shopBillingEnabled;
@@ -440,6 +489,11 @@ if (($user['role'] ?? '') === 'super_admin'
         $fields['shop_renewal_fee_yearly_ghs'] = $shopYearly;
         $fields['shop_renewal_period'] = $shopRenewPeriod;
         $fields['shop_renewal_grace_days'] = $shopGraceDays;
+        $fields['shop_new_shop_free_month_enabled'] = (bool) $freeMonth;
+        $fields['paystack_fee_mode'] = $feeMode;
+        $fields['paystack_fee_percent'] = $feePercent;
+        $fields['paystack_fee_flat_ghs'] = $feeFlat;
+        $fields['paystack_fee_note'] = $feeNote;
     } catch (\Throwable) {
         // Phase M6 shop billing migration not applied yet.
     }

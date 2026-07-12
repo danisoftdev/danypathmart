@@ -114,6 +114,7 @@ final class OAuthService
             if ($user['status'] === 'disabled') {
                 throw new \RuntimeException('This account has been disabled.');
             }
+            AccountDeletionService::gateLogin(Database::pdo(), $user);
 
             $ticket = self::issueTicket((int) $user['id']);
             header('Location: ' . self::frontendCallbackUrl('ticket=' . urlencode($ticket)));
@@ -146,7 +147,8 @@ final class OAuthService
 
         $userId = (int) $row['user_id'];
         $userStmt = $pdo->prepare(
-            'SELECT id, name, username, email, role, status, preferred_currency, phone, profile_photo, totp_enabled
+            'SELECT id, name, username, email, role, status, preferred_currency, phone, profile_photo, totp_enabled,
+                    deletion_requested_at
              FROM users WHERE id = ?'
         );
         $userStmt->execute([$userId]);
@@ -158,6 +160,8 @@ final class OAuthService
         if ($user['status'] === 'disabled') {
             Response::error('This account has been disabled.', 403);
         }
+
+        AccountDeletionService::gateLogin($pdo, $user);
 
         if ((string) $user['role'] !== 'customer' && (int) ($user['totp_enabled'] ?? 0) === 1) {
             Response::error('Staff accounts must sign in with email, password, and 2FA.', 403);
@@ -202,6 +206,8 @@ final class OAuthService
         if ($user['status'] === 'disabled') {
             Response::error('This account has been disabled.', 403);
         }
+
+        AccountDeletionService::gateLogin(Database::pdo(), $user);
 
         if ((string) $user['role'] !== 'customer' && (int) ($user['totp_enabled'] ?? 0) === 1) {
             Response::error('Staff accounts must sign in with email, password, and 2FA.', 403);

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import ShopLogoField from '../../components/shop/ShopLogoField';
 import LocationMapPicker from '../../components/map/LocationMapPicker';
 import { useUpdateShopProfile, useUploadShopLogo } from '../../hooks/shop';
+import { AvailabilityHint, useAvailabilityCheck } from '../../hooks/useAvailabilityCheck';
 
 export default function ShopSettingsPage() {
   const { shop: initialShop } = useOutletContext();
@@ -28,6 +29,12 @@ export default function ShopSettingsPage() {
   });
   const [toast, setToast] = useState('');
   const [error, setError] = useState('');
+
+  const shopNameCheck = useAvailabilityCheck('shop_name', form.name, {
+    excludeShopId: initialShop?.id,
+    minLength: 2,
+    enabled: !!form.name.trim() && form.name.trim() !== (initialShop?.name || ''),
+  });
 
   useEffect(() => {
     if (initialShop) {
@@ -58,6 +65,16 @@ export default function ShopSettingsPage() {
     e.preventDefault();
     setError('');
     setToast('');
+    if (form.name.trim() !== (initialShop?.name || '')) {
+      if (shopNameCheck.checking) {
+        setError('Please wait while we verify the shop name.');
+        return;
+      }
+      if (shopNameCheck.available === false) {
+        setError(shopNameCheck.message || 'This shop name is already taken.');
+        return;
+      }
+    }
     try {
       await update.mutateAsync({
         ...form,
@@ -92,6 +109,22 @@ export default function ShopSettingsPage() {
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">Shop name</span>
           <input className="input-field w-full" value={form.name} onChange={(e) => set('name', e.target.value)} required />
+          {form.name.trim() !== (initialShop?.name || '') ? (
+            <AvailabilityHint check={shopNameCheck} />
+          ) : (
+            <p className="mt-1.5">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-brand-green">
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden>
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.78-9.72a.75.75 0 00-1.06-1.06L9 11.94l-1.72-1.72a.75.75 0 10-1.06 1.06l2.25 2.25a.75.75 0 001.06 0l4.25-4.25z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Current shop name
+              </span>
+            </p>
+          )}
         </label>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">

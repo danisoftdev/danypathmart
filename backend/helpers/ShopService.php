@@ -408,6 +408,10 @@ final class ShopService
                 if ($name === '') {
                     throw new \InvalidArgumentException('Shop name cannot be empty.');
                 }
+                $nameCheck = AvailabilityService::check($pdo, 'shop_name', $name, null, $shopId);
+                if (!$nameCheck['available']) {
+                    throw new \InvalidArgumentException($nameCheck['message']);
+                }
                 $patch['name'] = $name;
                 continue;
             }

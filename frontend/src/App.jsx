@@ -69,6 +69,7 @@ import ShopDashboardPage from './pages/seller/ShopDashboardPage';
 import ShopProductsPage from './pages/seller/ShopProductsPage';
 import ShopOrdersPage from './pages/seller/ShopOrdersPage';
 import ShopPaymentsPage from './pages/seller/ShopPaymentsPage';
+import ShopBillingPage from './pages/seller/ShopBillingPage';
 import ShopSettingsPage from './pages/seller/ShopSettingsPage';
 import PromoterDashboardPage from './pages/promoter/PromoterDashboardPage';
 import AdminShippingPage from './pages/admin/AdminShippingPage';
@@ -244,6 +245,7 @@ export default function App() {
             <Route index element={<ShopDashboardPage />} />
             <Route path="products" element={<ShopProductsPage />} />
             <Route path="orders" element={<ShopOrdersPage />} />
+            <Route path="billing" element={<ShopBillingPage />} />
             <Route path="payments" element={<ShopPaymentsPage />} />
             <Route path="wallet" element={<Navigate to="/seller/payments" replace />} />
             <Route path="settings" element={<ShopSettingsPage />} />

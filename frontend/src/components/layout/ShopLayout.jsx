@@ -11,6 +11,7 @@ const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
   { to: '/seller/products', end: false, label: 'Products', icon: '🏷️' },
   { to: '/seller/orders', end: false, label: 'Orders', icon: '📦' },
+  { to: '/seller/billing', end: false, label: 'Billing', icon: '🧾' },
   { to: '/seller/payments', end: false, label: 'Payments', icon: '💳' },
   { to: '/seller/settings', end: false, label: 'Profile', icon: '⚙️' },
 ];

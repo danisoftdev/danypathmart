@@ -1009,14 +1009,80 @@ export default function AdminMarketplacePage() {
                           <option value="yearly">Prefer yearly</option>
                         </select>
                       </label>
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-black/8 p-3 text-sm dark:border-white/10 sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 accent-brand-green"
+                          checked={!!billingSettings.shop_new_shop_free_month_enabled}
+                          onChange={(e) =>
+                            setBillingForm({
+                              ...billingSettings,
+                              shop_new_shop_free_month_enabled: e.target.checked,
+                            })
+                          }
+                        />
+                        <span>
+                          <span className="block font-semibold">Free first month for new shops</span>
+                          <span className="mt-0.5 block text-xs text-muted">
+                            No payment at apply time. First subscription month is free after approval. Untick to charge as usual.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="block text-sm sm:col-span-2">
+                        <span className="mb-1 block font-semibold">Paystack fee handling</span>
+                        <select
+                          className="input-field w-full"
+                          value={billingSettings.paystack_fee_mode || 'absorb'}
+                          onChange={(e) =>
+                            setBillingForm({ ...billingSettings, paystack_fee_mode: e.target.value })
+                          }
+                        >
+                          <option value="absorb">Absorb fees (seller pays listed fee only)</option>
+                          <option value="pass_to_payer">Pass fees to seller (add estimate on top)</option>
+                        </select>
+                      </label>
                       <label className="block text-sm">
-                        <span className="mb-1 block font-semibold">Grace days</span>
+                        <span className="mb-1 block font-semibold">Paystack fee %</span>
                         <input
                           type="number"
                           min="0"
+                          step="0.01"
                           className="input-field w-full"
-                          value={billingSettings.shop_renewal_grace_days ?? 7}
-                          onChange={(e) => setBillingForm({ ...billingSettings, shop_renewal_grace_days: Number(e.target.value) || 0 })}
+                          value={billingSettings.paystack_fee_percent ?? 1.95}
+                          onChange={(e) =>
+                            setBillingForm({
+                              ...billingSettings,
+                              paystack_fee_percent: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="block text-sm">
+                        <span className="mb-1 block font-semibold">Paystack flat fee (GHS)</span>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="input-field w-full"
+                          value={billingSettings.paystack_fee_flat_ghs ?? 0}
+                          onChange={(e) =>
+                            setBillingForm({
+                              ...billingSettings,
+                              paystack_fee_flat_ghs: Number(e.target.value) || 0,
+                            })
+                          }
+                        />
+                      </label>
+                      <label className="block text-sm sm:col-span-2">
+                        <span className="mb-1 block font-semibold">Fee note (shown on receipts)</span>
+                        <input
+                          type="text"
+                          className="input-field w-full"
+                          value={billingSettings.paystack_fee_note || ''}
+                          onChange={(e) =>
+                            setBillingForm({ ...billingSettings, paystack_fee_note: e.target.value })
+                          }
+                          placeholder="e.g. Processor fees may vary slightly by channel"
                         />
                       </label>
                     </div>

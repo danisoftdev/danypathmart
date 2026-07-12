@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\AuthTokens;
+use App\Helpers\AvailabilityService;
 use App\Helpers\OTPService;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
@@ -43,11 +44,10 @@ if (!hash_equals((string) $req['otp_hash'], OTPService::hash($otp))) {
 $newEmail = strtolower((string) $req['new_email']);
 
 // Re-check availability at confirm time (race safety).
-$taken = $pdo->prepare('SELECT 1 FROM users WHERE email = ? AND id <> ?');
-$taken->execute([$newEmail, (int) $user['id']]);
-if ($taken->fetchColumn() !== false) {
+$emailCheck = AvailabilityService::check($pdo, 'email', $newEmail, (int) $user['id']);
+if (!$emailCheck['available']) {
     $pdo->prepare('DELETE FROM email_change_requests WHERE user_id = ?')->execute([(int) $user['id']]);
-    Response::error('That email is already in use.', 409, ['code' => 'email_taken']);
+    Response::error($emailCheck['message'], 409, ['code' => 'email_taken']);
 }
 
 $pdo->prepare('UPDATE users SET email = ? WHERE id = ?')->execute([$newEmail, (int) $user['id']]);

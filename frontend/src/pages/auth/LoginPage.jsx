@@ -15,7 +15,9 @@ export default function LoginPage() {
   const setSession = useAuthStore((s) => s.setSession);
   const { loginWithBiometric, isSupported } = useWebAuthn();
 
-  const notice = location.state?.reset ? 'Password changed. Please log in.' : '';
+  const notice =
+    location.state?.message ||
+    (location.state?.reset ? 'Password changed. Please log in.' : '');
 
   const [form, setForm] = useState(() => {
     const saved = localStorage.getItem(REMEMBER_KEY);

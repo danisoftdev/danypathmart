@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\AvailabilityService;
 use App\Helpers\Mailer;
 use App\Helpers\NotificationService;
 use App\Helpers\OTPService;
@@ -35,11 +36,14 @@ if ($username !== '' && !Validator::username($username)) {
 
 $pdo = Database::pdo();
 
-// Email must be unique.
-$check = $pdo->prepare('SELECT id, status FROM users WHERE email = ?');
-$check->execute([$email]);
-if ($check->fetch() !== false) {
-    Response::error('An account with this email already exists', 409);
+$nameCheck = AvailabilityService::check($pdo, 'name', $name);
+if (!$nameCheck['available']) {
+    Response::error($nameCheck['message'], 409);
+}
+
+$emailCheck = AvailabilityService::check($pdo, 'email', $email);
+if (!$emailCheck['available']) {
+    Response::error($emailCheck['message'], 409);
 }
 
 // Resolve a unique username (auto-derive from the email local part when omitted).
@@ -51,10 +55,9 @@ $uniqueUsername = static function (string $base) use ($pdo): string {
     $base = substr($base, 0, 50);
     $candidate = $base;
     $suffix = 0;
-    $stmt = $pdo->prepare('SELECT 1 FROM users WHERE username = ?');
     do {
-        $stmt->execute([$candidate]);
-        $taken = $stmt->fetchColumn() !== false;
+        $check = AvailabilityService::check($pdo, 'username', $candidate);
+        $taken = !$check['available'];
         if ($taken) {
             $suffix++;
             $candidate = $base . $suffix;
@@ -66,10 +69,9 @@ $uniqueUsername = static function (string $base) use ($pdo): string {
 if ($username === '') {
     $username = $uniqueUsername(explode('@', $email)[0]);
 } else {
-    $stmt = $pdo->prepare('SELECT 1 FROM users WHERE username = ?');
-    $stmt->execute([$username]);
-    if ($stmt->fetchColumn() !== false) {
-        Response::error('This username is already taken', 409);
+    $usernameCheck = AvailabilityService::check($pdo, 'username', $username);
+    if (!$usernameCheck['available']) {
+        Response::error($usernameCheck['message'], 409);
     }
 }
 

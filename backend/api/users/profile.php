@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\AuthTokens;
+use App\Helpers\AvailabilityService;
 use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\AuthMiddleware;
@@ -20,6 +21,11 @@ if (!Validator::nonEmpty($name)) {
 }
 if ($phone !== '' && !preg_match('/^[0-9+()\-\s]{6,30}$/', $phone)) {
     Response::error('Please enter a valid phone number.', 422);
+}
+
+$nameCheck = AvailabilityService::check($pdo, 'name', $name, (int) $user['id']);
+if (!$nameCheck['available']) {
+    Response::error($nameCheck['message'], 409);
 }
 
 $pdo->prepare('UPDATE users SET name = ?, phone = ? WHERE id = ?')

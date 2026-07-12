@@ -50,6 +50,11 @@ final class ShopApplicationService
             throw new \InvalidArgumentException('Please fill in all required fields.');
         }
 
+        $shopNameCheck = AvailabilityService::check($pdo, 'shop_name', $businessName);
+        if (!$shopNameCheck['available']) {
+            throw new \InvalidArgumentException($shopNameCheck['message']);
+        }
+
         $accountStmt = $pdo->prepare('SELECT email FROM users WHERE id = ? LIMIT 1');
         $accountStmt->execute([$userId]);
         $accountEmail = strtolower(trim((string) ($accountStmt->fetchColumn() ?: '')));
@@ -154,6 +159,27 @@ final class ShopApplicationService
 
         $result = self::findById($pdo, $id) ?? [];
         $result['requires_payment'] = ShopBillingService::registrationRequired($pdo, $result);
+
+        if (empty($result['requires_payment'])) {
+            $quote = ShopBillingService::computeRegistrationPricing($pdo, [
+                'user_id'            => $userId,
+                'email'              => $email,
+                'has_valid_referrer' => $referrerType !== null,
+            ]);
+            if (!empty($quote['free_month_active']) || !empty($quote['free_period_active']) || ($quote['amount_due'] ?? 0) <= 0) {
+                ShopBillingReceiptService::recordComplimentary(
+                    $pdo,
+                    null,
+                    $id,
+                    'reg',
+                    !empty($quote['free_month_active'])
+                        ? 'No payment required — first month free promo.'
+                        : 'No payment required — complimentary registration.',
+                    (float) ($quote['list_fee'] ?? 0),
+                    'FREE-' . $id
+                );
+            }
+        }
 
         self::notifyReviewers($pdo, $result);
 
@@ -543,6 +569,12 @@ final class ShopApplicationService
             )->execute(['approved', $shop['id'], $note, $adminUserId, $applicationId]);
 
             ShopBillingService::createSubscriptionOnApprove($pdo, (int) $shop['id']);
+            try {
+                $pdo->prepare(
+                    'UPDATE shop_billing_payments SET shop_id = ? WHERE application_id = ? AND shop_id IS NULL'
+                )->execute([(int) $shop['id'], $applicationId]);
+            } catch (\Throwable) {
+            }
             $pdo->prepare('UPDATE shops SET verified_at = COALESCE(verified_at, NOW()) WHERE id = ?')
                 ->execute([(int) $shop['id']]);
             SubscriptionReferralService::releaseOnApprove($pdo, $applicationId);
