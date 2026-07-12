@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useCompanySettings, useUpdateCompanySettings } from '../../hooks/admin';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import { FacebookIcon, InstagramIcon, TwitterIcon, WhatsAppIcon } from '../../components/icons';
@@ -509,107 +510,15 @@ export default function CompanySettings() {
               </Field>
             </>
           )}
-          {canManageShopFees && form.marketplace_enabled && (
-            <div className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-4 space-y-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-brand-gold">Shop billing (Paystack)</p>
-              <ToggleField
-                label="Charge shop registration & renewal fees"
-                hint="Registration fee is optional (0 = free). Set monthly and/or yearly renewal amounts separately — leave either at 0 to disable that plan."
-                checked={!!form.shop_billing_enabled}
-                onChange={(v) => set('shop_billing_enabled', v)}
-              />
-              {form.shop_billing_enabled && (
-                <>
-                  <Field label="Registration fee (GHS)" hint="One-time on apply. Set 0 for free registration.">
-                    <input
-                      className="modal-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.shop_registration_fee_ghs ?? 0}
-                      onChange={(e) => set('shop_registration_fee_ghs', Number(e.target.value) || 0)}
-                    />
-                  </Field>
-                  <Field label="Monthly renewal fee (GHS)" hint="Optional. Set 0 to turn off monthly renewals.">
-                    <input
-                      className="modal-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.shop_renewal_fee_monthly_ghs ?? 0}
-                      onChange={(e) => set('shop_renewal_fee_monthly_ghs', Number(e.target.value) || 0)}
-                    />
-                  </Field>
-                  <Field label="Yearly renewal fee (GHS)" hint="Optional. Set 0 to turn off yearly renewals.">
-                    <input
-                      className="modal-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.shop_renewal_fee_yearly_ghs ?? 0}
-                      onChange={(e) => set('shop_renewal_fee_yearly_ghs', Number(e.target.value) || 0)}
-                    />
-                  </Field>
-                  <Field
-                    label="Default renewal plan"
-                    hint="Used for new shops and when a seller does not pick a plan. Only plans with a fee above 0 are offered."
-                  >
-                    <select
-                      className="modal-input"
-                      value={form.shop_renewal_period || 'yearly'}
-                      onChange={(e) => set('shop_renewal_period', e.target.value)}
-                    >
-                      <option value="monthly">Prefer monthly</option>
-                      <option value="yearly">Prefer yearly</option>
-                    </select>
-                  </Field>
-                  <ToggleField
-                    label="Free first month for new shops"
-                    hint="When on, new shops pay nothing to apply — first month of subscription is free with no payment. Turn off to charge registration/renewal as usual."
-                    checked={!!form.shop_new_shop_free_month_enabled}
-                    onChange={(v) => set('shop_new_shop_free_month_enabled', v)}
-                  />
-                  <Field label="Paystack fee handling" hint="Tax is not included yet. This only controls how processor fees appear on shop subscription charges.">
-                    <select
-                      className="modal-input"
-                      value={form.paystack_fee_mode || 'absorb'}
-                      onChange={(e) => set('paystack_fee_mode', e.target.value)}
-                    >
-                      <option value="absorb">Absorb fees (seller pays listed fee only)</option>
-                      <option value="pass_to_payer">Pass fees to seller (add estimate on top)</option>
-                    </select>
-                  </Field>
-                  <Field label="Paystack fee %">
-                    <input
-                      className="modal-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.paystack_fee_percent ?? 1.95}
-                      onChange={(e) => set('paystack_fee_percent', Number(e.target.value) || 0)}
-                    />
-                  </Field>
-                  <Field label="Paystack flat fee (GHS)">
-                    <input
-                      className="modal-input"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.paystack_fee_flat_ghs ?? 0}
-                      onChange={(e) => set('paystack_fee_flat_ghs', Number(e.target.value) || 0)}
-                    />
-                  </Field>
-                  <Field label="Fee note on receipts">
-                    <input
-                      className="modal-input"
-                      value={form.paystack_fee_note || ''}
-                      onChange={(e) => set('paystack_fee_note', e.target.value)}
-                      placeholder="Optional note for sellers"
-                    />
-                  </Field>
-                </>
-              )}
-            </div>
+          {form.marketplace_enabled && (
+            <p className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 px-4 py-3 text-sm text-muted">
+              Shop registration fees, renewals, Paystack fee policy, promos, and waivers live in{' '}
+              <Link to="/admin/marketplace" className="font-bold text-brand-green hover:underline">
+                Marketplace → Billing &amp; fees
+              </Link>
+              {canManageShopFees ? '' : ' (requires shop billing permissions).'}
+              {' '}This page only controls whether marketplace and applications are on.
+            </p>
           )}
           <ToggleField
             label="Driver logistics module"

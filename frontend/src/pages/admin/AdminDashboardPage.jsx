@@ -11,53 +11,104 @@ import {
 } from '../../hooks/admin';
 import { formatPrice } from '../../lib/currency';
 import { hasAnyPermission, hasPermission, isAdminUser } from '../../lib/permissions';
-import { ADMIN_QUICK_ACTIONS } from '../../components/admin/AdminQuickBar';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminStatCard from '../../components/admin/AdminStatCard';
 import { AdminPageError, AdminPageLoading } from '../../components/admin/AdminFetchState';
 
-/** Shortcut tiles — brand colours; stats cards above cover overlapping routes. */
-const NAV_CARD_META = {
-  '/admin/alerts': { icon: '🔔', hint: 'Order notifications', tone: 'gold' },
-  '/admin/quotes': { icon: '📋', hint: 'Institutional quotes', tone: 'purple' },
-  '/admin/hub-logistics': { icon: '🏭', hint: 'Hub receive & handoff', tone: 'green' },
-  '/admin/delivery-runs': { icon: '🚐', hint: 'Driver runs', tone: 'orange' },
-  '/admin/pickup-stations': { icon: '📍', hint: 'Pickup locations', tone: 'emerald' },
-  '/admin/station-staff': { icon: '📦', hint: 'Station repack team', tone: 'rose' },
-  '/admin/marketplace': { icon: '🏪', hint: 'Shops & listings', tone: 'gold' },
-  '/admin/users': { icon: '👤', hint: 'Customer accounts', tone: 'emerald' },
-  '/admin/reports': { icon: '📈', hint: 'Sales & exports', tone: 'purple' },
-  '/admin/shipping': { icon: '🚚', hint: 'Rates & zones', tone: 'orange' },
-  '/admin/contact-inbox': { icon: '✉️', hint: 'Contact messages', tone: 'rose' },
-  '/admin/career-applications': { icon: '📝', hint: 'Applicants', tone: 'green' },
-  '/admin/company-settings': { icon: '⚙️', hint: 'Company & modules', tone: 'neutral' },
-};
+/** Grouped shortcut tiles — avoid duplicating the stats cards above. */
+const NAV_GROUPS = [
+  {
+    title: 'Sell & fulfil',
+    items: [
+      { to: '/admin/quotes', label: 'Quotes', hint: 'Institutional quotes', icon: '📋', tone: 'purple', permissions: ['view_quotes', 'view_orders'] },
+      { to: '/admin/shipping', label: 'Shipping', hint: 'Rates & zones', icon: '🚚', tone: 'orange', permission: 'manage_shipping' },
+      { to: '/admin/hub-logistics', label: 'Hub logistics', hint: 'Receive & handoff', icon: '🏭', tone: 'green', permissions: ['manage_hub_logistics', 'edit_company_settings'] },
+      { to: '/admin/delivery-runs', label: 'Delivery runs', hint: 'Driver runs', icon: '🚐', tone: 'orange', permissions: ['manage_delivery_runs', 'edit_company_settings'] },
+      { to: '/admin/pickup-stations', label: 'Pickup stations', hint: 'Locations', icon: '📍', tone: 'emerald', permissions: ['manage_pickup_stations', 'edit_company_settings'] },
+    ],
+  },
+  {
+    title: 'Marketplace',
+    items: [
+      { to: '/admin/marketplace', label: 'Marketplace', hint: 'Shops, listings & billing', icon: '🏪', tone: 'gold', permissions: ['manage_marketplace', 'edit_company_settings', 'approve_shop_listings', 'view_shop_billing', 'manage_shop_fees'] },
+      { to: '/admin/trust', label: 'Trust & reports', hint: 'Shop reports & cautions', icon: '🛡️', tone: 'rose', permissions: ['resolve_shop_reports', 'manage_trust_automation', 'issue_user_caution'] },
+    ],
+  },
+  {
+    title: 'Customers & hiring',
+    items: [
+      { to: '/admin/users', label: 'Customers', hint: 'Accounts', icon: '👤', tone: 'emerald', permission: 'view_users' },
+      { to: '/admin/alerts', label: 'Order alerts', hint: 'Needs attention', icon: '🔔', tone: 'gold', permission: 'view_orders', badgeKey: 'alerts' },
+      { to: '/admin/contact-inbox', label: 'Inbox', hint: 'Contact messages', icon: '✉️', tone: 'rose', permissions: ['manage_contact_inbox', 'view_company_settings'], badgeKey: 'inbox' },
+      { to: '/admin/career-applications', label: 'Hiring', hint: 'Applicants', icon: '📝', tone: 'green', permissions: ['manage_careers', 'hire_employees'], badgeKey: 'careers' },
+    ],
+  },
+  {
+    title: 'Insights & settings',
+    items: [
+      { to: '/admin/reports', label: 'Reports', hint: 'Sales & exports', icon: '📈', tone: 'purple', permission: 'view_reports' },
+      { to: '/admin/company-settings', label: 'Company settings', hint: 'Modules & contact', icon: '⚙️', tone: 'neutral', permission: 'view_company_settings' },
+      { to: '/admin/launch-readiness', label: 'Launch readiness', hint: 'Pilot checklist', icon: '🚀', tone: 'gold', superAdminOnly: true },
+    ],
+  },
+];
 
-const STAT_ROUTES = new Set([
-  '/admin/orders',
-  '/admin/products',
-  '/admin/image-alerts',
-  '/admin/staff',
-]);
+function visibleNavItems(user, isSuperAdmin, badges) {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => {
+        if (item.superAdminOnly) return isSuperAdmin;
+        if (item.permissions?.length) return hasAnyPermission(user, item.permissions);
+        if (item.permission) return hasPermission(user, item.permission);
+        return true;
+      })
+      .map((item) => ({
+        ...item,
+        badge: item.badgeKey ? badges[item.badgeKey] ?? 0 : 0,
+      })),
+  })).filter((group) => group.items.length > 0);
+}
 
-function navCardsForUser(user, badges) {
-  return ADMIN_QUICK_ACTIONS.filter((item) => {
-    if (item.to === '/admin/dashboard' || STAT_ROUTES.has(item.to)) return false;
-    if (item.permissions?.length) return hasAnyPermission(user, item.permissions);
-    if (item.permission) return hasPermission(user, item.permission);
-    return true;
-  }).map((item) => {
-    const meta = NAV_CARD_META[item.to] || { icon: '↗', hint: 'Admin section', tone: 'neutral' };
+function launchBanner(launchReady) {
+  if (!launchReady) return null;
+  if (!launchReady.ready) {
     return {
-      key: item.to,
-      to: item.to,
-      label: item.label,
-      icon: meta.icon,
-      change: meta.hint,
-      tone: meta.tone,
-      badge: item.badgeKey ? badges[item.badgeKey] ?? 0 : 0,
+      title: 'P1 pilot — action needed',
+      detail: `${launchReady.summary?.fail ?? 0} blocking check(s) · ${launchReady.stats?.products_active ?? 0} active products`,
     };
-  });
+  }
+  if (launchReady.p2 && !launchReady.p2.ready) {
+    return {
+      title: 'P2 public launch — action needed',
+      detail: `${launchReady.p2.summary?.fail ?? 0} blocking item(s) — legal policies, footer, or SEO files`,
+    };
+  }
+  if (!(launchReady.p3?.ready && launchReady.p4?.ready && launchReady.p5?.ready)) {
+    if (launchReady.p3 && !launchReady.p3.ready) {
+      return {
+        title: 'P3 logistics & marketplace — action needed',
+        detail: `${launchReady.p3.summary?.fail ?? 0} blocking item(s) — pickup, drivers, or marketplace setup`,
+      };
+    }
+    if (launchReady.p4 && !launchReady.p4.ready && launchReady.p4.hr_enabled) {
+      return {
+        title: 'P4 workforce HR — action needed',
+        detail: `${launchReady.p4.summary?.fail ?? 0} blocking item(s) — employee profiles or leave settings`,
+      };
+    }
+    if (launchReady.p5 && !launchReady.p5.ready) {
+      return {
+        title: 'P5 quality & ops — action needed',
+        detail: `${launchReady.p5.summary?.fail ?? 0} blocking item(s) — smoke tests, analytics, or monitoring`,
+      };
+    }
+    return {
+      title: 'Phase 2 — expand operations',
+      detail: 'Enable modules one at a time under Launch readiness',
+    };
+  }
+  return null;
 }
 
 export default function AdminDashboardPage() {
@@ -69,7 +120,6 @@ export default function AdminDashboardPage() {
   const staffQuery = useStaff(isSuperAdmin);
   const { data: inboxUnread = 0 } = useContactInboxCount(true);
   const { data: careersUnread = 0 } = useCareerApplicationsCount(true);
-  const canPilot = isSuperAdmin;
   const { data: launchReady } = useLaunchReadiness(isSuperAdmin);
 
   const alertData = alertsQuery.data;
@@ -87,7 +137,15 @@ export default function AdminDashboardPage() {
     [pendingAlerts, inboxUnread, careersUnread]
   );
 
-  const navCards = useMemo(() => navCardsForUser(user, badges), [user, badges]);
+  const navGroups = useMemo(
+    () => visibleNavItems(user, isSuperAdmin, badges),
+    [user, isSuperAdmin, badges]
+  );
+
+  const banner = useMemo(
+    () => (isSuperAdmin ? launchBanner(launchReady) : null),
+    [isSuperAdmin, launchReady]
+  );
 
   const initialLoading =
     (reportsQuery.isPending && reportData == null)
@@ -99,90 +157,17 @@ export default function AdminDashboardPage() {
     <div>
       <AdminPageHeader
         title={`Welcome back${user?.name ? `, ${user.name.split(' ')[0]}` : ''}`}
-        subtitle="Store overview — monitor alerts, catalogue and team access."
+        subtitle="Overview — stats first, then shortcuts by area."
       />
 
-      {canPilot && launchReady && !launchReady.ready && (
+      {banner && (
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
           <div>
-            <p className="font-bold">P1 pilot — action needed</p>
-            <p className="mt-1 text-sm text-muted">
-              {launchReady.summary?.fail ?? 0} blocking check(s) · {launchReady.stats?.products_active ?? 0} active
-              products
-            </p>
+            <p className="font-bold">{banner.title}</p>
+            <p className="mt-1 text-sm text-muted">{banner.detail}</p>
           </div>
           <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
             Open checklist
-          </Link>
-        </div>
-      )}
-
-      {canPilot && launchReady?.ready && launchReady?.p2 && !launchReady.p2.ready && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
-          <div>
-            <p className="font-bold">P2 public launch — action needed</p>
-            <p className="mt-1 text-sm text-muted">
-              {launchReady.p2.summary?.fail ?? 0} blocking item(s) — legal policies, footer, or SEO files
-            </p>
-          </div>
-          <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
-            Open P2 checklist
-          </Link>
-        </div>
-      )}
-
-      {canPilot && launchReady?.ready && launchReady?.p2?.ready && !(launchReady?.p3?.ready && launchReady?.p4?.ready && launchReady?.p5?.ready) && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
-          <div>
-            <p className="font-bold">Phase 2 — expand operations</p>
-            <p className="mt-1 text-sm text-muted">
-              Enable modules one at a time under Launch readiness → Phase 2
-            </p>
-          </div>
-          <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
-            Open Phase 2
-          </Link>
-        </div>
-      )}
-
-      {canPilot && launchReady?.p2?.ready && launchReady?.p3 && !launchReady.p3.ready && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
-          <div>
-            <p className="font-bold">P3 logistics & marketplace — action needed</p>
-            <p className="mt-1 text-sm text-muted">
-              {launchReady.p3.summary?.fail ?? 0} blocking item(s) — pickup, drivers, or marketplace setup
-            </p>
-          </div>
-          <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
-            Open P3 checklist
-          </Link>
-        </div>
-      )}
-
-      {canPilot && launchReady?.p3?.ready && launchReady?.p4 && !launchReady.p4.ready && launchReady.p4.hr_enabled && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
-          <div>
-            <p className="font-bold">P4 workforce HR — action needed</p>
-            <p className="mt-1 text-sm text-muted">
-              {launchReady.p4.summary?.fail ?? 0} blocking item(s) — employee profiles or leave settings
-            </p>
-          </div>
-          <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
-            Open P4 checklist
-          </Link>
-        </div>
-      )}
-
-      {canPilot && launchReady?.p4?.ready && launchReady?.p5 && !launchReady.p5.ready && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-brand-gold/40 bg-brand-gold/10 px-5 py-4">
-          <div>
-            <p className="font-bold">P5 quality & ops — action needed</p>
-            <p className="mt-1 text-sm text-muted">
-              {launchReady.p5.summary?.fail ?? 0} blocking item(s) — smoke tests, analytics, or monitoring setup
-            </p>
-          </div>
-          <Link to="/admin/launch-readiness" className="btn-primary shrink-0 text-sm">
-            Open P5 checklist
           </Link>
         </div>
       )}
@@ -195,74 +180,92 @@ export default function AdminDashboardPage() {
           detail={reportsQuery.error?.response?.data?.message}
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <AdminStatCard
-            to="/admin/image-alerts"
-            label="Pending image alerts"
-            value={pendingAlerts}
-            change={pendingAlerts > 0 ? 'Needs review' : 'All clear'}
-            icon="🖼️"
-            tone={pendingAlerts > 0 ? 'gold' : 'green'}
-            badge={pendingAlerts}
-          />
-          <AdminStatCard
-            to="/admin/orders"
-            label="Total orders"
-            value={orderTotal}
-            change={revenue != null ? `Revenue ${formatPrice(revenue)}` : undefined}
-            icon="📦"
-            tone="orange"
-          />
-          <AdminStatCard
-            to="/admin/products"
-            label="Products in catalogue"
-            value={productTotal}
-            change="Active on storefront"
-            icon="🏷️"
-            tone="emerald"
-          />
-          {isSuperAdmin && (
-            <AdminStatCard
-              to="/admin/staff"
-              label="Staff accounts"
-              value={staffQuery.isError ? '—' : staffCount}
-              change={staffQuery.isError ? 'Could not load staff' : 'With delegated access'}
-              icon="👥"
-              tone="purple"
-            />
-          )}
-          <AdminStatCard
-            to={isSuperAdmin ? '/admin/position-permissions' : '/admin/company-settings'}
-            label="Your role"
-            value={isSuperAdmin ? 'Super Admin' : 'Staff'}
-            change="RBAC permissions active"
-            icon="🔐"
-            tone="green"
-          />
+        <>
+          <section className="mb-8">
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">Today</h2>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <AdminStatCard
+                to="/admin/image-alerts"
+                label="Pending image alerts"
+                value={pendingAlerts}
+                change={pendingAlerts > 0 ? 'Needs review' : 'All clear'}
+                icon="🖼️"
+                tone={pendingAlerts > 0 ? 'gold' : 'green'}
+                badge={pendingAlerts}
+              />
+              <AdminStatCard
+                to="/admin/orders"
+                label="Total orders"
+                value={orderTotal}
+                change={revenue != null ? `Revenue ${formatPrice(revenue)}` : undefined}
+                icon="📦"
+                tone="orange"
+              />
+              <AdminStatCard
+                to="/admin/products"
+                label="Products in catalogue"
+                value={productTotal}
+                change="Active on storefront"
+                icon="🏷️"
+                tone="emerald"
+              />
+              {isSuperAdmin ? (
+                <AdminStatCard
+                  to="/admin/staff"
+                  label="Staff accounts"
+                  value={staffQuery.isError ? '—' : staffCount}
+                  change={staffQuery.isError ? 'Could not load staff' : 'With delegated access'}
+                  icon="👥"
+                  tone="purple"
+                />
+              ) : (
+                <AdminStatCard
+                  to="/admin/company-settings"
+                  label="Your role"
+                  value="Staff"
+                  change="RBAC permissions active"
+                  icon="🔐"
+                  tone="green"
+                />
+              )}
+            </div>
+          </section>
 
-          {navCards.map((card) => (
-            <AdminStatCard
-              key={card.key}
-              to={card.to}
-              label={card.label}
-              change={card.change}
-              icon={card.icon}
-              tone={card.tone}
-              variant="nav"
-              badge={card.badge}
-            />
+          {navGroups.map((group) => (
+            <section key={group.title} className="mb-8">
+              <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">{group.title}</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {group.items.map((card) => (
+                  <AdminStatCard
+                    key={card.to}
+                    to={card.to}
+                    label={card.label}
+                    change={card.hint}
+                    icon={card.icon}
+                    tone={card.tone}
+                    variant="nav"
+                    badge={card.badge}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
 
-          <AdminStatCard
-            to="/"
-            label="Storefront"
-            change="View customer site"
-            icon="🛒"
-            tone="emerald"
-            variant="nav"
-            external
-          />
-        </div>
+          <section>
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">Storefront</h2>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <AdminStatCard
+                to="/"
+                label="View customer site"
+                change="Open storefront"
+                icon="🛒"
+                tone="emerald"
+                variant="nav"
+                external
+              />
+            </div>
+          </section>
+        </>
       )}
 
       {!isAdminUser(user) && null}

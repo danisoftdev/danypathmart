@@ -32,21 +32,23 @@ import { useAuthStore } from '../../store/authStore';
 import { hasAnyPermission, hasPermission } from '../../lib/permissions';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
+import PromptDialog from '../../components/admin/PromptDialog';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import { formatPrice } from '../../lib/currency';
 import CopyableText from '../../components/ui/CopyableText';
 import { resolveProductImageUrl } from '../../lib/productImages';
 import { ShopsMap } from '../StoresPage';
 
+/** Ops first, then compliance, then money. */
 const TABS = [
   { id: 'applications', label: 'Applications', perm: 'ops' },
   { id: 'shops', label: 'Shops', perm: 'ops' },
-  { id: 'policy', label: 'Policy acceptances', perm: 'policy' },
-  { id: 'map', label: 'Map', perm: 'map' },
-  { id: 'promoters', label: 'Promoters', perm: 'ops' },
   { id: 'listings', label: 'Listings', perm: 'ops' },
+  { id: 'promoters', label: 'Promoters', perm: 'ops' },
   { id: 'withdrawals', label: 'Withdrawals', perm: 'ops' },
-  { id: 'billing', label: 'Billing', perm: 'billing' },
+  { id: 'billing', label: 'Billing & fees', perm: 'billing' },
+  { id: 'policy', label: 'Policy log', perm: 'policy' },
+  { id: 'map', label: 'Map', perm: 'map' },
 ];
 
 const EMPTY_SHOP_FORM = {
@@ -322,6 +324,7 @@ export default function AdminMarketplacePage() {
   const [preapproveForm, setPreapproveForm] = useState(EMPTY_PREAPPROVE_FORM);
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [inviteResult, setInviteResult] = useState(null);
+  const [shopToDelete, setShopToDelete] = useState(null);
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
   const { data: shops = [], isLoading: shopsLoading } = useAdminShops(
@@ -476,15 +479,12 @@ export default function AdminMarketplacePage() {
     }
   };
 
-  const handleDeleteShop = async (shop) => {
-    const ok = window.confirm(
-      `Delete "${shop.name}" permanently?\n\nThis removes the shop dashboard, members, and storefront. Products are unlinked (not sold as that shop anymore). Billing history is kept without the shop link.\n\nThis cannot be undone.`
-    );
-    if (!ok) return;
-    const typed = window.prompt(`Type the shop name exactly to confirm:\n${shop.name}`);
-    if (typed == null) return;
+  const handleDeleteShopConfirm = async (typedName) => {
+    if (!shopToDelete) return;
+    const shop = shopToDelete;
     try {
-      await deleteShop.mutateAsync({ id: shop.id, confirm_name: typed.trim() });
+      await deleteShop.mutateAsync({ id: shop.id, confirm_name: typedName });
+      setShopToDelete(null);
       showAlert(`Shop "${shop.name}" deleted.`);
     } catch (e) {
       showAlert(e.response?.data?.message || 'Could not delete shop.', 'error');
@@ -556,14 +556,6 @@ export default function AdminMarketplacePage() {
       />
 
       {alert && <AdminPageAlert type={alertType} message={alert} onDismiss={() => setAlert('')} />}
-
-      {canViewBilling && tab === 'billing' && canManageFees && (
-        <p className="mb-4 text-sm text-muted">
-          Toggle and fee amounts can also be edited under{' '}
-          <Link to="/admin/company-settings" className="font-bold text-brand-green hover:underline">Company settings → Marketplace</Link>
-          {' '}when you have <strong>manage_shop_fees</strong>.
-        </p>
-      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {visibleTabs.map((t) => (
@@ -714,7 +706,7 @@ export default function AdminMarketplacePage() {
                               type="button"
                               className="px-2 py-1 text-xs font-bold text-brand-red hover:underline disabled:opacity-50"
                               disabled={deleteShop.isPending}
-                              onClick={() => handleDeleteShop(shop)}
+                              onClick={() => setShopToDelete(shop)}
                             >
                               Delete
                             </button>
@@ -1679,6 +1671,23 @@ export default function AdminMarketplacePage() {
           </form>
         </div>
       )}
+
+      <PromptDialog
+        open={!!shopToDelete}
+        onClose={() => !deleteShop.isPending && setShopToDelete(null)}
+        onSubmit={handleDeleteShopConfirm}
+        title="Delete shop permanently"
+        description={
+          shopToDelete
+            ? `This removes "${shopToDelete.name}" — shop dashboard, members, and storefront. Products are unlinked (not deleted). Billing history is kept without the shop link.\n\nThis cannot be undone.`
+            : ''
+        }
+        label={`Type the shop name exactly to confirm`}
+        expectedValue={shopToDelete?.name ?? null}
+        submitLabel="Delete shop"
+        loading={deleteShop.isPending}
+        variant="danger"
+      />
     </div>
   );
 }

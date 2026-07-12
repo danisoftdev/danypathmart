@@ -24,16 +24,22 @@ const NAV_GROUPS = [
     id: 'orders',
     label: 'Orders & sales',
     items: [
-      { to: '/admin/alerts', label: 'Alerts', permission: 'view_orders', icon: '🔔', badge: 'notify' },
       { to: '/admin/orders', label: 'Orders', permission: 'view_orders', icon: '📦' },
+      { to: '/admin/alerts', label: 'Order alerts', permission: 'view_orders', icon: '🔔', badge: 'notify' },
       { to: '/admin/quotes', label: 'Quotes', permissions: ['view_quotes', 'view_orders'], icon: '📋' },
-      { to: '/pos', label: 'POS register', permission: 'use_pos', icon: '🧾' },
-      { to: '/admin/pos', label: 'POS setup', permissions: ['manage_pos_config', 'edit_company_settings'], icon: '🖥️' },
-      { to: '/admin/pos/labels', label: 'POS labels', permissions: ['manage_pos_config', 'edit_company_settings'], icon: '🏷️' },
-      { to: '/admin/pos/shifts', label: 'POS shifts', permission: 'manage_pos_shifts', icon: '💰' },
-      { to: '/admin/pos/reports', label: 'POS reports', permission: 'view_pos_reports', icon: '📊' },
       { to: '/admin/custom-proofs', label: 'Custom proofs', permission: 'view_orders', icon: '🎨' },
       { to: '/admin/image-alerts', label: 'Image alerts', permission: 'view_image_alerts', icon: '🖼️', badge: 'alerts' },
+    ],
+  },
+  {
+    id: 'pos',
+    label: 'POS',
+    items: [
+      { to: '/pos', label: 'Register', permission: 'use_pos', icon: '🧾' },
+      { to: '/admin/pos', label: 'Setup', permissions: ['manage_pos_config', 'edit_company_settings'], icon: '🖥️' },
+      { to: '/admin/pos/labels', label: 'Labels', permissions: ['manage_pos_config', 'edit_company_settings'], icon: '🏷️' },
+      { to: '/admin/pos/shifts', label: 'Shifts', permission: 'manage_pos_shifts', icon: '💰' },
+      { to: '/admin/pos/reports', label: 'Reports', permission: 'view_pos_reports', icon: '📊' },
     ],
   },
   {
@@ -48,10 +54,10 @@ const NAV_GROUPS = [
   },
   {
     id: 'customers',
-    label: 'Customers',
+    label: 'Customers & support',
     items: [
       { to: '/admin/users', label: 'Customers', permission: 'view_users', icon: '👤' },
-      { to: '/admin/notifications', label: 'Notifications', permission: 'view_users', icon: '🔔' },
+      { to: '/admin/notifications', label: 'Broadcasts', permission: 'view_users', icon: '📣' },
       { to: '/admin/contact-inbox', label: 'Inbox', permissions: ['manage_contact_inbox', 'view_company_settings'], icon: '✉️', badge: 'inbox' },
       { to: '/admin/support-chat', label: 'Live chat', permissions: ['manage_contact_inbox', 'view_company_settings'], icon: '💬', badge: 'supportChat' },
     ],
@@ -71,8 +77,8 @@ const NAV_GROUPS = [
     id: 'marketplace',
     label: 'Marketplace',
     items: [
+      { to: '/admin/marketplace', label: 'Shops & billing', permissions: ['manage_marketplace', 'edit_company_settings', 'approve_shop_listings', 'view_shop_billing', 'manage_shop_fees', 'manage_shop_registration_promo', 'manage_referral_registration_discount', 'waive_shop_fees'], icon: '🏪' },
       { to: '/admin/trust', label: 'Trust & reports', permissions: ['resolve_shop_reports', 'manage_trust_automation', 'issue_user_caution'], icon: '🛡️' },
-      { to: '/admin/marketplace', label: 'Marketplace', permissions: ['manage_marketplace', 'edit_company_settings', 'approve_shop_listings', 'view_shop_billing', 'manage_shop_fees', 'manage_shop_registration_promo', 'manage_referral_registration_discount', 'waive_shop_fees'], icon: '🏪' },
     ],
   },
   {
@@ -87,11 +93,11 @@ const NAV_GROUPS = [
     id: 'people',
     label: 'People & HR',
     items: [
-      { to: '/admin/staff', label: 'Staff', permissions: ['manage_staff'], icon: '👥' },
+      { to: '/admin/staff', label: 'Staff accounts', permissions: ['manage_staff'], icon: '👥' },
       { to: '/admin/employees', label: 'Employees', permissions: ['view_employees', 'manage_employee_profiles', 'manage_staff'], icon: '🪪' },
       { to: '/admin/leave-requests', label: 'Leave requests', permissions: ['view_leave_requests', 'manage_leave_requests'], icon: '🏖️' },
       { to: '/admin/job-posts', label: 'Job posts', permissions: ['manage_careers', 'view_company_settings'], icon: '💼' },
-      { to: '/admin/career-applications', label: 'Applications', permissions: ['manage_careers', 'view_company_settings', 'hire_employees'], icon: '📝', badge: 'careers' },
+      { to: '/admin/career-applications', label: 'Job applications', permissions: ['manage_careers', 'view_company_settings', 'hire_employees'], icon: '📝', badge: 'careers' },
       { to: '/admin/position-permissions', label: 'Position access', permissions: ['manage_staff', 'manage_position_permissions'], icon: '🔐' },
     ],
   },
@@ -407,8 +413,9 @@ export default function AdminLayout() {
               <span className="truncate text-xs font-semibold">{currentLabel}</span>
             </div>
           </div>
+          {/* Quick bar is mobile-only — desktop already has the sidebar. */}
           {!isDashboard && (
-            <div className="admin-topbar-row">
+            <div className="admin-topbar-row lg:hidden">
               <AdminQuickBar
                 user={user}
                 badges={{

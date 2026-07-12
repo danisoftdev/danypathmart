@@ -5,6 +5,7 @@ import { useApplyPilotPreset, useEnableModule } from '../../hooks/pilot';
 import { useAuthStore } from '../../store/authStore';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminStatCard from '../../components/admin/AdminStatCard';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { AdminPageError, AdminPageLoading } from '../../components/admin/AdminFetchState';
 
 const MANUAL_P1_KEY = 'dpm_p1_manual_checks_v1';
@@ -169,26 +170,24 @@ export default function AdminLaunchReadinessPage() {
   const [pilotMsg, setPilotMsg] = useState('');
   const [growthMsg, setGrowthMsg] = useState('');
   const [enablingId, setEnablingId] = useState(null);
+  const [pilotConfirmOpen, setPilotConfirmOpen] = useState(false);
+  const [moduleToEnable, setModuleToEnable] = useState(null);
 
   const applyPilotPreset = useCallback(async () => {
-    if (!window.confirm('Turn off logistics, marketplace, HR, and analytics toggles? Core store checkout stays on.')) {
-      return;
-    }
     try {
       const res = await pilotPreset.mutateAsync();
       setPilotMsg(res.message || 'Pilot preset applied.');
+      setPilotConfirmOpen(false);
       refetch();
     } catch (e) {
       setPilotMsg(e?.response?.data?.message || 'Could not apply pilot preset.');
+      setPilotConfirmOpen(false);
     }
   }, [pilotPreset, refetch]);
 
   const handleEnableModule = useCallback(
     async (moduleId) => {
       const label = data?.module_rollout?.modules?.find((m) => m.id === moduleId)?.label ?? moduleId;
-      if (!window.confirm(`Enable ${label}? Complete admin setup and smoke tests before customers use it.`)) {
-        return;
-      }
       setEnablingId(moduleId);
       setGrowthMsg('');
       try {
@@ -199,6 +198,7 @@ export default function AdminLaunchReadinessPage() {
         setGrowthMsg(e?.response?.data?.message || `Could not enable ${label}.`);
       } finally {
         setEnablingId(null);
+        setModuleToEnable(null);
       }
     },
     [enableModule, refetch, data?.module_rollout?.modules]
@@ -273,7 +273,7 @@ export default function AdminLaunchReadinessPage() {
               type="button"
               className="btn-primary shrink-0 text-sm"
               disabled={pilotPreset.isPending}
-              onClick={applyPilotPreset}
+              onClick={() => setPilotConfirmOpen(true)}
             >
               {pilotPreset.isPending ? 'Applying…' : 'Apply pilot preset'}
             </button>
@@ -366,7 +366,7 @@ php backend/scripts/p5-smoke-test.php`}
                 module={mod}
                 canEdit={canEditSettings && phase1Complete}
                 enabling={enablingId === mod.id}
-                onEnable={handleEnableModule}
+                onEnable={setModuleToEnable}
               />
             </li>
           ))}
@@ -571,6 +571,30 @@ php backend/scripts/launch-readiness-cli.php`}
           Paid orders: <strong>{data?.stats?.orders_paid ?? '—'}</strong>
         </p>
       </section>
+
+      <ConfirmDialog
+        open={pilotConfirmOpen}
+        onClose={() => !pilotPreset.isPending && setPilotConfirmOpen(false)}
+        onConfirm={applyPilotPreset}
+        title="Apply pilot preset?"
+        message="Turn off logistics, marketplace, HR, and analytics toggles? Core store checkout stays on."
+        confirmLabel="Apply preset"
+        variant="primary"
+        loading={pilotPreset.isPending}
+      />
+
+      <ConfirmDialog
+        open={moduleToEnable != null}
+        onClose={() => !enablingId && setModuleToEnable(null)}
+        onConfirm={() => moduleToEnable && handleEnableModule(moduleToEnable)}
+        title="Enable module?"
+        message={`Enable ${
+          data?.module_rollout?.modules?.find((m) => m.id === moduleToEnable)?.label ?? moduleToEnable ?? 'this module'
+        }? Complete admin setup and smoke tests before customers use it.`}
+        confirmLabel="Enable"
+        variant="primary"
+        loading={!!enablingId}
+      />
     </div>
   );
 }
