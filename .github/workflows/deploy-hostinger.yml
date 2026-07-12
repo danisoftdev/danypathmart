@@ -184,7 +184,11 @@ jobs:
 
       - name: Deploy frontend (dist)
         run: |
+          # --delete cleans stale SPA assets only. Never wipe api/ (holds .env + uploads)
+          # or database/ — those are deployed in later steps and must survive deploys.
           rsync -avz --delete \
+            --exclude 'api/' \
+            --exclude 'database/' \
             -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new" \
             frontend/dist/ "${REMOTE}:${WEB_ROOT}/"
 

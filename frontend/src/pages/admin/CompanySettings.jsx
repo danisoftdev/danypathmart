@@ -80,7 +80,15 @@ const TABS = [
 ];
 
 /** Read-only API fields — do not send back on save. */
-const READ_ONLY_KEYS = new Set(['vision_api_configured', 'id', 'updated_at', 'updated_by', 'weekly_orders_export_last_sent']);
+const READ_ONLY_KEYS = new Set([
+  'vision_api_configured',
+  'id',
+  'updated_at',
+  'updated_by',
+  'weekly_orders_export_last_sent',
+  'has_map_pin',
+  'directions_url',
+]);
 
 function ToggleField({ label, hint, checked, onChange, disabled }) {
   return (
@@ -289,9 +297,9 @@ export default function CompanySettings() {
             <LocationMapPicker
               latitude={form.latitude}
               longitude={form.longitude}
-              onChange={({ latitude, longitude }) =>
-                setForm((f) => ({ ...f, latitude, longitude }))
-              }
+              onChange={({ latitude, longitude }) => {
+                setDraft((prev) => ({ ...(prev ?? form), latitude, longitude }));
+              }}
               height={260}
             />
           </Field>

@@ -22,6 +22,10 @@ import {
   useUpdateReferralRegistrationDiscount,
   useWaiveShopApplicationFee,
   useWaiveShopRenewal,
+  useCreateAdminShop,
+  usePreapproveShopApplication,
+  useCreateShopInvite,
+  useShopPolicyAcceptances,
 } from '../../hooks/admin';
 import { useAuthStore } from '../../store/authStore';
 import { hasAnyPermission, hasPermission } from '../../lib/permissions';
@@ -31,15 +35,50 @@ import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import { formatPrice } from '../../lib/currency';
 import CopyableText from '../../components/ui/CopyableText';
 import { resolveProductImageUrl } from '../../lib/productImages';
+import { ShopsMap } from '../StoresPage';
 
 const TABS = [
   { id: 'applications', label: 'Applications', perm: 'ops' },
   { id: 'shops', label: 'Shops', perm: 'ops' },
+  { id: 'policy', label: 'Policy acceptances', perm: 'policy' },
+  { id: 'map', label: 'Map', perm: 'map' },
   { id: 'promoters', label: 'Promoters', perm: 'ops' },
   { id: 'listings', label: 'Listings', perm: 'ops' },
   { id: 'withdrawals', label: 'Withdrawals', perm: 'ops' },
   { id: 'billing', label: 'Billing', perm: 'billing' },
 ];
+
+const EMPTY_SHOP_FORM = {
+  name: '',
+  email: '',
+  phone: '',
+  customer_service_phone: '',
+  city: '',
+  owner_user_id: '',
+  latitude: '',
+  longitude: '',
+};
+
+const EMPTY_PREAPPROVE_FORM = {
+  business_name: '',
+  contact_name: '',
+  email: '',
+  phone: '',
+  customer_service_phone: '',
+  city: '',
+  owner_user_id: '',
+  auto_approve: false,
+  admin_note: '',
+};
+
+const EMPTY_INVITE_FORM = {
+  email: '',
+  business_name: '',
+  contact_name: '',
+  phone: '',
+  city: '',
+  note: '',
+};
 
 const LISTING_FILTERS = [
   { value: 'pending', label: 'Pending' },
@@ -128,7 +167,29 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
           <div><dt className="text-xs font-bold uppercase text-muted">Contact</dt><dd>{app.contact_name}</dd></div>
           <div><dt className="text-xs font-bold uppercase text-muted">Email</dt><dd><CopyableText value={app.email} className="text-brand-green" /></dd></div>
           <div><dt className="text-xs font-bold uppercase text-muted">Phone</dt><dd>{app.phone}</dd></div>
+          {app.customer_service_phone && (
+            <div><dt className="text-xs font-bold uppercase text-muted">Customer service</dt><dd>{app.customer_service_phone}</dd></div>
+          )}
           <div><dt className="text-xs font-bold uppercase text-muted">City</dt><dd>{app.city}</dd></div>
+          {(app.accepted_policies_at || app.accepted_terms) && (
+            <div className="rounded-xl border border-black/8 p-3 dark:border-white/10">
+              <p className="text-xs font-bold uppercase text-muted">Policy acceptance</p>
+              <p className="mt-1 text-sm">
+                {app.accepted_terms ? 'Terms' : ''}
+                {app.accepted_privacy ? ' · Privacy' : ''}
+                {app.accepted_seller_policy ? ' · Seller policy' : ''}
+              </p>
+              {app.accepted_policies_at && (
+                <p className="mt-1 text-xs text-muted">{formatWhen(app.accepted_policies_at)}</p>
+              )}
+              {app.accepted_policy_slugs && (
+                <p className="mt-1 text-xs text-muted">{app.accepted_policy_slugs}</p>
+              )}
+            </div>
+          )}
+          {app.source && app.source !== 'public' && (
+            <div><dt className="text-xs font-bold uppercase text-muted">Source</dt><dd>{app.source}</dd></div>
+          )}
           {app.description && (
             <div><dt className="text-xs font-bold uppercase text-muted">About</dt><dd className="whitespace-pre-wrap">{app.description}</dd></div>
           )}
@@ -218,23 +279,55 @@ export default function AdminMarketplacePage() {
   const canManagePromo = hasPermission(user, 'manage_shop_registration_promo');
   const canManageReferralDiscount = hasPermission(user, 'manage_referral_registration_discount');
   const canWaiveFees = hasPermission(user, 'waive_shop_fees');
-  const canOps = hasAnyPermission(user, ['manage_marketplace', 'approve_shop_applications', 'edit_company_settings', 'manage_promoters']);
+  const canOps = hasAnyPermission(user, [
+    'manage_marketplace',
+    'approve_shop_applications',
+    'edit_company_settings',
+    'manage_promoters',
+    'create_shop_manual',
+    'create_shop_preapproved',
+    'invite_shop_owner',
+    'view_shop_policy_acceptances',
+    'view_shops_map',
+  ]);
   const canManagePromoters = hasAnyPermission(user, ['manage_promoters', 'edit_company_settings']);
+  const canCreateManual = hasPermission(user, 'create_shop_manual');
+  const canPreapprove = hasPermission(user, 'create_shop_preapproved');
+  const canInvite = hasPermission(user, 'invite_shop_owner');
+  const canViewPolicy = hasAnyPermission(user, ['view_shop_policy_acceptances', 'manage_marketplace']);
+  const canViewMap = hasAnyPermission(user, ['view_shops_map', 'manage_marketplace']);
   const canAccess = canOps || canViewBilling;
   const canReviewListings = hasAnyPermission(user, ['manage_marketplace', 'approve_shop_listings', 'add_edit_products']);
 
-  const visibleTabs = TABS.filter((t) => (t.perm === 'billing' ? canViewBilling : canOps));
+  const visibleTabs = TABS.filter((t) => {
+    if (t.perm === 'billing') return canViewBilling;
+    if (t.perm === 'policy') return canViewPolicy;
+    if (t.perm === 'map') return canViewMap;
+    return canOps;
+  });
 
-  const [tab, setTab] = useState(() => (canOps ? 'applications' : 'billing'));
+  const [tab, setTab] = useState(() => (canOps ? 'applications' : canViewPolicy ? 'policy' : canViewMap ? 'map' : 'billing'));
   const [listingFilter, setListingFilter] = useState('pending');
   const [withdrawFilter, setWithdrawFilter] = useState('requested');
   const [withdrawKind, setWithdrawKind] = useState('shop');
   const [selectedApp, setSelectedApp] = useState(null);
   const [alert, setAlert] = useState('');
   const [alertType, setAlertType] = useState('success');
+  const [showCreateShop, setShowCreateShop] = useState(false);
+  const [showPreapprove, setShowPreapprove] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [shopForm, setShopForm] = useState(EMPTY_SHOP_FORM);
+  const [preapproveForm, setPreapproveForm] = useState(EMPTY_PREAPPROVE_FORM);
+  const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
+  const [inviteResult, setInviteResult] = useState(null);
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
-  const { data: shops = [], isLoading: shopsLoading } = useAdminShops(canAccess && tab === 'shops');
+  const { data: shops = [], isLoading: shopsLoading } = useAdminShops(
+    canAccess && (tab === 'shops' || tab === 'map')
+  );
+  const { data: policyApps = [], isLoading: policyLoading } = useShopPolicyAcceptances(
+    canAccess && tab === 'policy' && canViewPolicy
+  );
   const { data: listings = [], isLoading: listingsLoading } = useMarketplaceListings(
     listingFilter,
     canAccess && tab === 'listings' && canReviewListings
@@ -255,6 +348,9 @@ export default function AdminMarketplacePage() {
   const approveApp = useApproveShopApplication();
   const rejectApp = useRejectShopApplication();
   const updateShop = useUpdateAdminShop();
+  const createShop = useCreateAdminShop();
+  const preapproveApp = usePreapproveShopApplication();
+  const createInvite = useCreateShopInvite();
   const reviewListing = useReviewMarketplaceListing();
   const moderateBadge = useModerateListingBadge();
   const processWithdrawal = useProcessShopWithdrawal();
@@ -377,6 +473,63 @@ export default function AdminMarketplacePage() {
     }
   };
 
+  const handleCreateShop = async (e) => {
+    e.preventDefault();
+    try {
+      await createShop.mutateAsync({
+        name: shopForm.name,
+        contact_email: shopForm.email,
+        contact_phone: shopForm.phone || undefined,
+        customer_service_phone: shopForm.customer_service_phone || undefined,
+        city: shopForm.city,
+        owner_user_id: shopForm.owner_user_id ? Number(shopForm.owner_user_id) : undefined,
+        latitude: shopForm.latitude !== '' ? Number(shopForm.latitude) : undefined,
+        longitude: shopForm.longitude !== '' ? Number(shopForm.longitude) : undefined,
+        status: 'active',
+        is_published: true,
+      });
+      showAlert('Shop created.');
+      setShowCreateShop(false);
+      setShopForm(EMPTY_SHOP_FORM);
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Could not create shop.', 'error');
+    }
+  };
+
+  const handlePreapprove = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await preapproveApp.mutateAsync({
+        business_name: preapproveForm.business_name,
+        contact_name: preapproveForm.contact_name,
+        email: preapproveForm.email,
+        phone: preapproveForm.phone,
+        customer_service_phone: preapproveForm.customer_service_phone || preapproveForm.phone,
+        city: preapproveForm.city,
+        owner_user_id: preapproveForm.owner_user_id ? Number(preapproveForm.owner_user_id) : undefined,
+        auto_approve: preapproveForm.auto_approve,
+        admin_note: preapproveForm.admin_note || undefined,
+      });
+      showAlert(res.shop ? 'Pre-approved and shop created.' : 'Pre-approved application created.');
+      setShowPreapprove(false);
+      setPreapproveForm(EMPTY_PREAPPROVE_FORM);
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Could not create pre-approved application.', 'error');
+    }
+  };
+
+  const handleInvite = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await createInvite.mutateAsync(inviteForm);
+      setInviteResult(res.invite_path || res.invite?.invite_path || null);
+      showAlert('Invite created.');
+      setInviteForm(EMPTY_INVITE_FORM);
+    } catch (err) {
+      showAlert(err.response?.data?.message || 'Could not create invite.', 'error');
+    }
+  };
+
   return (
     <div>
       <AdminPageHeader
@@ -452,10 +605,37 @@ export default function AdminMarketplacePage() {
 
       {tab === 'shops' && (
         <>
+          {(canCreateManual || canPreapprove || canInvite) && (
+            <div className="mb-4 flex flex-wrap gap-2">
+              {canCreateManual && (
+                <button type="button" className="btn-primary px-3 py-2 text-sm" onClick={() => setShowCreateShop(true)}>
+                  Create shop
+                </button>
+              )}
+              {canPreapprove && (
+                <button
+                  type="button"
+                  className="rounded-xl border border-brand-green px-3 py-2 text-sm font-bold text-brand-green"
+                  onClick={() => setShowPreapprove(true)}
+                >
+                  Create pre-approved application
+                </button>
+              )}
+              {canInvite && (
+                <button
+                  type="button"
+                  className="rounded-xl border border-brand-gold px-3 py-2 text-sm font-bold text-brand-gold"
+                  onClick={() => { setInviteResult(null); setShowInvite(true); }}
+                >
+                  Invite shop owner
+                </button>
+              )}
+            </div>
+          )}
           {shopsLoading ? (
             <AdminTableSkeleton rows={5} cols={6} />
           ) : shops.length === 0 ? (
-            <p className="text-sm text-muted">No shops yet. Approve an application to create one.</p>
+            <p className="text-sm text-muted">No shops yet. Approve an application or create one above.</p>
           ) : (
             <div className="admin-panel overflow-x-auto">
               <table className="admin-table w-full min-w-[720px] text-sm">
@@ -496,6 +676,9 @@ export default function AdminMarketplacePage() {
                       <td className="text-xs">
                         <div>{shop.contact_email}</div>
                         <div className="text-muted">{shop.contact_phone}</div>
+                        {shop.customer_service_phone && (
+                          <div className="text-muted">CS: {shop.customer_service_phone}</div>
+                        )}
                       </td>
                       <td>{shop.commission_percent ?? '—'}%</td>
                       <td><StatusBadge status={shop.status} /></td>
@@ -515,6 +698,66 @@ export default function AdminMarketplacePage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </>
+      )}
+
+      {tab === 'policy' && (
+        <>
+          {!canViewPolicy ? (
+            <p className="text-sm text-muted">You do not have permission to view policy acceptances.</p>
+          ) : policyLoading ? (
+            <AdminTableSkeleton rows={5} cols={5} />
+          ) : policyApps.length === 0 ? (
+            <p className="text-sm text-muted">No policy acceptances recorded yet.</p>
+          ) : (
+            <div className="admin-panel overflow-x-auto">
+              <table className="admin-table w-full min-w-[720px] text-sm">
+                <thead>
+                  <tr>
+                    <th>Business</th>
+                    <th>Contact</th>
+                    <th>Accepted</th>
+                    <th>Slugs</th>
+                    <th>When</th>
+                    <th>IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {policyApps.map((app) => (
+                    <tr key={app.id} className="cursor-pointer hover:bg-black/3 dark:hover:bg-white/5" onClick={() => setSelectedApp(app)}>
+                      <td className="font-semibold">{app.business_name}</td>
+                      <td>
+                        <div>{app.contact_name}</div>
+                        <div className="text-xs text-muted">{app.email}</div>
+                      </td>
+                      <td className="text-xs">
+                        {[
+                          app.accepted_terms && 'Terms',
+                          app.accepted_privacy && 'Privacy',
+                          app.accepted_seller_policy && 'Seller',
+                        ].filter(Boolean).join(' · ') || '—'}
+                      </td>
+                      <td className="text-xs text-muted">{app.accepted_policy_slugs || '—'}</td>
+                      <td className="text-xs text-muted">{formatWhen(app.accepted_policies_at || app.created_at)}</td>
+                      <td className="text-xs text-muted">{app.policies_accepted_ip || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'map' && (
+        <>
+          {!canViewMap ? (
+            <p className="text-sm text-muted">You do not have permission to view the shops map.</p>
+          ) : shopsLoading ? (
+            <AdminTableSkeleton rows={3} cols={3} />
+          ) : (
+            <ShopsMap shops={shops} />
           )}
         </>
       )}
@@ -1166,6 +1409,165 @@ export default function AdminMarketplacePage() {
           canWaive={canWaiveFees}
           loading={approveApp.isPending || rejectApp.isPending || waiveAppFee.isPending}
         />
+      )}
+
+      {showCreateShop && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !createShop.isPending && setShowCreateShop(false)}>
+          <form
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 dark:bg-[#1E1E1E]"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleCreateShop}
+          >
+            <h3 className="text-lg font-extrabold">Create shop</h3>
+            <p className="mt-1 text-xs text-muted">Direct create — requires create_shop_manual.</p>
+            <div className="mt-4 space-y-3">
+              {[
+                ['name', 'Shop name *', true],
+                ['email', 'Email *', true],
+                ['phone', 'Phone', false],
+                ['customer_service_phone', 'Customer service / WhatsApp', false],
+                ['city', 'City *', true],
+                ['owner_user_id', 'Owner user ID (optional)', false],
+                ['latitude', 'Latitude (optional)', false],
+                ['longitude', 'Longitude (optional)', false],
+              ].map(([key, label, required]) => (
+                <label key={key} className="block text-sm">
+                  <span className="mb-1 block font-semibold">{label}</span>
+                  <input
+                    className="input-field w-full"
+                    type={key === 'email' ? 'email' : 'text'}
+                    value={shopForm[key]}
+                    onChange={(e) => setShopForm((f) => ({ ...f, [key]: e.target.value }))}
+                    required={required}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={createShop.isPending}>
+                {createShop.isPending ? 'Creating…' : 'Create'}
+              </button>
+              <button type="button" className="btn-ghost px-4 py-2 text-sm" onClick={() => setShowCreateShop(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showPreapprove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !preapproveApp.isPending && setShowPreapprove(false)}>
+          <form
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 dark:bg-[#1E1E1E]"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handlePreapprove}
+          >
+            <h3 className="text-lg font-extrabold">Create pre-approved application</h3>
+            <p className="mt-1 text-xs text-muted">Policy acceptance will be recorded as admin-attested.</p>
+            <div className="mt-4 space-y-3">
+              {[
+                ['business_name', 'Business name *', true],
+                ['contact_name', 'Contact name *', true],
+                ['email', 'Email *', true],
+                ['phone', 'Phone *', true],
+                ['customer_service_phone', 'Customer service / WhatsApp', false],
+                ['city', 'City *', true],
+                ['owner_user_id', 'Owner user ID (optional)', false],
+              ].map(([key, label, required]) => (
+                <label key={key} className="block text-sm">
+                  <span className="mb-1 block font-semibold">{label}</span>
+                  <input
+                    className="input-field w-full"
+                    type={key === 'email' ? 'email' : 'text'}
+                    value={preapproveForm[key]}
+                    onChange={(e) => setPreapproveForm((f) => ({ ...f, [key]: e.target.value }))}
+                    required={required}
+                  />
+                </label>
+              ))}
+              <label className="block text-sm">
+                <span className="mb-1 block font-semibold">Admin note</span>
+                <textarea
+                  className="input-field w-full"
+                  rows={2}
+                  value={preapproveForm.admin_note}
+                  onChange={(e) => setPreapproveForm((f) => ({ ...f, admin_note: e.target.value }))}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={preapproveForm.auto_approve}
+                  onChange={(e) => setPreapproveForm((f) => ({ ...f, auto_approve: e.target.checked }))}
+                />
+                Also approve & create shop now
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={preapproveApp.isPending}>
+                {preapproveApp.isPending ? 'Saving…' : 'Create'}
+              </button>
+              <button type="button" className="btn-ghost px-4 py-2 text-sm" onClick={() => setShowPreapprove(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showInvite && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !createInvite.isPending && setShowInvite(false)}>
+          <form
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 dark:bg-[#1E1E1E]"
+            onClick={(e) => e.stopPropagation()}
+            onSubmit={handleInvite}
+          >
+            <h3 className="text-lg font-extrabold">Invite shop owner</h3>
+            <p className="mt-1 text-xs text-muted">Creates a 14-day invite link to /sell?invite=TOKEN.</p>
+            {inviteResult && (
+              <p className="mt-3 rounded-xl bg-brand-green/10 px-3 py-2 text-sm">
+                Invite path: <CopyableText value={inviteResult} className="font-bold text-brand-green" />
+              </p>
+            )}
+            <div className="mt-4 space-y-3">
+              {[
+                ['email', 'Email *', true],
+                ['business_name', 'Business name', false],
+                ['contact_name', 'Contact name', false],
+                ['phone', 'Phone', false],
+                ['city', 'City', false],
+              ].map(([key, label, required]) => (
+                <label key={key} className="block text-sm">
+                  <span className="mb-1 block font-semibold">{label}</span>
+                  <input
+                    className="input-field w-full"
+                    type={key === 'email' ? 'email' : 'text'}
+                    value={inviteForm[key]}
+                    onChange={(e) => setInviteForm((f) => ({ ...f, [key]: e.target.value }))}
+                    required={required}
+                  />
+                </label>
+              ))}
+              <label className="block text-sm">
+                <span className="mb-1 block font-semibold">Note</span>
+                <textarea
+                  className="input-field w-full"
+                  rows={2}
+                  value={inviteForm.note}
+                  onChange={(e) => setInviteForm((f) => ({ ...f, note: e.target.value }))}
+                />
+              </label>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={createInvite.isPending}>
+                {createInvite.isPending ? 'Creating…' : 'Create invite'}
+              </button>
+              <button type="button" className="btn-ghost px-4 py-2 text-sm" onClick={() => setShowInvite(false)}>
+                Close
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

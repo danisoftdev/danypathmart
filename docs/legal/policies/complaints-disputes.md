@@ -1,5 +1,7 @@
 Last updated: July 2026
 
+Operating note: DanyPathMart is currently operated online at https://danypathmart.store and is not yet formally registered in Ghana. This policy explains how we handle complaints in good faith while the platform grows.
+
 1. Purpose
 
 This policy explains how to raise complaints and how DPM handles disputes on the platform.
@@ -26,8 +28,8 @@ We aim to acknowledge reports within a few business days. Complex cases may take
 
 6. Limitations
 
-DPM is not a court. Our decisions on platform access (warnings, suspension) are separate from any legal remedy you may pursue under Ghana law.
+DPM is not a court or government body. Our decisions on platform access (warnings, suspension) are separate from any legal remedy you may pursue under applicable law.
 
 7. Escalation
 
-Email or message via Contact with subject "Dispute — Order #…" including timeline and screenshots.
+Contact us via the Contact page at https://danypathmart.store with subject "Dispute — Order #…" including timeline and screenshots.

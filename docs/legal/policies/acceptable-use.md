@@ -1,6 +1,8 @@
 Last updated: July 2026
 
-Applies to all users: customers, shop owners, staff, and visitors.
+Applies to all users of https://danypathmart.store: customers, shop owners, staff, and visitors.
+
+Operating note: DanyPathMart is currently an online platform and is not yet formally registered in Ghana. These rules still apply to everyone using the service.
 
 1. Prohibited conduct
 
@@ -20,10 +22,10 @@ We may remove content, issue cautions (with required acknowledgment), restrict c
 
 5. Cooperation
 
-We may cooperate with law enforcement where required by Ghana law.
+We may cooperate with law enforcement where required by applicable law.
 
 6. Reporting
 
 Customers: report a shop from the order detail page (order required).
 
-Everyone: contact us for urgent safety issues via the Contact page.
+Everyone: contact us for urgent safety issues via the Contact page at https://danypathmart.store.

@@ -8,6 +8,15 @@ import ProductRating from '../components/product/ProductRating';
 import { hasMapPin } from '../lib/mapUtils';
 import 'leaflet/dist/leaflet.css';
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function usePublicShops(q, city) {
   return useQuery({
     queryKey: ['public-shops', q, city],
@@ -16,7 +25,7 @@ function usePublicShops(q, city) {
   });
 }
 
-function ShopsMap({ shops }) {
+export function ShopsMap({ shops }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const pinned = useMemo(() => shops.filter((s) => hasMapPin(s.latitude, s.longitude)), [shops]);
@@ -41,14 +50,35 @@ function ShopsMap({ shops }) {
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
 
+      if (!document.getElementById('shop-map-marker-css')) {
+        const style = document.createElement('style');
+        style.id = 'shop-map-marker-css';
+        style.textContent = '.shop-map-marker{background:transparent!important;border:none!important;}';
+        document.head.appendChild(style);
+      }
+
       const bounds = [];
       pinned.forEach((shop) => {
         const lat = Number(shop.latitude);
         const lng = Number(shop.longitude);
         bounds.push([lat, lng]);
-        L.marker([lat, lng])
+        const name = escapeHtml(shop.name);
+        const slug = encodeURIComponent(shop.slug || '');
+        const logoUrl = shop.logo_url ? escapeHtml(resolveProductImageUrl(shop.logo_url)) : '';
+        const initial = escapeHtml((shop.name || '?').charAt(0).toUpperCase());
+        const iconHtml = logoUrl
+          ? `<div style="width:40px;height:40px;border-radius:50%;overflow:hidden;border:2px solid #1B5E3B;box-shadow:0 2px 6px rgba(0,0,0,.25);background:#fff"><img src="${logoUrl}" alt="" style="width:100%;height:100%;object-fit:cover"/></div>`
+          : `<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #1B5E3B;background:#E8F5E9;color:#1B5E3B;font-weight:800;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.25)">${initial}</div>`;
+        const icon = L.divIcon({
+          className: 'shop-map-marker',
+          html: iconHtml,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+          popupAnchor: [0, -18],
+        });
+        L.marker([lat, lng], { icon })
           .addTo(map)
-          .bindPopup(`<strong>${shop.name}</strong><br/><a href="/stores/${shop.slug}">View shop</a>`);
+          .bindPopup(`<strong>${name}</strong><br/><a href="/stores/${slug}">View shop</a>`);
       });
       if (bounds.length > 1) {
         map.fitBounds(bounds, { padding: [24, 24] });

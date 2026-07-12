@@ -12,6 +12,7 @@ export default function ShopSettingsPage() {
     name: initialShop?.name || '',
     description: initialShop?.description || '',
     contact_phone: initialShop?.contact_phone || '',
+    customer_service_phone: initialShop?.customer_service_phone || '',
     city: initialShop?.city || '',
     street_address: initialShop?.street_address || '',
     region: initialShop?.region || '',
@@ -33,6 +34,7 @@ export default function ShopSettingsPage() {
         name: initialShop.name || '',
         description: initialShop.description || '',
         contact_phone: initialShop.contact_phone || '',
+        customer_service_phone: initialShop.customer_service_phone || '',
         city: initialShop.city || '',
         street_address: initialShop.street_address || '',
         region: initialShop.region || '',
@@ -89,10 +91,20 @@ export default function ShopSettingsPage() {
           <span className="mb-1 block font-semibold">Shop name</span>
           <input className="input-field w-full" value={form.name} onChange={(e) => set('name', e.target.value)} required />
         </label>
-        <label className="block text-sm">
-          <span className="mb-1 block font-semibold">Phone</span>
-          <input className="input-field w-full" value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} />
-        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">Shop phone</span>
+            <input className="input-field w-full" value={form.contact_phone} onChange={(e) => set('contact_phone', e.target.value)} />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-semibold">Customer service / WhatsApp</span>
+            <input
+              className="input-field w-full"
+              value={form.customer_service_phone}
+              onChange={(e) => set('customer_service_phone', e.target.value)}
+            />
+          </label>
+        </div>
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">About your shop</span>
           <textarea className="input-field w-full" rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />

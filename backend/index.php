@@ -243,12 +243,15 @@ $routes = [
     'POST ' . 'promoter/wallet/withdraw'     => 'promoter/wallet/withdraw.php',
 
     'GET '  . 'admin/shop-applications'      => 'admin/shop-applications/index.php',
+    'POST ' . 'admin/shop-applications/preapprove' => 'admin/shop-applications/preapprove.php',
     'GET '  . 'admin/shops'                  => 'admin/shops/index.php',
     'POST ' . 'admin/shops'                  => 'admin/shops/create.php',
+    'POST ' . 'admin/shop-invites'           => 'admin/shop-invites/create.php',
     'GET '  . 'admin/marketplace/listings'   => 'admin/marketplace/listings.php',
     'GET '  . 'admin/shop-withdrawals'      => 'admin/shop-withdrawals/index.php',
 
     'POST ' . 'public/shop-applications/apply' => 'public/shop-applications/apply.php',
+    'GET '  . 'public/shop-invites/show'     => 'public/shop-invites/show.php',
     'GET '  . 'public/shop-billing/settings' => 'public/shop-billing/settings.php',
     'GET '  . 'public/shop-billing/registration-quote' => 'public/shop-billing/registration-quote.php',
     'POST ' . 'public/shop-billing/initialize-registration' => 'public/shop-billing/initialize-registration.php',

@@ -1,8 +1,10 @@
 Last updated: July 2026
 
-1. About DanyPathMart
+1. About DanyPathMart and operating status
 
-DanyPathMart ("DPM", "we", "us") operates an online platform in Ghana for school supplies and related goods. We sell products directly as DPM and host verified independent shops on their own storefront links.
+DanyPathMart ("DPM", "we", "us") operates an online marketplace and shopping platform at https://danypathmart.store, focused on school supplies and related goods in Ghana. We sell products directly as DPM and host independent shops on their own storefront links.
+
+Operating status: DPM is currently run as an online business. We are not yet formally registered with Ghanaian authorities (for example, the Registrar General's Department). As our audience and operations grow, we plan to complete formal registration and update these policies when that happens. By using the site you acknowledge this status.
 
 By using our website, mobile experience, or seller tools, you agree to these Terms of Service and to our Privacy Policy, Payment Policy, Returns & Refunds Policy, and other published policies linked on the site.
 
@@ -18,7 +20,7 @@ You must provide accurate information. Keep your login secure. We may suspend or
 
 4. Shop sellers
 
-Shops must apply, be verified, and maintain an active subscription where billing is enabled. Shop owners agree to the Shop Seller Policy and Seller Handbook. If a subscription lapses, the public shop link is hidden until renewal.
+Shops must apply truthfully, be approved by DPM, and complete verification before enabling Paystack. Shop owners are responsible for their own business registration and tax obligations in Ghana where applicable. They agree to the Shop Seller Policy and Seller Handbook. If a subscription lapses, the public shop link is hidden until renewal.
 
 5. Pricing and availability
 
@@ -28,7 +30,7 @@ Prices are shown in Ghana Cedis (GHS) unless stated otherwise. We and shop selle
 
 For DPM catalog orders, DPM is the merchant of record for platform checkout.
 
-For shop storefront orders, the independent shop is responsible for fulfillment, payment confirmation (where manual), and customer service for that order, except where DPM provides platform moderation (reports, cautions, suspension).
+For shop storefront orders, the independent shop is responsible for fulfilment, payment confirmation (where manual), and customer service for that order, except where DPM provides platform moderation (reports, cautions, suspension).
 
 7. Reports and enforcement
 
@@ -40,12 +42,12 @@ DPM branding, software, and DPM-owned content remain our property. Shop owners w
 
 9. Limitation of liability
 
-To the fullest extent permitted by Ghana law, DPM is not liable for indirect losses. For shop storefront transactions, payment and delivery disputes are primarily between buyer and shop, subject to our Complaints & Disputes Policy.
+To the fullest extent permitted by applicable law, DPM is not liable for indirect or consequential losses. For shop storefront transactions, payment and delivery disputes are primarily between buyer and shop, subject to our Complaints & Disputes Policy.
 
 10. Changes
 
-We may update these terms. Material changes will be posted on this page. Continued use after the effective date constitutes acceptance.
+We may update these terms. Material changes will be posted on this page with a revised "Last updated" date. Continued use after that date constitutes acceptance.
 
 11. Contact
 
-Questions: use the Contact page on danypathmart.com or details in Company Settings.
+Questions: use the Contact page at https://danypathmart.store or details shown in Company Settings on the site.

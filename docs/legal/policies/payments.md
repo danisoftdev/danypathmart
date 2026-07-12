@@ -1,5 +1,7 @@
 Last updated: July 2026
 
+Operating note: DanyPathMart is currently operated as an online platform at https://danypathmart.store and is not yet formally registered in Ghana. Payment flows below describe how the platform works today.
+
 1. Currency
 
 All prices are in Ghana Cedis (GHS) unless stated otherwise.
@@ -16,7 +18,7 @@ Bank transfer (manual confirmation)
 
 Pay on delivery or at pickup station (where enabled)
 
-DPM receives payment for these orders.
+DPM receives payment for these orders through enabled payment providers.
 
 3. Shop storefront payments
 
@@ -42,6 +44,10 @@ DPM does not deduct a percentage from shop product sales. Revenue from the marke
 
 Paystack and telcos may charge their own fees. Shops are responsible for their Paystack account fees and settlements.
 
-7. Security
+7. Taxes
+
+Applicable taxes (for example VAT) may apply when required by law. Shops are responsible for their own tax compliance. DPM will update payment and tax handling when formal business registration is completed.
+
+8. Security
 
 Never share OTPs or passwords. DPM staff will not ask for your card PIN or full MoMo PIN.

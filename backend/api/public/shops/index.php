@@ -43,26 +43,67 @@ $countStmt = $pdo->prepare("SELECT COUNT(*) FROM shops s WHERE {$whereSql}");
 $countStmt->execute($params);
 $total = (int) $countStmt->fetchColumn();
 
-$sql = "SELECT s.id, s.name, s.slug, s.city, s.description, s.logo_url, s.rating_avg, s.rating_count,
-               (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.status = 'active' AND p.listing_status = 'approved') AS product_count
-        FROM shops s
-        WHERE {$whereSql}
-        ORDER BY s.name ASC
-        LIMIT {$perPage} OFFSET {$offset}";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+$rows = [];
+try {
+    $sql = "SELECT s.id, s.name, s.slug, s.city, s.description, s.logo_url, s.rating_avg, s.rating_count,
+                   s.latitude, s.longitude, s.contact_phone, s.customer_service_phone,
+                   (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.status = 'active' AND p.listing_status = 'approved') AS product_count
+            FROM shops s
+            WHERE {$whereSql}
+            ORDER BY s.name ASC
+            LIMIT {$perPage} OFFSET {$offset}";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+} catch (\Throwable) {
+    $sql = "SELECT s.id, s.name, s.slug, s.city, s.description, s.logo_url, s.rating_avg, s.rating_count,
+                   s.latitude, s.longitude, s.contact_phone,
+                   (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.status = 'active' AND p.listing_status = 'approved') AS product_count
+            FROM shops s
+            WHERE {$whereSql}
+            ORDER BY s.name ASC
+            LIMIT {$perPage} OFFSET {$offset}";
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    } catch (\Throwable) {
+        $sql = "SELECT s.id, s.name, s.slug, s.city, s.description, s.logo_url, s.rating_avg, s.rating_count,
+                       (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id AND p.status = 'active' AND p.listing_status = 'approved') AS product_count
+                FROM shops s
+                WHERE {$whereSql}
+                ORDER BY s.name ASC
+                LIMIT {$perPage} OFFSET {$offset}";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    }
+}
 
-$data = array_map(static fn (array $r): array => [
-    'id'            => (int) $r['id'],
-    'name'          => $r['name'],
-    'slug'          => $r['slug'],
-    'city'          => $r['city'],
-    'description'   => $r['description'],
-    'logo_url'      => $r['logo_url'],
-    'rating_avg'    => $r['rating_avg'] !== null ? (float) $r['rating_avg'] : null,
-    'rating_count'  => (int) ($r['rating_count'] ?? 0),
-    'product_count' => (int) ($r['product_count'] ?? 0),
-], $stmt->fetchAll());
+$data = array_map(static function (array $r): array {
+    $lat = isset($r['latitude']) && $r['latitude'] !== null && $r['latitude'] !== ''
+        ? (float) $r['latitude'] : null;
+    $lng = isset($r['longitude']) && $r['longitude'] !== null && $r['longitude'] !== ''
+        ? (float) $r['longitude'] : null;
+    $hasPin = $lat !== null && $lng !== null;
+
+    return [
+        'id'                     => (int) $r['id'],
+        'name'                   => $r['name'],
+        'slug'                   => $r['slug'],
+        'city'                   => $r['city'],
+        'description'            => $r['description'],
+        'logo_url'               => $r['logo_url'],
+        'rating_avg'             => $r['rating_avg'] !== null ? (float) $r['rating_avg'] : null,
+        'rating_count'           => (int) ($r['rating_count'] ?? 0),
+        'product_count'          => (int) ($r['product_count'] ?? 0),
+        'latitude'               => $hasPin ? $lat : null,
+        'longitude'              => $hasPin ? $lng : null,
+        'has_map_pin'            => $hasPin,
+        'contact_phone'          => $r['contact_phone'] ?? null,
+        'customer_service_phone' => $r['customer_service_phone'] ?? null,
+    ];
+}, $rows);
 
 Response::success([
     'data' => $data,

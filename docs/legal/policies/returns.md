@@ -1,5 +1,7 @@
 Last updated: July 2026
 
+Operating note: DanyPathMart is currently operated as an online platform at https://danypathmart.store and is not yet formally registered in Ghana. Return and refund processes below apply in good faith while we grow the service.
+
 1. Overview
 
 This policy covers returns and refunds for orders on DanyPathMart. The process depends on whether you bought from DPM or from an independent shop.
@@ -26,7 +28,7 @@ Custom, embroidered, or made-to-order items may not be returnable unless faulty.
 
 5. How to start a return (DPM orders)
 
-Contact support via the Contact page with your order number, reason, and photos if relevant. Do not send items back without confirmation.
+Contact support via the Contact page at https://danypathmart.store with your order number, reason, and photos if relevant. Do not send items back without confirmation.
 
 6. Timelines
 

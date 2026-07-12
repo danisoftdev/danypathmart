@@ -5,7 +5,7 @@ import { usePlatformFeatures } from '../../hooks/checkout';
 export default function StoreCategoryNav() {
   const { pathname } = useLocation();
   const { data } = useCategories();
-  const { marketplaceEnabled } = usePlatformFeatures();
+  const { marketplaceEnabled, shopApplicationsOpen } = usePlatformFeatures();
   const topLevel = (data?.data ?? []).filter((c) => !c.parent_id).slice(0, 12);
 
   if (pathname.startsWith('/admin') || pathname.startsWith('/seller') || pathname.startsWith('/driver') || pathname.startsWith('/station')) {
@@ -48,6 +48,14 @@ export default function StoreCategoryNav() {
             Group order
           </Link>
           {marketplaceEnabled && (
+            <Link
+              to="/stores"
+              className="shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-[#111111]/80 transition hover:bg-brand-green/10 hover:text-brand-green dark:text-white/80 dark:hover:text-brand-green"
+            >
+              Browse shops
+            </Link>
+          )}
+          {marketplaceEnabled && shopApplicationsOpen && (
             <Link
               to="/sell"
               className="shrink-0 rounded-md px-2.5 py-1.5 text-xs font-semibold text-brand-gold transition hover:bg-brand-gold/10"

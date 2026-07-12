@@ -8,6 +8,46 @@ import EmptyState from '../components/ui/EmptyState';
 import { ProductGridSkeleton } from '../components/ui/Skeleton';
 import { useStoreCartStore } from '../store/storeCartStore';
 
+function phoneDigits(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+function looksLikePhone(phone) {
+  const digits = phoneDigits(phone);
+  return digits.length >= 9 && digits.length <= 15;
+}
+
+function waMeUrl(phone) {
+  const digits = phoneDigits(phone);
+  if (!looksLikePhone(phone)) return null;
+  const normalized = digits.startsWith('0') ? `233${digits.slice(1)}` : digits;
+  return `https://wa.me/${normalized}`;
+}
+
+function PhoneLinks({ label, phone }) {
+  if (!phone) return null;
+  const tel = looksLikePhone(phone) ? `tel:${phoneDigits(phone)}` : null;
+  const wa = waMeUrl(phone);
+  return (
+    <p className="mt-1 text-sm">
+      <span className="text-muted">{label}: </span>
+      {tel ? (
+        <a href={tel} className="font-semibold text-brand-green hover:underline">{phone}</a>
+      ) : (
+        <span className="font-semibold">{phone}</span>
+      )}
+      {wa && (
+        <>
+          {' · '}
+          <a href={wa} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-green hover:underline">
+            WhatsApp
+          </a>
+        </>
+      )}
+    </p>
+  );
+}
+
 export default function StorePage() {
   const { slug } = useParams();
   const { data, isLoading, isError } = usePublicStore(slug);
@@ -64,6 +104,12 @@ export default function StorePage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-extrabold text-[#111111] dark:text-white md:text-3xl">{shop.name}</h1>
           {shop.city && <p className="mt-1 text-sm text-muted">{shop.city}</p>}
+          {(shop.contact_phone || shop.customer_service_phone) && (
+            <div className="mt-2">
+              <PhoneLinks label="Shop phone" phone={shop.contact_phone} />
+              <PhoneLinks label="Customer service" phone={shop.customer_service_phone} />
+            </div>
+          )}
           {shop.description && <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">{shop.description}</p>}
           {shop.allows_shop_pickup && (
             <p className="mt-2 inline-block rounded-full bg-brand-gold/15 px-2.5 py-0.5 text-xs font-bold text-brand-gold">

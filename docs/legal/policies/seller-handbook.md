@@ -1,10 +1,12 @@
 Last updated: July 2026
 
-Welcome to DanyPathMart seller tools. This handbook explains day-to-day operation of your shop link.
+Welcome to DanyPathMart seller tools at https://danypathmart.store.
+
+Platform status: DPM is currently operated as an online marketplace and is not yet formally registered in Ghana. We plan to formalise registration as we grow. You are responsible for your own shop's registration, tax, and compliance.
 
 1. Your shop link
 
-Share: https://danypathmart.com/stores/{your-slug}
+Share: https://danypathmart.store/stores/{your-slug}
 
 Customers should use this link only — not the main DPM shop — to buy your products.
 
@@ -67,3 +69,4 @@ Use Contact on the main site for platform issues. Your customers' payment disput
 ☐ Products approved and in stock
 ☐ Test order on your link
 ☐ Mark-paid flow understood for MoMo/cash
+☐ Your own business registration/tax obligations understood (where applicable)

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { usePlatformFeatures } from '../hooks/checkout';
 import ShopLogoField from '../components/shop/ShopLogoField';
@@ -8,6 +8,7 @@ import {
   useConfirmShopBillingDevPayment,
   useInitializeShopRegistrationPayment,
   useShopBillingSettings,
+  useShopInvite,
   useShopRegistrationQuote,
   useUploadShopApplicationLogo,
   useValidateShopReferralCode,
@@ -21,6 +22,7 @@ const EMPTY = {
   contact_name: '',
   email: '',
   phone: '',
+  customer_service_phone: '',
   city: '',
   street_address: '',
   region: '',
@@ -39,6 +41,7 @@ const EMPTY = {
 export default function ShopApplyPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const refFromUrl = searchParams.get('ref') || '';
+  const inviteToken = searchParams.get('invite') || '';
   const paymentReturn = searchParams.get('shop_payment') === 'registration';
   const returnAppId = Number(searchParams.get('application_id') || 0);
   const returnRef = searchParams.get('reference') || '';
@@ -50,6 +53,7 @@ export default function ShopApplyPage() {
   const initPayment = useInitializeShopRegistrationPayment();
   const confirmDev = useConfirmShopBillingDevPayment();
   const uploadLogo = useUploadShopApplicationLogo();
+  const { data: inviteData, isError: inviteError } = useShopInvite(inviteToken);
   const [form, setForm] = useState(() => ({
     ...EMPTY,
     contact_name: user?.name || '',
@@ -71,13 +75,29 @@ export default function ShopApplyPage() {
   const [applicationId, setApplicationId] = useState(null);
   const [error, setError] = useState('');
   const [confirmingReturn, setConfirmingReturn] = useState(false);
-  const [acceptedPolicies, setAcceptedPolicies] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedSellerPolicy, setAcceptedSellerPolicy] = useState(false);
 
+  const acceptedPolicies = acceptedTerms && acceptedPrivacy && acceptedSellerPolicy;
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const listFee = feeQuote?.list_fee ?? billingSettings?.registration_list_fee ?? billingSettings?.registration_fee ?? 0;
   const amountDue = feeQuote?.amount_due ?? billingSettings?.registration_amount_due ?? listFee;
   const requiresPayment = billingSettings?.enabled && amountDue > 0;
+
+  useEffect(() => {
+    const invite = inviteData?.invite;
+    if (!invite) return;
+    setForm((f) => ({
+      ...f,
+      email: invite.email || f.email,
+      business_name: invite.business_name || f.business_name,
+      contact_name: invite.contact_name || f.contact_name,
+      phone: invite.phone || f.phone,
+      city: invite.city || f.city,
+    }));
+  }, [inviteData]);
 
   const startPayment = async (appId, email) => {
     const pay = await initPayment.mutateAsync({ application_id: appId, email });
@@ -158,11 +178,20 @@ export default function ShopApplyPage() {
   const submit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!acceptedPolicies) {
+      setError('Please accept Terms, Privacy, and Shop seller policy.');
+      return;
+    }
     try {
       const res = await apply.mutateAsync({
         ...form,
         logo_url: form.logo_url.trim() || undefined,
         referred_by_shop_code: form.referred_by_shop_code.trim() || undefined,
+        accepted_terms: true,
+        accepted_privacy: true,
+        accepted_seller_policy: true,
+        accepted_policies: true,
+        invite_token: inviteToken || undefined,
       });
       const app = res.application || {};
       const appId = app.id;
@@ -231,6 +260,17 @@ export default function ShopApplyPage() {
       </p>
       <SellerPolicyLinks className="mt-3" />
 
+      {inviteToken && inviteError && (
+        <p className="mt-4 rounded-xl bg-brand-red/10 px-4 py-3 text-sm text-brand-red">
+          This invite link is invalid or expired. You can still apply if applications are open.
+        </p>
+      )}
+      {inviteToken && inviteData?.invite && (
+        <p className="mt-4 rounded-xl border border-brand-green/30 bg-brand-green/10 px-4 py-3 text-sm">
+          You were invited to register a shop. Some fields have been pre-filled.
+        </p>
+      )}
+
       {billingSettings?.enabled && listFee > 0 && (
         <div className="mt-4 rounded-xl border border-brand-gold/30 bg-brand-gold/10 px-4 py-3 text-sm">
           {feeQuote?.free_period_active ? (
@@ -290,6 +330,16 @@ export default function ShopApplyPage() {
             <input className="input-field w-full" value={form.phone} onChange={set('phone')} required />
           </label>
         </div>
+        <label className="block text-sm">
+          <span className="mb-1 block font-semibold">Customer service / WhatsApp *</span>
+          <input
+            className="input-field w-full"
+            value={form.customer_service_phone}
+            onChange={set('customer_service_phone')}
+            placeholder="Number customers can call or message"
+            required
+          />
+        </label>
         <label className="block text-sm">
           <span className="mb-1 block font-semibold">City *</span>
           <input className="input-field w-full" value={form.city} onChange={set('city')} required />
@@ -390,8 +440,12 @@ export default function ShopApplyPage() {
         </div>
 
         <ShopApplyPolicyConsent
-          checked={acceptedPolicies}
-          onChange={setAcceptedPolicies}
+          acceptedTerms={acceptedTerms}
+          acceptedPrivacy={acceptedPrivacy}
+          acceptedSellerPolicy={acceptedSellerPolicy}
+          onChangeTerms={setAcceptedTerms}
+          onChangePrivacy={setAcceptedPrivacy}
+          onChangeSellerPolicy={setAcceptedSellerPolicy}
           disabled={apply.isPending || initPayment.isPending}
         />
 

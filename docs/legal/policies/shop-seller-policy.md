@@ -1,10 +1,12 @@
 Last updated: July 2026
 
-This policy applies to verified shops hosted on DanyPathMart.
+This policy applies to verified shops hosted on DanyPathMart at https://danypathmart.store.
+
+Platform status: DPM is currently operated as an online marketplace and is not yet formally registered in Ghana. We plan to complete formal registration as the platform grows. Sellers remain responsible for their own business registration, tax, and licensing obligations in Ghana.
 
 1. Eligibility
 
-Shops must apply truthfully, be approved by DPM, and complete verification before enabling Paystack. You must have authority to sell listed products.
+Shops must apply truthfully, be approved by DPM, and complete verification before enabling Paystack. You must have authority to sell listed products and comply with applicable laws for your business.
 
 2. Subscription and storefront link
 

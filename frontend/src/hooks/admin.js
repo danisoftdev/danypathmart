@@ -254,6 +254,47 @@ export function useAdminShops(enabled = true) {
   });
 }
 
+export function useCreateAdminShop() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/shops', payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-shops'] }),
+  });
+}
+
+export function usePreapproveShopApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/shop-applications/preapprove', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shop-applications'] });
+      qc.invalidateQueries({ queryKey: ['admin-shops'] });
+    },
+  });
+}
+
+export function useCreateShopInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/shop-invites', payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-shop-applications'] }),
+  });
+}
+
+/** Policy acceptances from applications list (filter client-side). */
+export function useShopPolicyAcceptances(enabled = true) {
+  return useQuery({
+    queryKey: ['admin-shop-policy-acceptances'],
+    queryFn: async () => {
+      const res = await api.get('/admin/shop-applications');
+      const apps = res.data?.data ?? [];
+      return apps.filter((a) => a.accepted_policies_at || a.accepted_terms || a.accepted_privacy || a.accepted_seller_policy);
+    },
+    enabled,
+    ...adminQuery,
+  });
+}
+
 export function useUpdateAdminShop() {
   const qc = useQueryClient();
   return useMutation({

@@ -108,11 +108,11 @@ final class ShopService
         try {
             $pdo->prepare(
                 'INSERT INTO shops
-                    (name, slug, logo_url, banner_url, description, contact_email, contact_phone, city,
+                    (name, slug, logo_url, banner_url, description, contact_email, contact_phone, customer_service_phone, city,
                      street_address, region, latitude, longitude, allows_shop_pickup,
                      commission_percent, bank_name, bank_account_name, bank_account_number, momo_number,
                      status, is_published)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             )->execute([
                 $data['name'],
                 $slug,
@@ -121,6 +121,7 @@ final class ShopService
                 $data['description'],
                 $data['contact_email'],
                 $data['contact_phone'],
+                $data['customer_service_phone'],
                 $data['city'],
                 $data['street_address'],
                 $data['region'],
@@ -136,29 +137,61 @@ final class ShopService
                 $data['is_published'],
             ]);
         } catch (\Throwable) {
-            $pdo->prepare(
-                'INSERT INTO shops
-                    (name, slug, logo_url, banner_url, description, contact_email, contact_phone, city,
-                     commission_percent, bank_name, bank_account_name, bank_account_number, momo_number,
-                     status, is_published)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            )->execute([
-                $data['name'],
-                $slug,
-                $data['logo_url'],
-                $data['banner_url'],
-                $data['description'],
-                $data['contact_email'],
-                $data['contact_phone'],
-                $data['city'],
-                $data['commission_percent'],
-                $data['bank_name'],
-                $data['bank_account_name'],
-                $data['bank_account_number'],
-                $data['momo_number'],
-                $data['status'],
-                $data['is_published'],
-            ]);
+            try {
+                $pdo->prepare(
+                    'INSERT INTO shops
+                        (name, slug, logo_url, banner_url, description, contact_email, contact_phone, city,
+                         street_address, region, latitude, longitude, allows_shop_pickup,
+                         commission_percent, bank_name, bank_account_name, bank_account_number, momo_number,
+                         status, is_published)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([
+                    $data['name'],
+                    $slug,
+                    $data['logo_url'],
+                    $data['banner_url'],
+                    $data['description'],
+                    $data['contact_email'],
+                    $data['contact_phone'],
+                    $data['city'],
+                    $data['street_address'],
+                    $data['region'],
+                    $data['latitude'],
+                    $data['longitude'],
+                    $data['allows_shop_pickup'],
+                    $data['commission_percent'],
+                    $data['bank_name'],
+                    $data['bank_account_name'],
+                    $data['bank_account_number'],
+                    $data['momo_number'],
+                    $data['status'],
+                    $data['is_published'],
+                ]);
+            } catch (\Throwable) {
+                $pdo->prepare(
+                    'INSERT INTO shops
+                        (name, slug, logo_url, banner_url, description, contact_email, contact_phone, city,
+                         commission_percent, bank_name, bank_account_name, bank_account_number, momo_number,
+                         status, is_published)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                )->execute([
+                    $data['name'],
+                    $slug,
+                    $data['logo_url'],
+                    $data['banner_url'],
+                    $data['description'],
+                    $data['contact_email'],
+                    $data['contact_phone'],
+                    $data['city'],
+                    $data['commission_percent'],
+                    $data['bank_name'],
+                    $data['bank_account_name'],
+                    $data['bank_account_number'],
+                    $data['momo_number'],
+                    $data['status'],
+                    $data['is_published'],
+                ]);
+            }
         }
 
         $id = (int) $pdo->lastInsertId();
@@ -190,7 +223,7 @@ final class ShopService
             $pdo->prepare(
                 'UPDATE shops SET
                     name = ?, slug = ?, logo_url = ?, banner_url = ?, description = ?,
-                    contact_email = ?, contact_phone = ?, city = ?,
+                    contact_email = ?, contact_phone = ?, customer_service_phone = ?, city = ?,
                     street_address = ?, region = ?, latitude = ?, longitude = ?, allows_shop_pickup = ?,
                     commission_percent = ?,
                     bank_name = ?, bank_account_name = ?, bank_account_number = ?, momo_number = ?,
@@ -204,6 +237,7 @@ final class ShopService
                 $data['description'],
                 $data['contact_email'],
                 $data['contact_phone'],
+                $data['customer_service_phone'],
                 $data['city'],
                 $data['street_address'],
                 $data['region'],
@@ -220,31 +254,66 @@ final class ShopService
                 $id,
             ]);
         } catch (\Throwable) {
-            $pdo->prepare(
-                'UPDATE shops SET
-                    name = ?, slug = ?, logo_url = ?, banner_url = ?, description = ?,
-                    contact_email = ?, contact_phone = ?, city = ?, commission_percent = ?,
-                    bank_name = ?, bank_account_name = ?, bank_account_number = ?, momo_number = ?,
-                    status = ?, is_published = ?
-                 WHERE id = ?'
-            )->execute([
-                $data['name'],
-                $slug,
-                $data['logo_url'],
-                $data['banner_url'],
-                $data['description'],
-                $data['contact_email'],
-                $data['contact_phone'],
-                $data['city'],
-                $data['commission_percent'],
-                $data['bank_name'],
-                $data['bank_account_name'],
-                $data['bank_account_number'],
-                $data['momo_number'],
-                $data['status'],
-                $data['is_published'],
-                $id,
-            ]);
+            try {
+                $pdo->prepare(
+                    'UPDATE shops SET
+                        name = ?, slug = ?, logo_url = ?, banner_url = ?, description = ?,
+                        contact_email = ?, contact_phone = ?, city = ?,
+                        street_address = ?, region = ?, latitude = ?, longitude = ?, allows_shop_pickup = ?,
+                        commission_percent = ?,
+                        bank_name = ?, bank_account_name = ?, bank_account_number = ?, momo_number = ?,
+                        status = ?, is_published = ?
+                     WHERE id = ?'
+                )->execute([
+                    $data['name'],
+                    $slug,
+                    $data['logo_url'],
+                    $data['banner_url'],
+                    $data['description'],
+                    $data['contact_email'],
+                    $data['contact_phone'],
+                    $data['city'],
+                    $data['street_address'],
+                    $data['region'],
+                    $data['latitude'],
+                    $data['longitude'],
+                    $data['allows_shop_pickup'],
+                    $data['commission_percent'],
+                    $data['bank_name'],
+                    $data['bank_account_name'],
+                    $data['bank_account_number'],
+                    $data['momo_number'],
+                    $data['status'],
+                    $data['is_published'],
+                    $id,
+                ]);
+            } catch (\Throwable) {
+                $pdo->prepare(
+                    'UPDATE shops SET
+                        name = ?, slug = ?, logo_url = ?, banner_url = ?, description = ?,
+                        contact_email = ?, contact_phone = ?, city = ?, commission_percent = ?,
+                        bank_name = ?, bank_account_name = ?, bank_account_number = ?, momo_number = ?,
+                        status = ?, is_published = ?
+                     WHERE id = ?'
+                )->execute([
+                    $data['name'],
+                    $slug,
+                    $data['logo_url'],
+                    $data['banner_url'],
+                    $data['description'],
+                    $data['contact_email'],
+                    $data['contact_phone'],
+                    $data['city'],
+                    $data['commission_percent'],
+                    $data['bank_name'],
+                    $data['bank_account_name'],
+                    $data['bank_account_number'],
+                    $data['momo_number'],
+                    $data['status'],
+                    $data['is_published'],
+                    $id,
+                ]);
+            }
         }
 
         return self::findById($pdo, $id) ?? [];
@@ -264,7 +333,7 @@ final class ShopService
         }
 
         $patch = [];
-        foreach (['name', 'description', 'contact_phone', 'city', 'street_address', 'region', 'latitude', 'longitude', 'allows_shop_pickup', 'logo_url', 'banner_url', 'bank_name', 'bank_account_name', 'bank_account_number', 'momo_number'] as $key) {
+        foreach (['name', 'description', 'contact_phone', 'customer_service_phone', 'city', 'street_address', 'region', 'latitude', 'longitude', 'allows_shop_pickup', 'logo_url', 'banner_url', 'bank_name', 'bank_account_name', 'bank_account_number', 'momo_number'] as $key) {
             if (!array_key_exists($key, $input)) {
                 continue;
             }
@@ -396,6 +465,7 @@ final class ShopService
             'description'         => self::nullableString($input['description'] ?? null),
             'contact_email'       => $email,
             'contact_phone'       => self::nullableString($input['contact_phone'] ?? $input['phone'] ?? null),
+            'customer_service_phone' => self::nullableString($input['customer_service_phone'] ?? null),
             'city'                => $city,
             'street_address'      => self::nullableString($input['street_address'] ?? null),
             'region'              => self::nullableString($input['region'] ?? null),
@@ -499,6 +569,7 @@ final class ShopService
             'description'         => $row['description'],
             'contact_email'       => $row['contact_email'],
             'contact_phone'       => $row['contact_phone'],
+            'customer_service_phone' => $row['customer_service_phone'] ?? null,
             'city'                => $row['city'],
             'commission_percent'  => $row['commission_percent'] !== null ? (float) $row['commission_percent'] : null,
             'bank_name'           => $row['bank_name'],

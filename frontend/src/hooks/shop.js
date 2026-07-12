@@ -98,6 +98,17 @@ export function useApplyForShop() {
   });
 }
 
+export function useShopInvite(token) {
+  const t = String(token || '').trim();
+  return useQuery({
+    queryKey: ['shop-invite', t],
+    queryFn: async () => (await api.get('/public/shop-invites/show', { params: { token: t } })).data,
+    enabled: t.length >= 8,
+    retry: false,
+    staleTime: 60_000,
+  });
+}
+
 export function useShopBillingSettings(enabled = true) {
   return useQuery({
     queryKey: ['shop-billing-settings'],

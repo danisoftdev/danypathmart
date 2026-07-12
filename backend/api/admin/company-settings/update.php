@@ -139,30 +139,39 @@ try {
         'usd_to_ghs_rate' => $fields['usd_to_ghs_rate'],
         'updated_by'      => $fields['updated_by'],
     ];
-    $pdo->prepare(
-        'INSERT INTO company_settings
-            (id, company_name, email, phone, whatsapp_group, whatsapp_support,
-             facebook, instagram, twitter, address, business_hours, return_policy,
-             usd_to_ghs_rate, updated_by)
-         VALUES
-            (1, :company_name, :email, :phone, :whatsapp_group, :whatsapp_support,
-             :facebook, :instagram, :twitter, :address, :business_hours, :return_policy,
-             :usd_to_ghs_rate, :updated_by)
-         ON DUPLICATE KEY UPDATE
-            company_name = VALUES(company_name),
-            email = VALUES(email),
-            phone = VALUES(phone),
-            whatsapp_group = VALUES(whatsapp_group),
-            whatsapp_support = VALUES(whatsapp_support),
-            facebook = VALUES(facebook),
-            instagram = VALUES(instagram),
-            twitter = VALUES(twitter),
-            address = VALUES(address),
-            business_hours = VALUES(business_hours),
-            return_policy = VALUES(return_policy),
-            usd_to_ghs_rate = VALUES(usd_to_ghs_rate),
-            updated_by = VALUES(updated_by)'
-    )->execute($base);
+    try {
+        $pdo->prepare(
+            'INSERT INTO company_settings
+                (id, company_name, email, phone, whatsapp_group, whatsapp_support,
+                 facebook, instagram, twitter, address, business_hours, return_policy,
+                 usd_to_ghs_rate, updated_by)
+             VALUES
+                (1, :company_name, :email, :phone, :whatsapp_group, :whatsapp_support,
+                 :facebook, :instagram, :twitter, :address, :business_hours, :return_policy,
+                 :usd_to_ghs_rate, :updated_by)
+             ON DUPLICATE KEY UPDATE
+                company_name = VALUES(company_name),
+                email = VALUES(email),
+                phone = VALUES(phone),
+                whatsapp_group = VALUES(whatsapp_group),
+                whatsapp_support = VALUES(whatsapp_support),
+                facebook = VALUES(facebook),
+                instagram = VALUES(instagram),
+                twitter = VALUES(twitter),
+                address = VALUES(address),
+                business_hours = VALUES(business_hours),
+                return_policy = VALUES(return_policy),
+                usd_to_ghs_rate = VALUES(usd_to_ghs_rate),
+                updated_by = VALUES(updated_by)'
+        )->execute($base);
+    } catch (\Throwable $fallbackError) {
+        error_log('company-settings update fallback: ' . $fallbackError->getMessage());
+        Response::error(
+            'Could not save company settings. Run php scripts/migrate-production.php on the server, then try again.',
+            500,
+            ['code' => 'company_settings_save_failed']
+        );
+    }
 }
 
 $repeatClubEnabled = boolFlag($body['repeat_club_discount_enabled'] ?? false);

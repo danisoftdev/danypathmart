@@ -26,17 +26,25 @@ const TRUST_ITEMS = [
 export default function StoreAnnouncementBar() {
   const { marketplaceEnabled, shopApplicationsOpen } = usePlatformFeatures();
 
-  const items = [
-    ...TRUST_ITEMS,
-    ...(marketplaceEnabled || shopApplicationsOpen
-      ? [{
-          Icon: StoreIcon,
-          title: 'Sell on DPM',
-          sub: shopApplicationsOpen ? 'Apply to open a shop' : 'Marketplace shops',
-          to: '/sell',
-        }]
-      : []),
-  ].slice(0, 4);
+  const marketplaceItems = [];
+  if (marketplaceEnabled) {
+    marketplaceItems.push({
+      Icon: StoreIcon,
+      title: 'Browse shops',
+      sub: 'Find sellers nearby',
+      to: '/stores',
+    });
+  }
+  if (marketplaceEnabled && shopApplicationsOpen) {
+    marketplaceItems.push({
+      Icon: StoreIcon,
+      title: 'Sell on DPM',
+      sub: 'Apply to open a shop',
+      to: '/sell',
+    });
+  }
+
+  const items = [...TRUST_ITEMS, ...marketplaceItems].slice(0, 4);
 
   return (
     <div

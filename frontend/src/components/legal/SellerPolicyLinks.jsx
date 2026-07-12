@@ -42,37 +42,79 @@ export function StorefrontLegalNotice({ className = '' }) {
   );
 }
 
-/** Shop apply acceptance checkbox label. */
-export function ShopApplyPolicyConsent({ checked, onChange, disabled }) {
+/** Shop apply acceptance — Terms, Privacy, and Shop seller policy required. */
+export function ShopApplyPolicyConsent({
+  acceptedTerms,
+  acceptedPrivacy,
+  acceptedSellerPolicy,
+  onChangeTerms,
+  onChangePrivacy,
+  onChangeSellerPolicy,
+  disabled,
+}) {
   return (
-    <label className="flex items-start gap-3 rounded-xl border border-black/8 p-4 text-sm dark:border-white/10">
-      <input
-        type="checkbox"
-        className="mt-1"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        disabled={disabled}
-        required
-      />
-      <span>
-        I agree to the{' '}
-        <Link to="/policies/shop-seller-policy" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
-          Shop seller policy
-        </Link>
-        ,{' '}
-        <Link to="/policies/seller-handbook" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
-          Seller handbook
-        </Link>
-        ,{' '}
-        <Link to="/policies/payments" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
-          Payment policy
-        </Link>
-        , and{' '}
-        <Link to="/policies/terms" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
-          Terms of service
-        </Link>
-        .
-      </span>
-    </label>
+    <div className="space-y-3 rounded-xl border border-black/8 p-4 text-sm dark:border-white/10">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted">Policy agreement</p>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={acceptedTerms}
+          onChange={(e) => onChangeTerms(e.target.checked)}
+          disabled={disabled}
+          required
+        />
+        <span>
+          I agree to the{' '}
+          <Link to="/policies/terms" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
+            Terms of service
+          </Link>
+          .
+        </span>
+      </label>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={acceptedPrivacy}
+          onChange={(e) => onChangePrivacy(e.target.checked)}
+          disabled={disabled}
+          required
+        />
+        <span>
+          I agree to the{' '}
+          <Link to="/policies/privacy" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
+            Privacy policy
+          </Link>
+          .
+        </span>
+      </label>
+      <label className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={acceptedSellerPolicy}
+          onChange={(e) => onChangeSellerPolicy(e.target.checked)}
+          disabled={disabled}
+          required
+        />
+        <span>
+          I agree to the{' '}
+          <Link to="/policies/shop-seller-policy" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
+            Shop seller policy
+          </Link>
+          . Also review the{' '}
+          <Link to="/policies/seller-handbook" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
+            Seller handbook
+          </Link>
+          {' '}and{' '}
+          <Link to="/policies/payments" className="font-bold text-brand-green hover:underline" target="_blank" rel="noreferrer">
+            Payment policy
+          </Link>
+          .
+        </span>
+      </label>
+    </div>
   );
 }
+

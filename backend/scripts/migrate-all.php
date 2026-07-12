@@ -107,11 +107,34 @@ function runSqlFile(PDO $pdo, string $path): void
         }
         try {
             $pdo->exec($statement);
+            drainPendingResults($pdo);
             $preview = substr(preg_replace('/\s+/', ' ', $statement) ?? $statement, 0, 72);
             echo "  OK: {$preview}…\n";
         } catch (Throwable $e) {
             echo '  SKIP: ' . $e->getMessage() . "\n";
         }
+    }
+}
+
+/** Idempotent migrations use EXECUTE with SELECT skip rows — drain any open result set. */
+function drainPendingResults(PDO $pdo): void
+{
+    try {
+        while ($pdo->nextRowset()) {
+            // discard additional result sets from prepared statements
+        }
+    } catch (Throwable $e) {
+        // PDO may not support nextRowset(); safe to ignore
+    }
+
+    try {
+        $probe = $pdo->query('SELECT 1');
+        if ($probe instanceof PDOStatement) {
+            $probe->fetchAll();
+            $probe->closeCursor();
+        }
+    } catch (Throwable $e) {
+        // connection probe failed; leave cursor state unchanged
     }
 }
 

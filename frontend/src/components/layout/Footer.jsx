@@ -77,6 +77,14 @@ export default function Footer() {
               </Link>
               <p className="text-xs text-white/50">Hub to pickup station runs</p>
             </li>
+            {marketplaceEnabled && (
+              <li>
+                <Link to="/stores" className="font-bold text-brand-gold hover:underline">
+                  Browse shops
+                </Link>
+                <p className="text-xs text-white/50">Find sellers on our marketplace</p>
+              </li>
+            )}
             {marketplaceEnabled && shopApplicationsOpen && (
               <li>
                 <Link to="/sell" className="font-bold text-brand-gold hover:underline">
