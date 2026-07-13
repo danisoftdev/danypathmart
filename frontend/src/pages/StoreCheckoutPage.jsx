@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../lib/api';
@@ -18,13 +18,27 @@ export default function StoreCheckoutPage() {
   const subtotal = useStoreCartStore((s) => s.subtotal);
   const clearCart = useStoreCartStore((s) => s.clearCart);
 
-  const { data: addresses = [] } = useAddresses(!!user);
+  const { data: addrData, isLoading: addressesLoading } = useAddresses(!!user);
+  const addresses = Array.isArray(addrData?.data) ? addrData.data : [];
+
   const [addressId, setAddressId] = useState('');
   const [fulfillmentMode, setFulfillmentMode] = useState('delivery');
-  const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.id || '');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
   const [momoInfo, setMomoInfo] = useState(null);
+
+  useEffect(() => {
+    if (!paymentMethod && paymentMethods.length > 0) {
+      setPaymentMethod(paymentMethods[0].id);
+    }
+  }, [paymentMethods, paymentMethod]);
+
+  useEffect(() => {
+    if (addressId || addresses.length === 0) return;
+    const preferred = addresses.find((a) => a.is_default) ?? addresses[0];
+    if (preferred?.id != null) setAddressId(String(preferred.id));
+  }, [addresses, addressId]);
 
   const placeOrder = useMutation({
     mutationFn: async () => {
@@ -116,35 +130,53 @@ export default function StoreCheckoutPage() {
       {fulfillmentMode === 'delivery' && (
         <div className="mt-4">
           <label className="text-sm font-bold">Delivery address</label>
-          <select
-            className="mt-2 w-full rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent"
-            value={addressId}
-            onChange={(e) => setAddressId(e.target.value)}
-            required
-          >
-            <option value="">Select address</option>
-            {addresses.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.recipient_name || a.street}, {a.city}
-              </option>
-            ))}
-          </select>
+          {addressesLoading ? (
+            <p className="mt-2 text-sm text-muted">Loading addresses…</p>
+          ) : addresses.length === 0 ? (
+            <p className="mt-2 rounded-xl border border-brand-gold/40 bg-brand-gold/10 px-3 py-3 text-sm">
+              No saved addresses yet.{' '}
+              <Link to="/dashboard/addresses" className="font-bold text-brand-green hover:underline">
+                Add one in your account
+              </Link>
+              , then return here.
+            </p>
+          ) : (
+            <select
+              className="mt-2 w-full rounded-xl border border-black/10 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent"
+              value={addressId}
+              onChange={(e) => setAddressId(e.target.value)}
+              required
+            >
+              <option value="">Select address</option>
+              {addresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.recipient_name || a.street}, {a.city}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
       <fieldset className="mt-6 space-y-2">
         <legend className="text-sm font-bold">Payment method</legend>
-        {paymentMethods.map((m) => (
-          <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm">
-            <input
-              type="radio"
-              name="pay"
-              checked={paymentMethod === m.id}
-              onChange={() => setPaymentMethod(m.id)}
-            />
-            {m.label}
-          </label>
-        ))}
+        {paymentMethods.length === 0 ? (
+          <p className="rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-3 text-sm text-brand-red">
+            This shop has no payment methods enabled yet. Contact the shop or try again later.
+          </p>
+        ) : (
+          paymentMethods.map((m) => (
+            <label key={m.id} className="flex cursor-pointer items-center gap-2 rounded-xl border p-3 text-sm">
+              <input
+                type="radio"
+                name="pay"
+                checked={paymentMethod === m.id}
+                onChange={() => setPaymentMethod(m.id)}
+              />
+              {m.label}
+            </label>
+          ))
+        )}
       </fieldset>
 
       <div className="mt-4">
@@ -157,7 +189,15 @@ export default function StoreCheckoutPage() {
         <span className="text-lg font-extrabold text-brand-green">{formatPrice(subtotal())}</span>
       </div>
 
-      <button type="submit" disabled={placeOrder.isPending || !paymentMethod} className="btn-primary mt-6 w-full min-h-[48px]">
+      <button
+        type="submit"
+        disabled={
+          placeOrder.isPending
+          || !paymentMethod
+          || (fulfillmentMode === 'delivery' && (!addressId || addresses.length === 0))
+        }
+        className="btn-primary mt-6 w-full min-h-[48px]"
+      >
         {placeOrder.isPending ? 'Placing order…' : 'Place order'}
       </button>
 
