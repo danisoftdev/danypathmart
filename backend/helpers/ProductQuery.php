@@ -99,18 +99,21 @@ final class ProductQuery
      */
     public static function marketplaceVisibility(PDO $pdo, ?int $shopId = null): array
     {
-        $params = [];
+        // Always qualify with p. — callers join shops/categories where status (and similar) collide.
         if ($shopId !== null && $shopId > 0) {
-            return ['shop_id = ? AND listing_status = ? AND status = ?', [$shopId, 'approved', 'active']];
+            return [
+                'p.shop_id = ? AND p.listing_status = ? AND p.status = ?',
+                [$shopId, 'approved', 'active'],
+            ];
         }
 
         $features = PlatformFeatures::load($pdo);
         if (!$features['marketplace_enabled']) {
-            return ['shop_id IS NULL', []];
+            return ['p.shop_id IS NULL', []];
         }
 
         // Main catalogue: DPM products only — shop items sold via /stores/{slug}.
-        return ['shop_id IS NULL', []];
+        return ['p.shop_id IS NULL', []];
     }
 
     public static function orderBy(?string $sort): string

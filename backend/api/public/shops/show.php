@@ -26,26 +26,34 @@ if ($shop === null) {
 }
 
 [$marketSql, $marketParams] = ProductQuery::marketplaceVisibility($pdo, (int) $shop['id']);
-$sql = "SELECT p.*, c.name AS category_name, c.slug AS category_slug,
-               s.name AS shop_name, s.slug AS shop_slug, s.logo_url AS shop_logo
-        FROM products p
-        LEFT JOIN categories c ON c.id = p.category_id
-        LEFT JOIN shops s ON s.id = p.shop_id
-        WHERE {$marketSql}
-        ORDER BY p.created_at DESC LIMIT 48";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($marketParams);
-$products = array_map(
-    static fn (array $row): array => ProductPresenter::summary($row),
-    $stmt->fetchAll()
-);
+$products = [];
+try {
+    $sql = "SELECT p.*, c.name AS category_name, c.slug AS category_slug,
+                   s.name AS shop_name, s.slug AS shop_slug, s.logo_url AS shop_logo
+            FROM products p
+            LEFT JOIN categories c ON c.id = p.category_id
+            LEFT JOIN shops s ON s.id = p.shop_id
+            WHERE {$marketSql}
+            ORDER BY p.created_at DESC LIMIT 48";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($marketParams);
+    $products = array_map(
+        static fn (array $row): array => ProductPresenter::summary($row),
+        $stmt->fetchAll()
+    );
+} catch (\Throwable $e) {
+    error_log('public/shops/show products: ' . $e->getMessage());
+    // Still return the shop so the storefront is usable; empty grid is better than 500.
+    $products = [];
+}
 
 $publicShop = $shop;
 unset(
     $publicShop['paystack_subaccount_code'],
     $publicShop['bank_name'],
     $publicShop['bank_account_name'],
-    $publicShop['bank_account_number']
+    $publicShop['bank_account_number'],
+    $publicShop['momo_number']
 );
 
 Response::success([
