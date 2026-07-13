@@ -84,9 +84,9 @@ const EMPTY_INVITE_FORM = {
 };
 
 const LISTING_FILTERS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
+  { value: 'approved', label: 'Live' },
+  { value: 'rejected', label: 'Unpublished' },
+  { value: 'pending', label: 'Legacy pending' },
   { value: 'all', label: 'All' },
 ];
 
@@ -311,7 +311,7 @@ export default function AdminMarketplacePage() {
   });
 
   const [tab, setTab] = useState(() => (canOps ? 'applications' : canViewPolicy ? 'policy' : canViewMap ? 'map' : 'billing'));
-  const [listingFilter, setListingFilter] = useState('pending');
+  const [listingFilter, setListingFilter] = useState('approved');
   const [withdrawFilter, setWithdrawFilter] = useState('requested');
   const [withdrawKind, setWithdrawKind] = useState('shop');
   const [selectedApp, setSelectedApp] = useState(null);
@@ -325,6 +325,7 @@ export default function AdminMarketplacePage() {
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [inviteResult, setInviteResult] = useState(null);
   const [shopToDelete, setShopToDelete] = useState(null);
+  const [listingToUnpublish, setListingToUnpublish] = useState(null);
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
   const { data: shops = [], isLoading: shopsLoading } = useAdminShops(
@@ -820,7 +821,9 @@ export default function AdminMarketplacePage() {
                     <tbody>
                       {listings.map((row) => {
                         const tags = listingPromoTags(row);
-                        const hasPromo = tags.length > 0 && tags[0] !== 'Hidden by admin' || row.shop_badge_label || row.shop_promo_free_delivery;
+                        const hasPromo = (tags.length > 0 && tags[0] !== 'Hidden by admin') || row.shop_badge_label || row.shop_promo_free_delivery;
+                        const isLive = row.listing_status === 'approved';
+                        const isDown = row.listing_status === 'rejected' || row.listing_status === 'pending';
                         return (
                         <tr key={row.id}>
                           <td className="font-semibold">{row.name}</td>
@@ -832,25 +835,25 @@ export default function AdminMarketplacePage() {
                           <td><StatusBadge status={row.listing_status} /></td>
                           <td>
                             <div className="flex flex-wrap gap-1">
-                            {row.listing_status === 'pending' && (
-                              <>
-                                <button
-                                  type="button"
-                                  className="btn-primary px-2 py-1 text-xs"
-                                  disabled={reviewListing.isPending}
-                                  onClick={() => reviewListing.mutateAsync({ id: row.id, action: 'approve' })}
-                                >
-                                  Approve
-                                </button>
-                                <button
-                                  type="button"
-                                  className="rounded-lg border border-brand-red px-2 py-1 text-xs font-bold text-brand-red"
-                                  disabled={reviewListing.isPending}
-                                  onClick={() => reviewListing.mutateAsync({ id: row.id, action: 'reject' })}
-                                >
-                                  Reject
-                                </button>
-                              </>
+                            {isLive && (
+                              <button
+                                type="button"
+                                className="rounded-lg border border-brand-red px-2 py-1 text-xs font-bold text-brand-red"
+                                disabled={reviewListing.isPending}
+                                onClick={() => setListingToUnpublish(row)}
+                              >
+                                Unpublish
+                              </button>
+                            )}
+                            {isDown && (
+                              <button
+                                type="button"
+                                className="btn-primary px-2 py-1 text-xs"
+                                disabled={reviewListing.isPending}
+                                onClick={() => reviewListing.mutateAsync({ id: row.id, action: 'publish' })}
+                              >
+                                Publish
+                              </button>
                             )}
                             {hasPromo && (
                               <>
@@ -1686,6 +1689,35 @@ export default function AdminMarketplacePage() {
         expectedValue={shopToDelete?.name ?? null}
         submitLabel="Delete shop"
         loading={deleteShop.isPending}
+        variant="danger"
+      />
+
+      <PromptDialog
+        open={!!listingToUnpublish}
+        onClose={() => !reviewListing.isPending && setListingToUnpublish(null)}
+        onSubmit={async (reason) => {
+          if (!listingToUnpublish) return;
+          try {
+            await reviewListing.mutateAsync({
+              id: listingToUnpublish.id,
+              action: 'unpublish',
+              note: reason,
+            });
+            setListingToUnpublish(null);
+            showAlert('Listing unpublished. Shop notified with your reason.');
+          } catch (e) {
+            showAlert(e.response?.data?.message || 'Could not unpublish listing.', 'error');
+          }
+        }}
+        title="Unpublish listing"
+        description={
+          listingToUnpublish
+            ? `Unpublish "${listingToUnpublish.name}" from ${listingToUnpublish.shop_name || 'this shop'}? The shop will see your reason and can fix then republish.`
+            : ''
+        }
+        label="Reason for the shop"
+        submitLabel="Unpublish"
+        loading={reviewListing.isPending}
         variant="danger"
       />
     </div>

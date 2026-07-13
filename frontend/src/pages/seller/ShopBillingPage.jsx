@@ -30,13 +30,20 @@ export default function ShopBillingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [msg, setMsg] = useState('');
   const [err, setErr] = useState('');
-  const [period, setPeriod] = useState(billing.settings?.renewal_period || 'monthly');
+  const [period, setPeriod] = useState(null);
 
   const payments = data?.payments ?? [];
   const methods = data?.methods ?? [];
   const subscription = data?.subscription ?? billing.subscription;
   const settings = data?.settings ?? billing.settings ?? {};
   const fees = settings.paystack_fees || {};
+  const preferredPeriod = settings.renewal_period || 'yearly';
+
+  useEffect(() => {
+    if (period == null && preferredPeriod) {
+      setPeriod(preferredPeriod);
+    }
+  }, [preferredPeriod, period]);
 
   useEffect(() => {
     const kind = searchParams.get('shop_payment');
@@ -74,7 +81,7 @@ export default function ShopBillingPage() {
     setErr('');
     setMsg('');
     try {
-      const res = await initRenewal.mutateAsync({ period });
+      const res = await initRenewal.mutateAsync({ period: period || preferredPeriod });
       if (res.authorization_url) {
         window.location.href = res.authorization_url;
         return;
@@ -106,7 +113,7 @@ export default function ShopBillingPage() {
     setErr('');
     setMsg('');
     try {
-      await autoRenewMut.mutateAsync({ auto_renew: enabled, period });
+      await autoRenewMut.mutateAsync({ auto_renew: enabled, period: period || preferredPeriod });
       setMsg(enabled ? 'Automatic renewal is on.' : 'Automatic renewal is off.');
       refetch();
     } catch (e) {
@@ -139,16 +146,33 @@ export default function ShopBillingPage() {
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Current period</p>
           <p className="mt-2 text-sm">
             Status: <strong>{subscription?.status || '—'}</strong>
-            {subscription?.period_end ? (
-              <>
-                {' '}
-                · Ends <strong>{subscription.period_end}</strong>
-              </>
-            ) : null}
+            {(() => {
+              let plan = subscription?.period || subscription?.renewal_period || null;
+              if (!plan && subscription?.period_start && subscription?.period_end) {
+                const days = Math.round(
+                  (new Date(subscription.period_end).getTime() - new Date(subscription.period_start).getTime()) / 86400000
+                );
+                plan = days >= 300 ? 'yearly' : days >= 20 ? 'monthly' : null;
+              }
+              if (plan === 'yearly') {
+                return <span className="ml-2 rounded-full bg-brand-green/15 px-2 py-0.5 text-[10px] font-bold uppercase text-brand-green">Yearly</span>;
+              }
+              if (plan === 'monthly') {
+                return <span className="ml-2 rounded-full bg-brand-gold/20 px-2 py-0.5 text-[10px] font-bold uppercase text-[#92400E] dark:text-brand-gold">Monthly</span>;
+              }
+              return null;
+            })()}
           </p>
-          {billing.days_until_expiry != null && (
+          {subscription?.period_end ? (
+            <p className="mt-1 text-sm">
+              Ends <strong>{subscription.period_end}</strong>
+              {billing.days_until_expiry != null ? (
+                <span className="text-muted"> · {billing.days_until_expiry} day(s) remaining</span>
+              ) : null}
+            </p>
+          ) : billing.days_until_expiry != null ? (
             <p className="mt-1 text-xs text-muted">{billing.days_until_expiry} day(s) remaining</p>
-          )}
+          ) : null}
           {fees.mode && (
             <p className="mt-3 text-xs text-muted">
               Paystack fees:{' '}
@@ -164,13 +188,34 @@ export default function ShopBillingPage() {
           <p className="text-xs font-bold uppercase tracking-wide text-muted">Renew / pay</p>
           {renewalOptions.length > 0 ? (
             <>
-              <select className="input-field mt-2 w-full" value={period} onChange={(e) => setPeriod(e.target.value)}>
-                {renewalOptions.map((o) => (
-                  <option key={o.period} value={o.period}>
-                    {o.label} — {formatPrice(o.fee)}
-                  </option>
-                ))}
-              </select>
+              <div className="mt-2 space-y-2">
+                {renewalOptions.map((o) => {
+                  const selected = (period || preferredPeriod) === o.period;
+                  const recommended = o.period === preferredPeriod;
+                  return (
+                    <button
+                      key={o.period}
+                      type="button"
+                      onClick={() => setPeriod(o.period)}
+                      className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm font-bold ${
+                        selected
+                          ? 'border-brand-green bg-brand-green/10 text-brand-green'
+                          : 'border-black/10 dark:border-white/15'
+                      }`}
+                    >
+                      <span>
+                        {o.label} — {formatPrice(o.fee)}
+                        {recommended ? (
+                          <span className="ml-2 rounded-full bg-brand-gold/25 px-2 py-0.5 text-[10px] font-bold uppercase text-[#92400E] dark:text-brand-gold">
+                            Recommended
+                          </span>
+                        ) : null}
+                      </span>
+                      {selected ? <span aria-hidden>✓</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
               <button
                 type="button"
                 className="btn-primary mt-3 w-full min-h-[44px]"

@@ -12,7 +12,7 @@ if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
     Response::error('No image uploaded.', 422, ['code' => 'no_file']);
 }
 if ((int) $file['size'] > 5 * 1024 * 1024) {
-    Response::error('Shop logo must be 5MB or smaller.', 422, ['code' => 'too_large']);
+    Response::error('Image must be 5MB or smaller.', 422, ['code' => 'too_large']);
 }
 
 $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -37,6 +37,6 @@ if (!move_uploaded_file($file['tmp_name'], $absPath)) {
 }
 
 Response::success([
-    'message' => 'Logo uploaded.',
+    'message' => 'Image uploaded.',
     'url'     => $relPath,
 ]);

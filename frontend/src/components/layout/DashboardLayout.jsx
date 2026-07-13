@@ -1,6 +1,6 @@
-import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { isAdminUser, isDriverUser, isStationStaffUser } from '../../lib/permissions';
+import { isAdminUser, isDriverUser, isShopOwnerUser, isStationStaffUser } from '../../lib/permissions';
 import UserAvatar from '../brand/UserAvatar';
 
 const NAV = [
@@ -15,10 +15,23 @@ const NAV = [
   { to: '/dashboard/settings', end: false, label: 'Settings', icon: '⚙️' },
 ];
 
+/** Paths shop owners may still open (purchases + account security). */
+const SHOP_OWNER_DASHBOARD_ALLOW = [
+  '/dashboard/orders',
+  '/dashboard/quotes',
+  '/dashboard/wishlist',
+  '/dashboard/wallet',
+  '/dashboard/notifications',
+  '/dashboard/addresses',
+  '/dashboard/security',
+  '/dashboard/settings',
+];
+
 export default function DashboardLayout() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const doLogout = async () => {
     await logout();
@@ -37,6 +50,14 @@ export default function DashboardLayout() {
     return <Navigate to="/admin/dashboard" replace />;
   }
 
+  if (isShopOwnerUser(user)) {
+    const allowed = SHOP_OWNER_DASHBOARD_ALLOW.some(
+      (p) => location.pathname === p || location.pathname.startsWith(`${p}/`)
+    );
+    if (!allowed) {
+      return <Navigate to="/seller" replace />;
+    }
+  }
   return (
     <section className="mx-auto max-w-6xl px-4 py-6 pb-24 md:py-8">
       {/* Mobile account header */}

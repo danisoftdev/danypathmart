@@ -265,15 +265,15 @@ final class NotificationService
             return;
         }
 
-        $approved = $action === 'approve' || $action === 'approved';
+        $approved = $action === 'approve' || $action === 'approved' || $action === 'publish';
         $title = $approved
-            ? "Product approved — {$name}"
-            : "Product needs changes — {$name}";
+            ? "Product published — {$name}"
+            : "Product unpublished — {$name}";
         $body = $approved
             ? "\"{$name}\" is live on your shop storefront."
-            : ("\"{$name}\" was not approved."
-                . ($note !== null && trim($note) !== '' ? "\n\nNote: " . trim($note) : '')
-                . "\n\nEdit and resubmit from Seller → Products.");
+            : ("\"{$name}\" was unpublished by admin."
+                . ($note !== null && trim($note) !== '' ? "\n\nReason: " . trim($note) : '')
+                . "\n\nEdit the product in Seller → Products to fix it — it will go live again when you save.");
         $link = '/seller/products';
 
         $members = $pdo->prepare(
@@ -286,21 +286,21 @@ final class NotificationService
     }
 
     /**
-     * Alert staff who can review marketplace product listings.
+     * Inform staff that a shop published a new live listing (post-moderation optional).
      *
      * @param array{id:int,name:string,shop_id:int,price?:float} $product
      */
-    public static function notifyNewProductListingPending(PDO $pdo, array $product, string $shopName = ''): void
+    public static function notifyNewProductListingLive(PDO $pdo, array $product, string $shopName = ''): void
     {
         $name = trim((string) ($product['name'] ?? 'Product'));
         $id = (int) ($product['id'] ?? 0);
         $price = isset($product['price']) ? (float) $product['price'] : null;
         $shopLabel = $shopName !== '' ? $shopName : ('Shop #' . (int) ($product['shop_id'] ?? 0));
 
-        $title = "New product listing — {$name}";
-        $body = "{$shopLabel} submitted \"{$name}\" for review."
+        $title = "New live listing — {$name}";
+        $body = "{$shopLabel} published \"{$name}\"."
             . ($price !== null ? "\nPrice: GHS " . number_format($price, 2) : '')
-            . "\nReview in Admin → Marketplace → Listings.";
+            . "\nReview anytime in Admin → Marketplace → Listings (you can unpublish with a reason).";
         $link = '/admin/marketplace';
 
         self::notifyStaffWithPermission(
@@ -311,6 +311,15 @@ final class NotificationService
             $link,
             'admin_listing'
         );
+    }
+
+    /**
+     * @deprecated Use notifyNewProductListingLive — listings publish immediately.
+     * @param array{id:int,name:string,shop_id:int,price?:float} $product
+     */
+    public static function notifyNewProductListingPending(PDO $pdo, array $product, string $shopName = ''): void
+    {
+        self::notifyNewProductListingLive($pdo, $product, $shopName);
     }
 
     public static function statusLabel(string $status): string

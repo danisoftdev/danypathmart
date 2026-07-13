@@ -9,20 +9,30 @@ import { formatPrice } from '../../lib/currency';
 const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
   { to: '/seller/products', end: false, label: 'Products', icon: '🏷️' },
-  { to: '/seller/orders', end: false, label: 'Orders', icon: '📦' },
+  { to: '/seller/orders', end: false, label: 'Shop orders', icon: '📦' },
   { to: '/seller/billing', end: false, label: 'Billing', icon: '🧾' },
-  { to: '/seller/payments', end: false, label: 'Payments', icon: '💳' },
-  { to: '/seller/settings', end: false, label: 'Profile', icon: '⚙️' },
+  { to: '/seller/payments', end: false, label: 'Payouts', icon: '💳' },
+  { to: '/seller/settings', end: false, label: 'Shop profile', icon: '⚙️' },
+  { to: '/dashboard/security', end: false, label: 'Security', icon: '🔒' },
+  { to: '/dashboard/orders', end: false, label: 'My purchases', icon: '🛍️' },
+  { to: '/shop', end: false, label: 'Buy on DPM', icon: '🛒' },
 ];
 
 export default function ShopLayout() {
   const user = useAuthStore((s) => s.user);
+  const loadMe = useAuthStore((s) => s.loadMe);
   const { data, isLoading, isError, error, refetch } = useShopDashboard(!!user);
   const initRenewal = useInitializeShopRenewalPayment();
   const confirmDev = useConfirmShopBillingDevPayment();
   const [searchParams, setSearchParams] = useSearchParams();
   const [renewalMsg, setRenewalMsg] = useState('');
   const [renewalPeriod, setRenewalPeriod] = useState(null);
+
+  useEffect(() => {
+    if (data?.shop && user && !user.has_shop) {
+      loadMe?.();
+    }
+  }, [data?.shop, user?.has_shop, user, loadMe]);
 
   useEffect(() => {
     const isRenewalReturn = searchParams.get('shop_payment') === 'renewal';

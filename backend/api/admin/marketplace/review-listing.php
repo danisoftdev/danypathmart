@@ -18,7 +18,7 @@ if ($id <= 0) {
 
 $pdo = Database::pdo();
 $body = Response::body();
-$action = trim((string) ($body['action'] ?? 'approve'));
+$action = strtolower(trim((string) ($body['action'] ?? 'approve')));
 $note = trim((string) ($body['note'] ?? $body['admin_note'] ?? ''));
 
 $stmt = $pdo->prepare(
@@ -41,14 +41,39 @@ $product = [
     'price'   => (float) ($row['price'] ?? 0),
 ];
 
-if ($action === 'reject') {
-    $pdo->prepare("UPDATE products SET listing_status = 'rejected', status = 'inactive' WHERE id = ?")
-        ->execute([$id]);
-    NotificationService::notifyProductListingDecision($pdo, $product, 'reject', $note !== '' ? $note : null);
-    Response::success(['message' => 'Listing rejected.', 'id' => $id]);
+// Aliases: unpublish / reject = take down; publish / approve = put live.
+$unpublish = in_array($action, ['reject', 'unpublish', 'rejected'], true);
+$publish = in_array($action, ['approve', 'publish', 'approved'], true);
+
+if (!$unpublish && !$publish) {
+    Response::error('Action must be publish or unpublish.', 422);
 }
 
-$pdo->prepare("UPDATE products SET listing_status = 'approved', status = 'active' WHERE id = ?")
-    ->execute([$id]);
+if ($unpublish) {
+    if ($note === '') {
+        Response::error('Please give the shop a reason so they can fix the listing.', 422);
+    }
+    try {
+        $pdo->prepare(
+            "UPDATE products SET listing_status = 'rejected', status = 'inactive', listing_admin_note = ? WHERE id = ?"
+        )->execute([$note, $id]);
+    } catch (\Throwable) {
+        $pdo->prepare(
+            "UPDATE products SET listing_status = 'rejected', status = 'inactive' WHERE id = ?"
+        )->execute([$id]);
+    }
+    NotificationService::notifyProductListingDecision($pdo, $product, 'reject', $note);
+    Response::success(['message' => 'Listing unpublished. The shop was notified with your reason.', 'id' => $id]);
+}
+
+try {
+    $pdo->prepare(
+        "UPDATE products SET listing_status = 'approved', status = 'active', listing_admin_note = NULL WHERE id = ?"
+    )->execute([$id]);
+} catch (\Throwable) {
+    $pdo->prepare(
+        "UPDATE products SET listing_status = 'approved', status = 'active' WHERE id = ?"
+    )->execute([$id]);
+}
 NotificationService::notifyProductListingDecision($pdo, $product, 'approve', $note !== '' ? $note : null);
-Response::success(['message' => 'Listing approved and live.', 'id' => $id]);
+Response::success(['message' => 'Listing published and live on the shop storefront.', 'id' => $id]);

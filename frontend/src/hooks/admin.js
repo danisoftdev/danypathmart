@@ -329,8 +329,8 @@ export function useMarketplaceListings(listing = 'pending', enabled = true) {
 export function useReviewMarketplaceListing() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, action }) =>
-      (await api.post(`/admin/marketplace/listings/${id}/review`, { action })).data,
+    mutationFn: async ({ id, action, note }) =>
+      (await api.post(`/admin/marketplace/listings/${id}/review`, { action, note })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-marketplace-listings'] }),
   });
 }

@@ -85,6 +85,14 @@ final class AuthTokens
      */
     public static function publicUser(array $u): array
     {
+        $pdo = Database::pdo();
+        $shopId = null;
+        try {
+            $shopId = ShopService::userShopId($pdo, (int) $u['id']);
+        } catch (\Throwable) {
+            $shopId = null;
+        }
+
         return [
             'id'                 => (int) $u['id'],
             'name'               => $u['name'],
@@ -101,8 +109,10 @@ final class AuthTokens
                 : null,
             'permissions'                => StaffPermission::effective((int) $u['id'], (string) $u['role']),
             'staff_id'                   => EmployeeService::isWorkforceRole((string) ($u['role'] ?? ''))
-                ? EmployeeService::staffIdForUserId(Database::pdo(), (int) $u['id'])
+                ? EmployeeService::staffIdForUserId($pdo, (int) $u['id'])
                 : null,
+            'has_shop'                   => $shopId !== null && $shopId > 0,
+            'shop_id'                    => $shopId !== null && $shopId > 0 ? $shopId : null,
         ];
     }
 }

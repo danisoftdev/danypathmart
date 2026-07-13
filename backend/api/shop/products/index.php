@@ -18,8 +18,14 @@ $stmt = $pdo->prepare(
 $stmt->execute([$ctx['shop_id']]);
 
 Response::success([
-    'data' => array_map(static fn (array $r): array => ProductPresenter::summary($r) + [
-        'listing_status' => $r['listing_status'] ?? 'none',
-        'status'         => $r['status'],
-    ], $stmt->fetchAll()),
+    'data' => array_map(static function (array $r): array {
+        $row = ProductPresenter::summary($r) + [
+            'listing_status' => $r['listing_status'] ?? 'none',
+            'status'         => $r['status'],
+        ];
+        if (array_key_exists('listing_admin_note', $r)) {
+            $row['listing_admin_note'] = $r['listing_admin_note'];
+        }
+        return $row;
+    }, $stmt->fetchAll()),
 ]);

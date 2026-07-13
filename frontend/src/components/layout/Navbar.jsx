@@ -22,8 +22,8 @@ export default function Navbar() {
   const count = items.reduce((sum, i) => sum + i.qty, 0);
   const accountTo = accountPathForUser(isAuthenticated ? user : null);
   const { ids: wishlistIds } = useWishlistIds();
-  const wishlistCount = isAuthenticated && user?.role === 'customer' ? wishlistIds.length : 0;
-  const wishlistTo = isAuthenticated && user?.role === 'customer' ? '/dashboard/wishlist' : '/login';
+  const wishlistCount = isAuthenticated && (user?.role === 'customer' || user?.has_shop) ? wishlistIds.length : 0;
+  const wishlistTo = isAuthenticated && (user?.role === 'customer' || user?.has_shop) ? '/dashboard/wishlist' : '/login';
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/8 bg-[#FFF9F3]/95 backdrop-blur-md dark:border-white/10 dark:bg-[#121212]/95">

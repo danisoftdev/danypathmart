@@ -212,11 +212,17 @@ function isPromoterUser(user) {
   return !!user && user.role === 'promoter';
 }
 
+function isShopOwnerUser(user) {
+  return !!user && (!!user.has_shop || (user.shop_id != null && Number(user.shop_id) > 0));
+}
+
 function homePathForUser(user) {
   if (isPromoterUser(user)) return '/promoter';
   if (isStationStaffUser(user)) return '/station';
   if (isDriverUser(user)) return '/driver';
-  return isAdminUser(user) ? '/admin' : '/dashboard';
+  if (isAdminUser(user)) return '/admin';
+  if (isShopOwnerUser(user)) return '/seller';
+  return '/dashboard';
 }
 
 function accountPathForUser(user) {
@@ -224,13 +230,16 @@ function accountPathForUser(user) {
   if (isPromoterUser(user)) return '/promoter';
   if (isStationStaffUser(user)) return '/station';
   if (isDriverUser(user)) return '/driver';
-  return isAdminUser(user) ? '/admin/dashboard' : '/dashboard';
+  if (isAdminUser(user)) return '/admin/dashboard';
+  if (isShopOwnerUser(user)) return '/seller';
+  return '/dashboard';
 }
 
 export {
   isAdminUser,
   isDriverUser,
   isStationStaffUser,
+  isShopOwnerUser,
   homePathForUser,
   accountPathForUser,
 };

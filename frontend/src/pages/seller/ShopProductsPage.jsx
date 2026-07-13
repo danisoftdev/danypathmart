@@ -3,10 +3,12 @@ import {
   useCreateShopProduct,
   useShopProducts,
   useUpdateShopProduct,
+  useUploadShopLogo,
 } from '../../hooks/shop';
 import { useCategories } from '../../hooks/catalog';
 import { flattenCategories } from '../../lib/categories';
 import ShopPromoFields from '../../components/shop/ShopPromoFields';
+import ShopProductImagesField from '../../components/shop/ShopProductImagesField';
 import { formatPrice } from '../../lib/currency';
 import { productDisplayBadges } from '../../lib/shopPromo';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
@@ -17,7 +19,6 @@ const EMPTY = {
   stock_qty: '0',
   description: '',
   category_id: '',
-  images: '',
   shop_badge_label: '',
   shop_promo_free_delivery: false,
 };
@@ -32,15 +33,15 @@ function promoFromProduct(product) {
 
 function listingLabel(status) {
   const map = {
-    pending: 'Pending review',
+    pending: 'Pending',
     approved: 'Live',
-    rejected: 'Rejected',
+    rejected: 'Unpublished',
     none: '—',
   };
   return map[status] || status;
 }
 
-function ProductModal({ product, onClose, onSave, loading, categories }) {
+function ProductModal({ product, onClose, onSave, loading, categories, uploadFile }) {
   const [form, setForm] = useState(
     product
       ? {
@@ -49,25 +50,22 @@ function ProductModal({ product, onClose, onSave, loading, categories }) {
           stock_qty: String(product.stock_qty ?? 0),
           description: product.description || '',
           category_id: product.category_id ? String(product.category_id) : '',
-          images: (product.images || []).join('\n'),
           ...promoFromProduct(product),
         }
       : EMPTY
   );
+  const [images, setImages] = useState(() => (product?.images || []).filter(Boolean));
   const [promo, setPromo] = useState(() => (product ? promoFromProduct(product) : { shop_badge_label: '', shop_promo_free_delivery: false }));
 
   useEffect(() => {
     setPromo(product ? promoFromProduct(product) : { shop_badge_label: '', shop_promo_free_delivery: false });
+    setImages((product?.images || []).filter(Boolean));
   }, [product?.id]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const submit = (e) => {
     e.preventDefault();
-    const images = form.images
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
     onSave({
       name: form.name.trim(),
       price: Number(form.price),
@@ -87,7 +85,12 @@ function ProductModal({ product, onClose, onSave, loading, categories }) {
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-extrabold">{product ? 'Edit product' : 'Add product'}</h2>
-        <p className="mt-1 text-xs text-muted">New and updated listings require admin approval before going live.</p>
+        <p className="mt-1 text-xs text-muted">Published to your store right away. Admin may unpublish with a reason if needed.</p>
+        {product?.listing_status === 'rejected' && product?.listing_admin_note && (
+          <p className="mt-3 rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
+            Unpublished reason: {product.listing_admin_note}
+          </p>
+        )}
         <form onSubmit={submit} className="mt-4 space-y-3">
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Name</span>
@@ -116,14 +119,11 @@ function ProductModal({ product, onClose, onSave, loading, categories }) {
             <span className="mb-1 block font-semibold">Description</span>
             <textarea className="input-field w-full" rows={3} value={form.description} onChange={set('description')} />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-semibold">Image URLs (one per line)</span>
-            <textarea className="input-field w-full font-mono text-xs" rows={3} value={form.images} onChange={set('images')} />
-          </label>
+          <ShopProductImagesField urls={images} onChange={setImages} uploadFile={uploadFile} />
           <ShopPromoFields value={promo} onChange={setPromo} />
           <div className="flex gap-2 pt-2">
             <button type="submit" className="btn-primary flex-1" disabled={loading}>
-              {loading ? 'Saving…' : product ? 'Save changes' : 'Submit for review'}
+              {loading ? 'Saving…' : product ? 'Save & publish' : 'Publish product'}
             </button>
             <button type="button" className="btn-ghost px-4" onClick={onClose} disabled={loading}>
               Cancel
@@ -141,17 +141,20 @@ export default function ShopProductsPage() {
   const categories = flattenCategories(catData?.data ?? []);
   const create = useCreateShopProduct();
   const update = useUpdateShopProduct();
+  const uploadLogo = useUploadShopLogo();
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState('');
+
+  const uploadFile = async (file) => uploadLogo.mutateAsync(file);
 
   const save = async (payload) => {
     try {
       if (modal?.id) {
-        await update.mutateAsync({ id: modal.id, ...payload });
-        setToast('Product updated — may need re-approval.');
+        const res = await update.mutateAsync({ id: modal.id, ...payload });
+        setToast(res.message || 'Product updated.');
       } else {
-        await create.mutateAsync(payload);
-        setToast('Product submitted for review.');
+        const res = await create.mutateAsync(payload);
+        setToast(res.message || 'Product published to your store.');
       }
       setModal(null);
       setTimeout(() => setToast(''), 4000);
@@ -165,7 +168,7 @@ export default function ShopProductsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-extrabold md:text-2xl">Products</h1>
-          <p className="mt-1 text-sm text-muted">Manage your catalog. Approved listings appear on your store page.</p>
+          <p className="mt-1 text-sm text-muted">Listings go live on your store immediately.</p>
         </div>
         <button type="button" className="btn-primary min-h-[44px] px-4" onClick={() => setModal({})}>
           Add product
@@ -196,7 +199,12 @@ export default function ShopProductsPage() {
             <tbody>
               {products.map((p) => (
                 <tr key={p.id}>
-                  <td className="font-semibold">{p.name}</td>
+                  <td>
+                    <div className="font-semibold">{p.name}</div>
+                    {p.listing_status === 'rejected' && p.listing_admin_note && (
+                      <p className="mt-0.5 text-xs text-brand-red">Reason: {p.listing_admin_note}</p>
+                    )}
+                  </td>
                   <td>{formatPrice(p.price)}</td>
                   <td>{p.stock_qty}</td>
                   <td className="text-xs">
@@ -224,6 +232,7 @@ export default function ShopProductsPage() {
           onClose={() => setModal(null)}
           onSave={save}
           loading={create.isPending || update.isPending}
+          uploadFile={uploadFile}
         />
       )}
     </div>
