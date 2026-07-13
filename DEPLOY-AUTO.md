@@ -1,15 +1,23 @@
 # Auto-deploy to Hostinger (GitHub Actions)
 
-When you **merge to `main`**, GitHub builds the app and deploys to Hostinger over SSH — files **and** database migrations (`migrate-all.php`).
+When you **push or merge to `main`**, GitHub **automatically** builds and deploys to Hostinger — you do **not** need to run `gh workflow run` or `gh run watch` every time.
 
 **Workflow file:** `.github/workflows/deploy-hostinger.yml`
+
+```bash
+# Enough for production (auto-triggers the workflow):
+git push origin main
+
+# Optional — only if you want to watch this one run finish:
+gh run watch --repo danisoftdev/danypathmart
+```
 
 ---
 
 ## How the flow works
 
 ```
-develop  →  PR  →  merge to main  →  GitHub Actions runs  →  Hostinger updated
+push/merge to main  →  GitHub Actions (automatic)  →  Hostinger updated
 ```
 
 | Step | What happens |
@@ -19,11 +27,15 @@ develop  →  PR  →  merge to main  →  GitHub Actions runs  →  Hostinger u
 | 3 | Runs `composer install` for backend (uploads `vendor/` too) |
 | 4 | `rsync` frontend `dist/` → `public_html/` |
 | 5 | `rsync` backend → `public_html/api/` (keeps `.env` and `uploads/`) |
-| 6 | SSH runs `deploy/remote-post-deploy.sh` → migrations + env check |
+| 6 | SSH runs `deploy/remote-post-deploy.sh` → migrations + env check (env issues warn, do not fail the deploy) |
 
 **`develop` branch:** does **not** auto-deploy. Work on `develop`, merge to `main` when ready for production.
 
-**Manual deploy:** GitHub → **Actions** → **Deploy to Hostinger (production)** → **Run workflow**.
+**Manual deploy (rare):** only if you need a re-deploy with no new commit — Actions → **Deploy to Hostinger (production)** → **Run workflow**, or:
+
+```bash
+gh workflow run "Deploy to Hostinger (production)" --repo danisoftdev/danypathmart --ref main
+```
 
 ---
 
