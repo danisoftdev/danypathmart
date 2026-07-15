@@ -28,8 +28,10 @@ export function useSupportChatThread(enabled = true) {
       return res.data;
     },
     enabled: enabled && !!getToken(),
-    refetchInterval: enabled && getToken() ? 8000 : false,
-    staleTime: 3000,
+    refetchInterval: enabled && getToken() ? 4000 : false,
+    staleTime: 2000,
+    placeholderData: (prev) => prev,
+    retry: 1,
   });
 }
 

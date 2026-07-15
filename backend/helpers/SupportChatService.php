@@ -202,9 +202,13 @@ final class SupportChatService
 
         if ($route === 'dpm') {
             self::routeConversation($pdo, $conversationId, 'dpm', null);
-            $pdo->prepare(
-                'UPDATE support_conversations SET dpm_joined_at = COALESCE(dpm_joined_at, NOW()), updated_at = NOW() WHERE id = ?'
-            )->execute([$conversationId]);
+            try {
+                $pdo->prepare(
+                    'UPDATE support_conversations SET dpm_joined_at = COALESCE(dpm_joined_at, NOW()), updated_at = NOW() WHERE id = ?'
+                )->execute([$conversationId]);
+            } catch (\Throwable) {
+                // Column may be absent until migration 072 finishes.
+            }
             $msg = self::insertSystemMessage(
                 $pdo,
                 $conversationId,
@@ -262,9 +266,13 @@ final class SupportChatService
             ];
         }
 
-        $pdo->prepare(
-            'UPDATE support_conversations SET dpm_joined_at = NOW(), updated_at = NOW() WHERE id = ?'
-        )->execute([$conversationId]);
+        try {
+            $pdo->prepare(
+                'UPDATE support_conversations SET dpm_joined_at = NOW(), updated_at = NOW() WHERE id = ?'
+            )->execute([$conversationId]);
+        } catch (\Throwable) {
+            // Column may be absent until migration 072 finishes.
+        }
 
         $msg = self::insertSystemMessage($pdo, $conversationId, 'DPM Support joined the chat.');
 
@@ -524,15 +532,26 @@ final class SupportChatService
         }
         self::insertMessage($pdo, $conversationId, 'admin', $adminUserId, $body, $imageUrl);
 
-        $pdo->prepare(
-            'UPDATE support_conversations
-             SET customer_unread_count = customer_unread_count + 1,
-                 admin_unread_count = 0,
-                 dpm_joined_at = COALESCE(dpm_joined_at, NOW()),
-                 last_message_at = NOW(),
-                 updated_at = NOW()
-             WHERE id = ?'
-        )->execute([$conversationId]);
+        try {
+            $pdo->prepare(
+                'UPDATE support_conversations
+                 SET customer_unread_count = customer_unread_count + 1,
+                     admin_unread_count = 0,
+                     dpm_joined_at = COALESCE(dpm_joined_at, NOW()),
+                     last_message_at = NOW(),
+                     updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$conversationId]);
+        } catch (\Throwable) {
+            $pdo->prepare(
+                'UPDATE support_conversations
+                 SET customer_unread_count = customer_unread_count + 1,
+                     admin_unread_count = 0,
+                     last_message_at = NOW(),
+                     updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$conversationId]);
+        }
 
         return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
     }

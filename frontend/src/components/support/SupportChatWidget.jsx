@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../store/authStore';
+import { getToken } from '../../lib/api';
 import { resolveImageUrl } from '../../lib/currency';
 import {
   clearEphemeralChat,
@@ -97,21 +99,26 @@ function emptyEphemeral(name = 'Guest') {
 
 export default function SupportChatWidget() {
   const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const hasSession = isAuthenticated || !!getToken();
+  const qc = useQueryClient();
+
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [mode, setMode] = useState(() => (user ? 'live' : 'gate')); // gate | ephemeral | live
+  const [mode, setMode] = useState(() => (getToken() ? 'live' : getEphemeralChat() ? 'ephemeral' : 'gate'));
   const [ephemeral, setEphemeral] = useState(() => getEphemeralChat());
   const [shopQuery, setShopQuery] = useState('');
   const [pickingShopLive, setPickingShopLive] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [startFailed, setStartFailed] = useState(false);
   const listRef = useRef(null);
   const fileRef = useRef(null);
+  const startAttemptRef = useRef(0);
 
-  const isLoggedIn = !!user;
-  const canPoll = open && isLoggedIn && mode === 'live';
+  const canPoll = open && hasSession && mode === 'live';
 
-  const { data, isLoading, refetch } = useSupportChatThread(canPoll);
+  const { data, isLoading, isFetching, refetch } = useSupportChatThread(canPoll);
   const startChat = useStartSupportChat();
   const routeChat = useRouteSupportChat();
   const sendMessage = useSendSupportChatMessage();
@@ -137,28 +144,61 @@ export default function SupportChatWidget() {
 
   const messages = mode === 'ephemeral' ? (ephemeral?.messages ?? []) : liveMessages;
 
+  // Prefer session token over user object so chat doesn't reset while /auth/me loads.
   useEffect(() => {
-    if (user) {
+    if (hasSession) {
       setMode('live');
       clearEphemeralChat();
       setEphemeral(null);
-    } else if (mode === 'live') {
-      setMode(getEphemeralChat() ? 'ephemeral' : 'gate');
+      return;
     }
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    setMode((prev) => {
+      if (prev === 'ephemeral') return 'ephemeral';
+      return getEphemeralChat() ? 'ephemeral' : 'gate';
+    });
+  }, [hasSession]);
+
+  const startLiveChat = async () => {
+    if (!hasSession || mode !== 'live' || starting) return;
+    setStarting(true);
+    setStartFailed(false);
+    setError('');
+    const attempt = ++startAttemptRef.current;
+    try {
+      const res = await startChat.mutateAsync({});
+      if (attempt !== startAttemptRef.current) return;
+      if (res?.conversation) {
+        qc.setQueryData(['support-chat-thread'], (old) => ({
+          ...(old || {}),
+          conversation: res.conversation,
+          messages: old?.messages || [],
+          needs_routing: (res.conversation.routed_to || 'pending') === 'pending',
+        }));
+      }
+      await refetch();
+    } catch (err) {
+      if (attempt !== startAttemptRef.current) return;
+      setStartFailed(true);
+      setError(err.response?.data?.message || 'Could not start chat.');
+    } finally {
+      if (attempt === startAttemptRef.current) setStarting(false);
+    }
+  };
 
   useEffect(() => {
-    if (!open || !isLoggedIn || mode !== 'live' || conversation || starting || startChat.isPending) return;
-    setStarting(true);
-    startChat
-      .mutateAsync({})
-      .then(() => {
-        setError('');
-        return refetch();
-      })
-      .catch((err) => setError(err.response?.data?.message || 'Could not start chat.'))
-      .finally(() => setStarting(false));
-  }, [open, isLoggedIn, mode, conversation, starting, startChat, refetch]);
+    if (!open || !hasSession || mode !== 'live') return;
+    if (conversation || starting || startFailed) return;
+    startLiveChat();
+    // Intentionally only when open/session/conversation/failure state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, hasSession, mode, conversation, startFailed]);
+
+  useEffect(() => {
+    if (!open) {
+      setStartFailed(false);
+      startAttemptRef.current += 1;
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -169,7 +209,14 @@ export default function SupportChatWidget() {
     if (mode === 'ephemeral' && ephemeral) saveEphemeralChat(ephemeral);
   }, [mode, ephemeral]);
 
+  useEffect(() => {
+    if (conversation?.routed_to && conversation.routed_to !== 'pending') {
+      setPickingShopLive(false);
+    }
+  }, [conversation?.routed_to]);
+
   const continueWithoutAccount = () => {
+    if (hasSession) return;
     const next = emptyEphemeral('Guest');
     setEphemeral(next);
     saveEphemeralChat(next);
@@ -205,9 +252,19 @@ export default function SupportChatWidget() {
       }));
       return;
     }
+    if (!conversation?.id) return;
     try {
-      await routeChat.mutateAsync({ conversation_id: conversation.id, route: 'dpm' });
+      const res = await routeChat.mutateAsync({ conversation_id: conversation.id, route: 'dpm' });
+      if (res?.conversation) {
+        qc.setQueryData(['support-chat-thread'], (old) => ({
+          ...(old || {}),
+          conversation: res.conversation,
+          messages: [...(old?.messages || []), ...(res.message ? [res.message] : [])],
+          needs_routing: false,
+        }));
+      }
       await refetch();
+      setPickingShopLive(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect chat.');
     }
@@ -243,13 +300,23 @@ export default function SupportChatWidget() {
       }));
       return;
     }
+    if (!conversation?.id) return;
     try {
-      await routeChat.mutateAsync({
+      const res = await routeChat.mutateAsync({
         conversation_id: conversation.id,
         route: 'shop',
         shop_id: shop.id,
       });
+      if (res?.conversation) {
+        qc.setQueryData(['support-chat-thread'], (old) => ({
+          ...(old || {}),
+          conversation: res.conversation,
+          messages: [...(old?.messages || []), ...(res.message ? [res.message] : [])],
+          needs_routing: false,
+        }));
+      }
       await refetch();
+      setPickingShopLive(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect to that shop.');
     }
@@ -287,6 +354,7 @@ export default function SupportChatWidget() {
     if (sendMessage.isPending || !conversation) return;
     try {
       await sendMessage.mutateAsync({ body: text });
+      await refetch();
     } catch (err) {
       setDraft(text);
       setError(err.response?.data?.message || 'Could not send message.');
@@ -307,16 +375,17 @@ export default function SupportChatWidget() {
     try {
       const uploaded = await uploadImage.mutateAsync(file);
       await sendMessage.mutateAsync({ image_url: uploaded.url });
+      await refetch();
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send image.');
     }
   };
 
   const panelTitle = useMemo(() => {
-    if (isLoggedIn) return `Hi ${user?.name?.split(' ')[0] || 'there'}`;
+    if (hasSession) return `Hi ${user?.name?.split(' ')[0] || 'there'}`;
     if (mode === 'ephemeral') return 'Preview chat';
     return 'Chat with us';
-  }, [isLoggedIn, user, mode]);
+  }, [hasSession, user, mode]);
 
   const subtitle = useMemo(() => {
     if (mode === 'ephemeral') return 'Not saved · Sign in for real replies';
@@ -328,6 +397,8 @@ export default function SupportChatWidget() {
   const canCompose = mode === 'ephemeral'
     ? ephemeral?.route === 'dpm' || ephemeral?.route === 'shop'
     : !!conversation && conversation.routed_to !== 'pending';
+
+  const showBootLoading = mode === 'live' && hasSession && !conversation && (starting || isLoading || isFetching) && !startFailed;
 
   return (
     <>
@@ -360,7 +431,21 @@ export default function SupportChatWidget() {
             </div>
 
             {error && (
-              <p className="mx-3 mt-3 rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-xs text-brand-red">{error}</p>
+              <div className="mx-3 mt-3 rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
+                <p>{error}</p>
+                {startFailed && mode === 'live' && (
+                  <button
+                    type="button"
+                    className="mt-2 font-bold underline"
+                    onClick={() => {
+                      setStartFailed(false);
+                      setError('');
+                    }}
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
             )}
 
             {mode === 'gate' ? (
@@ -402,7 +487,7 @@ export default function SupportChatWidget() {
                 )}
 
                 <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {(isLoading || starting || startChat.isPending) && mode === 'live' && messages.length === 0 && (
+                  {showBootLoading && (
                     <p className="text-center text-sm text-muted">Loading chat…</p>
                   )}
 
