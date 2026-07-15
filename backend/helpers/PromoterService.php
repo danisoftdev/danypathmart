@@ -91,15 +91,19 @@ final class PromoterService
         try {
             $hash = password_hash($password, PASSWORD_DEFAULT);
             try {
+                // Match other account creates — no email_verified_at (column not on all DBs).
                 $pdo->prepare(
-                    "INSERT INTO users (name, username, email, password_hash, role, status, email_verified_at)
-                     VALUES (?, ?, ?, ?, 'promoter', 'verified', NOW())"
+                    "INSERT INTO users (name, username, email, password_hash, role, status, totp_enabled)
+                     VALUES (?, ?, ?, ?, 'promoter', 'verified', 0)"
                 )->execute([$name !== '' ? $name : $displayName, $username, $email, $hash]);
-            } catch (\Throwable $roleErr) {
-                // Role enum may still be missing 'promoter' until migration 070 runs.
-                throw new \InvalidArgumentException(
-                    'Could not create promoter user (role may be missing). ' . $roleErr->getMessage()
-                );
+            } catch (\Throwable $userErr) {
+                $msg = $userErr->getMessage();
+                if (str_contains($msg, 'role') || str_contains($msg, 'Data truncated')) {
+                    throw new \InvalidArgumentException(
+                        'Could not create promoter user (promoter role may be missing). ' . $msg
+                    );
+                }
+                throw new \InvalidArgumentException('Could not create promoter user. ' . $msg);
             }
             $userId = (int) $pdo->lastInsertId();
 
