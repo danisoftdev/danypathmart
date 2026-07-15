@@ -9,6 +9,7 @@ import {
   useAdminPromoters,
   useCreatePromoter,
   useUpdatePromoterStatus,
+  useDeletePromoter,
   useApproveShopApplication,
   useMarketplaceListings,
   useProcessShopWithdrawal,
@@ -352,6 +353,7 @@ export default function AdminMarketplacePage() {
   const [inviteResult, setInviteResult] = useState(null);
   const [shopToDelete, setShopToDelete] = useState(null);
   const [appToDelete, setAppToDelete] = useState(null);
+  const [promoterToDelete, setPromoterToDelete] = useState(null);
   const [listingToUnpublish, setListingToUnpublish] = useState(null);
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
@@ -376,6 +378,8 @@ export default function AdminMarketplacePage() {
   const { data: promoters = [], isLoading: promotersLoading } = useAdminPromoters(canAccess && tab === 'promoters' && canManagePromoters);
   const createPromoter = useCreatePromoter();
   const updatePromoterStatus = useUpdatePromoterStatus();
+  const deletePromoter = useDeletePromoter();
+  const canDeletePromoters = hasAnyPermission(user, ['delete_accounts', 'manage_promoters', 'edit_company_settings']);
   const [promoterForm, setPromoterForm] = useState({ name: '', email: '', password: '', display_name: '', code: '' });
 
   const approveApp = useApproveShopApplication();
@@ -1012,12 +1016,15 @@ export default function AdminMarketplacePage() {
                       <td><CopyableText value={p.code} /></td>
                       <td>{p.email}</td>
                       <td><StatusBadge status={p.status} /></td>
-                      <td>
+                      <td className="space-x-2 whitespace-nowrap">
                         {p.status !== 'active' && (
                           <button type="button" className="text-xs font-bold text-brand-green" onClick={() => updatePromoterStatus.mutateAsync({ id: p.id, status: 'active' })}>Activate</button>
                         )}
                         {p.status === 'active' && (
-                          <button type="button" className="text-xs font-bold text-brand-red" onClick={() => updatePromoterStatus.mutateAsync({ id: p.id, status: 'suspended' })}>Suspend</button>
+                          <button type="button" className="text-xs font-bold text-muted" onClick={() => updatePromoterStatus.mutateAsync({ id: p.id, status: 'suspended' })}>Suspend</button>
+                        )}
+                        {canDeletePromoters && (
+                          <button type="button" className="text-xs font-bold text-brand-red" onClick={() => setPromoterToDelete(p)}>Delete</button>
                         )}
                       </td>
                     </tr>
@@ -1772,6 +1779,32 @@ export default function AdminMarketplacePage() {
         }
         confirmLabel="Remove application"
         loading={deleteApp.isPending}
+        variant="danger"
+      />
+
+      <PromptDialog
+        open={!!promoterToDelete}
+        onClose={() => !deletePromoter.isPending && setPromoterToDelete(null)}
+        onSubmit={async (typedEmail) => {
+          if (!promoterToDelete) return;
+          try {
+            await deletePromoter.mutateAsync({ id: promoterToDelete.id, confirm_email: typedEmail });
+            setPromoterToDelete(null);
+            showAlert(`Promoter "${promoterToDelete.email}" deleted.`);
+          } catch (e) {
+            showAlert(e.response?.data?.message || 'Could not delete promoter.', 'error');
+          }
+        }}
+        title="Delete promoter permanently"
+        description={
+          promoterToDelete
+            ? `This permanently deletes promoter "${promoterToDelete.display_name}" (${promoterToDelete.email}) and their login.\n\nThis cannot be undone.`
+            : ''
+        }
+        label="Type the promoter email exactly to confirm"
+        expectedValue={promoterToDelete?.email ?? null}
+        submitLabel="Delete promoter"
+        loading={deletePromoter.isPending}
         variant="danger"
       />
 

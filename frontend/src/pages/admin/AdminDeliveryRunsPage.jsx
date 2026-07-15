@@ -7,12 +7,14 @@ import {
   useAdminHubQueue,
   useCreateDeliveryRun,
   useCreateDriverAccount,
+  useDeleteDriverAccount,
   useDispatchDeliveryRun,
 } from '../../hooks/admin';
 import { useAuthStore } from '../../store/authStore';
 import { hasAnyPermission } from '../../lib/permissions';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
+import PromptDialog from '../../components/admin/PromptDialog';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 
@@ -205,10 +207,15 @@ function RunDetail({ runId, onBack }) {
 export default function AdminDeliveryRunsPage() {
   const user = useAuthStore((s) => s.user);
   const canManage = hasAnyPermission(user, ['manage_delivery_runs', 'edit_company_settings']);
+  const canDelete = hasAnyPermission(user, ['delete_accounts', 'manage_delivery_runs', 'edit_company_settings']);
   const [filter, setFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showDriver, setShowDriver] = useState(false);
   const [detailId, setDetailId] = useState(null);
+  const [driverToDelete, setDriverToDelete] = useState(null);
+  const [pageAlert, setPageAlert] = useState('');
+  const [pageAlertType, setPageAlertType] = useState('error');
+  const deleteDriver = useDeleteDriverAccount();
 
   const { data: runs = [], isLoading } = useAdminDeliveryRuns(filter === 'all' ? null : filter, canManage && !detailId);
   const { data: drivers = [] } = useAdminDrivers(canManage);
@@ -245,6 +252,33 @@ export default function AdminDeliveryRunsPage() {
           </div>
         }
       />
+
+      <AdminPageAlert message={pageAlert} type={pageAlertType} onDismiss={() => setPageAlert('')} />
+
+      {drivers.length > 0 && (
+        <div className="admin-panel mb-6">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-muted">Drivers ({drivers.length})</p>
+          <ul className="space-y-2">
+            {drivers.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span>
+                  <span className="font-bold">{d.name}</span>
+                  <span className="text-muted"> · {d.email}</span>
+                </span>
+                {canDelete && (
+                  <button
+                    type="button"
+                    className="text-xs font-bold text-brand-red hover:underline"
+                    onClick={() => setDriverToDelete(d)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {['all', 'draft', 'dispatched', 'completed'].map((s) => (
@@ -293,6 +327,34 @@ export default function AdminDeliveryRunsPage() {
       {showDriver && (
         <DriverModal onClose={() => setShowDriver(false)} onCreated={() => setShowDriver(false)} />
       )}
+
+      <PromptDialog
+        open={!!driverToDelete}
+        onClose={() => !deleteDriver.isPending && setDriverToDelete(null)}
+        onSubmit={async (typedEmail) => {
+          if (!driverToDelete) return;
+          try {
+            await deleteDriver.mutateAsync({ id: driverToDelete.id, confirm_email: typedEmail });
+            setPageAlert(`Deleted driver ${driverToDelete.email}.`);
+            setPageAlertType('success');
+            setDriverToDelete(null);
+          } catch (e) {
+            setPageAlert(e.response?.data?.message || 'Could not delete driver.');
+            setPageAlertType('error');
+          }
+        }}
+        title="Delete driver permanently"
+        description={
+          driverToDelete
+            ? `Permanently delete driver "${driverToDelete.name}" (${driverToDelete.email})?\n\nThis cannot be undone.`
+            : ''
+        }
+        label="Type the driver email exactly to confirm"
+        expectedValue={driverToDelete?.email ?? null}
+        submitLabel="Delete driver"
+        loading={deleteDriver.isPending}
+        variant="danger"
+      />
     </div>
   );
 }

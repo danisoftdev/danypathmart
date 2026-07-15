@@ -4,11 +4,13 @@ import {
   useAdminPickupStations,
   useAdminStationStaff,
   useCreateStationStaff,
+  useDeleteStationStaff,
 } from '../../hooks/admin';
 import { useAuthStore } from '../../store/authStore';
 import { hasAnyPermission } from '../../lib/permissions';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
+import PromptDialog from '../../components/admin/PromptDialog';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import CopyableText from '../../components/ui/CopyableText';
@@ -91,9 +93,14 @@ function CreateStaffModal({ stations, onClose, onCreated }) {
 export default function AdminStationStaffPage() {
   const user = useAuthStore((s) => s.user);
   const canManage = hasAnyPermission(user, ['manage_station_staff', 'edit_company_settings']);
+  const canDelete = hasAnyPermission(user, ['delete_accounts', 'manage_station_staff', 'edit_company_settings']);
   const [showCreate, setShowCreate] = useState(false);
+  const [staffToDelete, setStaffToDelete] = useState(null);
+  const [alert, setAlert] = useState('');
+  const [alertType, setAlertType] = useState('error');
   const { data: staff = [], isLoading } = useAdminStationStaff(canManage);
   const { data: stations = [] } = useAdminPickupStations(canManage);
+  const deleteStaff = useDeleteStationStaff();
 
   if (!canManage) return <Navigate to="/admin/dashboard" replace />;
 
@@ -108,6 +115,8 @@ export default function AdminStationStaffPage() {
           </button>
         }
       />
+
+      <AdminPageAlert message={alert} type={alertType} onDismiss={() => setAlert('')} />
 
       {stations.length === 0 && (
         <AdminPageAlert message="Add at least one pickup station before creating station staff accounts." />
@@ -125,15 +134,26 @@ export default function AdminStationStaffPage() {
           {staff.map((s) => (
             <li
               key={s.id}
-              className="rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#1E1E1E]"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-black/8 bg-white px-4 py-3 dark:border-white/10 dark:bg-[#1E1E1E]"
             >
-              <p className="font-bold">{s.name}</p>
-              <p className="text-sm text-muted">
-                {s.staff_id && (
-                  <CopyableText value={s.staff_id} className="mr-2 font-mono text-xs font-bold text-brand-green" title="Copy staff ID" />
-                )}
-                {s.email} · {s.station_name || 'No station'}
-              </p>
+              <div>
+                <p className="font-bold">{s.name}</p>
+                <p className="text-sm text-muted">
+                  {s.staff_id && (
+                    <CopyableText value={s.staff_id} className="mr-2 font-mono text-xs font-bold text-brand-green" title="Copy staff ID" />
+                  )}
+                  {s.email} · {s.station_name || 'No station'}
+                </p>
+              </div>
+              {canDelete && (
+                <button
+                  type="button"
+                  className="text-xs font-bold text-brand-red hover:underline"
+                  onClick={() => setStaffToDelete(s)}
+                >
+                  Delete
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -146,6 +166,34 @@ export default function AdminStationStaffPage() {
           onCreated={() => setShowCreate(false)}
         />
       )}
+
+      <PromptDialog
+        open={!!staffToDelete}
+        onClose={() => !deleteStaff.isPending && setStaffToDelete(null)}
+        onSubmit={async (typedEmail) => {
+          if (!staffToDelete) return;
+          try {
+            await deleteStaff.mutateAsync({ id: staffToDelete.id, confirm_email: typedEmail });
+            setAlert(`Deleted ${staffToDelete.email}.`);
+            setAlertType('success');
+            setStaffToDelete(null);
+          } catch (e) {
+            setAlert(e.response?.data?.message || 'Could not delete station staff.');
+            setAlertType('error');
+          }
+        }}
+        title="Delete station staff"
+        description={
+          staffToDelete
+            ? `Permanently delete "${staffToDelete.name}" (${staffToDelete.email})?\n\nThis cannot be undone.`
+            : ''
+        }
+        label="Type the email exactly to confirm"
+        expectedValue={staffToDelete?.email ?? null}
+        submitLabel="Delete account"
+        loading={deleteStaff.isPending}
+        variant="danger"
+      />
     </div>
   );
 }

@@ -462,6 +462,27 @@ if ($handlerFile === null && $method === 'POST'
     $handlerFile = 'admin/promoters/status.php';
 }
 
+// Dynamic route: DELETE admin/promoters/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/promoters/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoters/delete.php';
+}
+
+// Dynamic route: DELETE admin/drivers/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/drivers/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/drivers/delete.php';
+}
+
+// Dynamic route: DELETE admin/station-staff/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/station-staff/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/station-staff/delete.php';
+}
+
 // Dynamic route: POST admin/promoter-withdrawals/{id}/process
 if ($handlerFile === null && $method === 'POST'
     && preg_match('#^admin/promoter-withdrawals/([0-9]+)/process$#', $route, $m) === 1) {
@@ -733,6 +754,13 @@ if ($handlerFile === null && $method === 'PUT'
     && preg_match('#^admin/users/([0-9]+)/status$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/users/update-status.php';
+}
+
+// Dynamic route: DELETE admin/users/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/users/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/users/delete.php';
 }
 
 // Dynamic route: GET admin/size-guides/{id}

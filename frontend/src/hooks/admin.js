@@ -529,6 +529,17 @@ export function useUpdateCustomerStatus() {
   });
 }
 
+export function useDeleteAdminUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirm_email }) =>
+      (await api.delete(`/admin/users/${id}`, { data: { confirm_email } })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    },
+  });
+}
+
 export function useAdminShipping() {
   return useQuery({
     queryKey: ['admin-shipping'],
@@ -1026,6 +1037,15 @@ export function useCreateDriverAccount() {
   });
 }
 
+export function useDeleteDriverAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirm_email }) =>
+      (await api.delete(`/admin/drivers/${id}`, { data: { confirm_email } })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-drivers'] }),
+  });
+}
+
 export function useAdminStationStaff(enabled = true) {
   return useQuery({
     queryKey: ['admin-station-staff'],
@@ -1039,6 +1059,15 @@ export function useCreateStationStaff() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => (await api.post('/admin/station-staff', payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-station-staff'] }),
+  });
+}
+
+export function useDeleteStationStaff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirm_email }) =>
+      (await api.delete(`/admin/station-staff/${id}`, { data: { confirm_email } })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-station-staff'] }),
   });
 }
@@ -1065,6 +1094,18 @@ export function useUpdatePromoterStatus() {
   return useMutation({
     mutationFn: async ({ id, status }) => (await api.post(`/admin/promoters/${id}/status`, { status })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-promoters'] }),
+  });
+}
+
+export function useDeletePromoter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, confirm_email }) =>
+      (await api.delete(`/admin/promoters/${id}`, { data: { confirm_email } })).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-promoters'] });
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    },
   });
 }
 

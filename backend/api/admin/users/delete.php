@@ -9,34 +9,26 @@ use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
 
 $admin = AuthMiddleware::requireAdmin();
-PermissionMiddleware::requireAny(['delete_accounts', 'manage_staff', 'edit_company_settings']);
+PermissionMiddleware::requireAny(['delete_accounts', 'edit_users', 'edit_company_settings']);
 
-$targetId = (int) ($_GET['id'] ?? 0);
+$id = (int) ($_GET['id'] ?? 0);
 $body = Response::body();
 $confirm = trim((string) ($body['confirm_email'] ?? ''));
 $pdo = Database::pdo();
-
-// Backward compatible: if no confirm_email, load email and require match only when provided.
-if ($confirm === '') {
-    $stmt = $pdo->prepare("SELECT email FROM users WHERE id = ? AND role = 'staff' LIMIT 1");
-    $stmt->execute([$targetId]);
-    $confirm = (string) ($stmt->fetchColumn() ?: '');
-}
 
 try {
     $deleted = AdminAccountService::delete(
         $pdo,
         (int) $admin['id'],
-        $targetId,
+        $id,
         $confirm,
-        ['staff']
+        ['customer']
     );
 } catch (\InvalidArgumentException $e) {
     Response::error($e->getMessage(), 422);
 }
 
 Response::success([
-    'message' => 'Staff account removed.',
+    'message' => 'Customer account "' . $deleted['email'] . '" deleted permanently.',
     'deleted' => $deleted,
-    'id'      => $deleted['id'],
 ]);

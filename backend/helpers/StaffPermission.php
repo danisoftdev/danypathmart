@@ -31,6 +31,7 @@ final class StaffPermission
         'manage_legal_policies',
         'view_users',
         'edit_users',
+        'delete_accounts',
         'send_notifications',
         'manage_staff',
         'hire_employees',
@@ -102,6 +103,7 @@ final class StaffPermission
             'manage_legal_policies'       => 'Manage legal policies',
             'view_users'                  => 'View customers',
             'edit_users'                  => 'Edit customers',
+            'delete_accounts'             => 'Delete customer, promoter, driver, station staff & related accounts',
             'send_notifications'          => 'Send broadcast notifications',
             'manage_staff'                => 'Manage staff accounts',
             'hire_employees'              => 'Hire from applications & create logins',
@@ -170,7 +172,7 @@ final class StaffPermission
             [
                 'title' => 'Customers & comms',
                 'keys'  => [
-                    'view_users', 'edit_users', 'send_notifications', 'manage_contact_inbox',
+                    'view_users', 'edit_users', 'delete_accounts', 'send_notifications', 'manage_contact_inbox',
                     'manage_support_bot', 'manage_messaging_integrations',
                     'issue_user_caution', 'restrict_users', 'resolve_shop_reports', 'manage_trust_automation',
                 ],
