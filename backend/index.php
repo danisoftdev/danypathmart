@@ -483,6 +483,13 @@ if ($handlerFile === null && $method === 'POST'
     $handlerFile = 'admin/shop-applications/reject.php';
 }
 
+// Dynamic route: DELETE admin/shop-applications/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/shop-applications/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/shop-applications/delete.php';
+}
+
 // Dynamic route: PUT admin/shops/{id}
 if ($handlerFile === null && $method === 'PUT'
     && preg_match('#^admin/shops/([0-9]+)$#', $route, $m) === 1) {

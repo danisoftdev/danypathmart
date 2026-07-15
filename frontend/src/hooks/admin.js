@@ -245,6 +245,17 @@ export function useRejectShopApplication() {
   });
 }
 
+export function useDeleteShopApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.delete(`/admin/shop-applications/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-shop-applications'] });
+      qc.invalidateQueries({ queryKey: ['admin-shop-policy-acceptances'] });
+    },
+  });
+}
+
 export function useAdminShops(enabled = true) {
   return useQuery({
     queryKey: ['admin-shops'],
@@ -312,6 +323,11 @@ export function useDeleteAdminShop() {
       qc.invalidateQueries({ queryKey: ['admin-shops'] });
       qc.invalidateQueries({ queryKey: ['admin-shop-billing'] });
       qc.invalidateQueries({ queryKey: ['admin-shop-applications'] });
+      qc.invalidateQueries({ queryKey: ['admin-shop-policy-acceptances'] });
+      qc.invalidateQueries({ queryKey: ['admin-marketplace-listings'] });
+      qc.invalidateQueries({ queryKey: ['public-shops'] });
+      qc.invalidateQueries({ queryKey: ['public-store'] });
+      qc.invalidateQueries({ queryKey: ['shop-dashboard'] });
     },
   });
 }

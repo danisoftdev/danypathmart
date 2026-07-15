@@ -14,6 +14,7 @@ import {
   useProcessShopWithdrawal,
   useProcessPromoterWithdrawal,
   useRejectShopApplication,
+  useDeleteShopApplication,
   useModerateListingBadge,
   useReviewMarketplaceListing,
   useUpdateAdminShop,
@@ -33,6 +34,7 @@ import { hasAnyPermission, hasPermission } from '../../lib/permissions';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
 import PromptDialog from '../../components/admin/PromptDialog';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import { formatPrice } from '../../lib/currency';
 import CopyableText from '../../components/ui/CopyableText';
@@ -118,6 +120,8 @@ function StatusBadge({ status }) {
       ? 'bg-brand-green/15 text-brand-green'
       : status === 'rejected' || status === 'suspended'
         ? 'bg-brand-red/15 text-brand-red'
+        : status === 'shop removed'
+          ? 'bg-brand-gold/20 text-[#92400E] dark:text-brand-gold'
         : status === 'new' || status === 'pending' || status === 'requested' || status === 'pending_payment'
           ? 'bg-brand-gold/20 text-[#92400E] dark:text-brand-gold'
           : 'bg-black/5 text-muted dark:bg-white/10';
@@ -128,7 +132,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, canWaive, loading }) {
+function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, onDelete, canWaive, loading }) {
   const [note, setNote] = useState('');
 
   if (!app) return null;
@@ -141,6 +145,8 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
         ? 'Awaiting payment'
         : 'Not required';
 
+  const shopGone = !!app.shop_removed || (app.status === 'approved' && !app.shop_id);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !loading && onClose()}>
       <div
@@ -151,12 +157,21 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-muted">Application #{app.id}</p>
             <h3 className="text-lg font-extrabold">{app.business_name}</h3>
-            <StatusBadge status={app.status} />
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <StatusBadge status={app.status} />
+              {shopGone && <StatusBadge status="shop removed" />}
+            </div>
           </div>
           <button type="button" onClick={onClose} className="text-2xl leading-none text-muted" aria-label="Close">
             ×
           </button>
         </div>
+
+        {shopGone && (
+          <p className="mt-4 rounded-xl border border-brand-gold/40 bg-brand-gold/10 px-3 py-3 text-sm">
+            The linked shop was deleted. This application row is leftover history — remove it if you no longer need it.
+          </p>
+        )}
 
         {app.logo_url && (
           <img
@@ -264,6 +279,17 @@ function ApplicationDetailModal({ app, onClose, onApprove, onReject, onWaive, ca
             </div>
           </>
         )}
+
+        {(shopGone || app.status === 'rejected') && onDelete && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => onDelete(app)}
+            className="mt-4 w-full rounded-xl border border-brand-red px-4 py-2 text-sm font-bold text-brand-red"
+          >
+            Remove application
+          </button>
+        )}
       </div>
     </div>
   );
@@ -325,6 +351,7 @@ export default function AdminMarketplacePage() {
   const [inviteForm, setInviteForm] = useState(EMPTY_INVITE_FORM);
   const [inviteResult, setInviteResult] = useState(null);
   const [shopToDelete, setShopToDelete] = useState(null);
+  const [appToDelete, setAppToDelete] = useState(null);
   const [listingToUnpublish, setListingToUnpublish] = useState(null);
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
@@ -353,6 +380,7 @@ export default function AdminMarketplacePage() {
 
   const approveApp = useApproveShopApplication();
   const rejectApp = useRejectShopApplication();
+  const deleteApp = useDeleteShopApplication();
   const updateShop = useUpdateAdminShop();
   const deleteShop = useDeleteAdminShop();
   const createShop = useCreateAdminShop();
@@ -492,6 +520,19 @@ export default function AdminMarketplacePage() {
     }
   };
 
+  const handleDeleteAppConfirm = async () => {
+    if (!appToDelete) return;
+    const app = appToDelete;
+    try {
+      await deleteApp.mutateAsync(app.id);
+      setAppToDelete(null);
+      setSelectedApp(null);
+      showAlert(`Application for "${app.business_name}" removed.`);
+    } catch (e) {
+      showAlert(e.response?.data?.message || 'Could not remove application.', 'error');
+    }
+  };
+
   const handleCreateShop = async (e) => {
     e.preventDefault();
     try {
@@ -575,12 +616,15 @@ export default function AdminMarketplacePage() {
       {tab === 'applications' && (
         <>
           {appsLoading ? (
-            <AdminTableSkeleton rows={5} cols={5} />
+            <AdminTableSkeleton rows={5} cols={6} />
           ) : applications.length === 0 ? (
             <p className="text-sm text-muted">No shop applications yet.</p>
           ) : (
             <div className="admin-panel overflow-x-auto">
-              <table className="admin-table w-full min-w-[640px] text-sm">
+              <p className="mb-3 text-xs text-muted">
+                Applications are separate from live shops. Deleting a shop should remove its application — if you still see one marked “shop removed”, open it and remove the leftover row.
+              </p>
+              <table className="admin-table w-full min-w-[720px] text-sm">
                 <thead>
                   <tr>
                     <th>Business</th>
@@ -588,25 +632,48 @@ export default function AdminMarketplacePage() {
                     <th>City</th>
                     <th>Status</th>
                     <th>Submitted</th>
+                    <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {applications.map((app) => (
-                    <tr
-                      key={app.id}
-                      className="cursor-pointer hover:bg-black/3 dark:hover:bg-white/5"
-                      onClick={() => setSelectedApp(app)}
-                    >
-                      <td className="font-semibold">{app.business_name}</td>
-                      <td>
-                        <div>{app.contact_name}</div>
-                        <div className="text-xs text-muted">{app.email}</div>
-                      </td>
-                      <td>{app.city}</td>
-                      <td><StatusBadge status={app.status} /></td>
-                      <td className="text-xs text-muted">{formatWhen(app.created_at)}</td>
-                    </tr>
-                  ))}
+                  {applications.map((app) => {
+                    const shopGone = !!app.shop_removed || (app.status === 'approved' && !app.shop_id);
+                    return (
+                      <tr
+                        key={app.id}
+                        className="cursor-pointer hover:bg-black/3 dark:hover:bg-white/5"
+                        onClick={() => setSelectedApp(app)}
+                      >
+                        <td className="font-semibold">{app.business_name}</td>
+                        <td>
+                          <div>{app.contact_name}</div>
+                          <div className="text-xs text-muted">{app.email}</div>
+                        </td>
+                        <td>{app.city}</td>
+                        <td>
+                          <div className="flex flex-wrap gap-1">
+                            <StatusBadge status={app.status} />
+                            {shopGone && <StatusBadge status="shop removed" />}
+                          </div>
+                        </td>
+                        <td className="text-xs text-muted">{formatWhen(app.created_at)}</td>
+                        <td>
+                          {(shopGone || app.status === 'rejected') && (
+                            <button
+                              type="button"
+                              className="text-xs font-bold text-brand-red hover:underline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAppToDelete(app);
+                              }}
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1511,8 +1578,9 @@ export default function AdminMarketplacePage() {
           onApprove={handleApproveApp}
           onReject={handleRejectApp}
           onWaive={handleWaiveApp}
+          onDelete={(app) => setAppToDelete(app)}
           canWaive={canWaiveFees}
-          loading={approveApp.isPending || rejectApp.isPending || waiveAppFee.isPending}
+          loading={approveApp.isPending || rejectApp.isPending || waiveAppFee.isPending || deleteApp.isPending}
         />
       )}
 
@@ -1682,13 +1750,28 @@ export default function AdminMarketplacePage() {
         title="Delete shop permanently"
         description={
           shopToDelete
-            ? `This permanently deletes "${shopToDelete.name}" and everything belonging to it: products, members, wallet, billing, and storefront.\n\nPast customer orders stay in platform history (without this shop link).\n\nThis cannot be undone.`
+            ? `This permanently deletes "${shopToDelete.name}" and everything belonging to it: products, members, wallet, billing, storefront, and its application record.\n\nPast customer orders stay in platform history (without this shop link).\n\nThis cannot be undone.`
             : ''
         }
         label={`Type the shop name exactly to confirm`}
         expectedValue={shopToDelete?.name ?? null}
         submitLabel="Delete shop"
         loading={deleteShop.isPending}
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        open={!!appToDelete}
+        onClose={() => !deleteApp.isPending && setAppToDelete(null)}
+        onConfirm={handleDeleteAppConfirm}
+        title="Remove application"
+        message={
+          appToDelete
+            ? `Remove the application for "${appToDelete.business_name}"? This only deletes the application record — not a live shop.`
+            : ''
+        }
+        confirmLabel="Remove application"
+        loading={deleteApp.isPending}
         variant="danger"
       />
 

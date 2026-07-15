@@ -25,7 +25,11 @@ if [[ ! -f .env ]]; then
 fi
 
 echo "Running database migrations..."
-php scripts/migrate-production.php
+# Always apply database/migrations/*.sql on deploy — no manual migrate needed.
+if ! php scripts/migrate-production.php; then
+  echo "migrate-production failed — falling back to migrate-all.php directly..."
+  php scripts/migrate-all.php
+fi
 
 echo "Running production env check..."
 # Env check is advisory after a successful rsync — do not fail the GitHub Action.

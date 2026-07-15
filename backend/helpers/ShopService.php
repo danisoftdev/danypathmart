@@ -567,10 +567,30 @@ final class ShopService
             self::execQuiet($pdo, 'DELETE FROM shop_billing_payment_methods WHERE shop_id = ?', [$shopId]);
             self::execQuiet($pdo, 'DELETE FROM shop_subscriptions WHERE shop_id = ?', [$shopId]);
             self::execQuiet($pdo, 'DELETE FROM shop_invites WHERE shop_id = ?', [$shopId]);
-            self::execQuiet($pdo, 'DELETE FROM shop_applications WHERE shop_id = ?', [$shopId]);
+
+            // Applications are a separate table (FK is ON DELETE SET NULL). Must delete
+            // them explicitly or approved rows stay visible under Marketplace → Applications.
+            try {
+                $pdo->prepare('DELETE FROM shop_applications WHERE shop_id = ?')->execute([$shopId]);
+            } catch (\Throwable $e) {
+                throw new \InvalidArgumentException(
+                    'Could not remove linked shop application(s): ' . $e->getMessage()
+                );
+            }
 
             // Cascade covers members, wallets, earnings, withdrawals, reports, fulfillments, etc.
             $pdo->prepare('DELETE FROM shops WHERE id = ?')->execute([$shopId]);
+
+            // Clean orphans left by older deletes (shop_id already nulled, status still approved).
+            try {
+                $pdo->prepare(
+                    "DELETE FROM shop_applications
+                     WHERE shop_id IS NULL AND status = 'approved' AND business_name = ?"
+                )->execute([$expected]);
+            } catch (\Throwable) {
+                // Column/table quirks on older DBs — non-fatal after shop is gone.
+            }
+
             $pdo->commit();
         } catch (\Throwable $e) {
             if ($pdo->inTransaction()) {

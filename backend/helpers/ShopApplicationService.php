@@ -472,7 +472,11 @@ final class ShopApplicationService
     /** @return list<array<string,mixed>> */
     public static function list(PDO $pdo, ?string $status = null): array
     {
-        $sql = 'SELECT a.*, u.name AS user_name FROM shop_applications a LEFT JOIN users u ON u.id = a.user_id';
+        $sql = 'SELECT a.*, u.name AS user_name,
+                       CASE WHEN a.shop_id IS NOT NULL AND s.id IS NULL THEN 1 ELSE 0 END AS shop_removed
+                FROM shop_applications a
+                LEFT JOIN users u ON u.id = a.user_id
+                LEFT JOIN shops s ON s.id = a.shop_id';
         $params = [];
         if ($status !== null && $status !== '') {
             $sql .= ' WHERE a.status = ?';
@@ -480,10 +484,56 @@ final class ShopApplicationService
         }
         $sql .= ' ORDER BY a.created_at DESC LIMIT 200';
 
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+        } catch (\Throwable) {
+            // Fallback if join fails on unexpected schema.
+            $sql = 'SELECT a.*, u.name AS user_name FROM shop_applications a LEFT JOIN users u ON u.id = a.user_id';
+            $params = [];
+            if ($status !== null && $status !== '') {
+                $sql .= ' WHERE a.status = ?';
+                $params[] = $status;
+            }
+            $sql .= ' ORDER BY a.created_at DESC LIMIT 200';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $rows = $stmt->fetchAll();
+        }
 
-        return array_map([self::class, 'formatRow'], $stmt->fetchAll());
+        return array_map([self::class, 'formatRow'], $rows);
+    }
+
+    /**
+     * Permanently remove an application row (e.g. orphan after shop delete, or rejected cleanup).
+     *
+     * @return array{id:int,business_name:string}
+     */
+    public static function delete(PDO $pdo, int $applicationId): array
+    {
+        $app = self::findById($pdo, $applicationId);
+        if ($app === null) {
+            throw new \InvalidArgumentException('Application not found.');
+        }
+
+        // Block deleting an application that still points at a live shop — delete the shop instead.
+        if (!empty($app['shop_id'])) {
+            $check = $pdo->prepare('SELECT id FROM shops WHERE id = ?');
+            $check->execute([(int) $app['shop_id']]);
+            if ($check->fetch() !== false) {
+                throw new \InvalidArgumentException(
+                    'This application is linked to a live shop. Delete the shop from the Shops tab first.'
+                );
+            }
+        }
+
+        $pdo->prepare('DELETE FROM shop_applications WHERE id = ?')->execute([$applicationId]);
+
+        return [
+            'id'            => $applicationId,
+            'business_name' => (string) ($app['business_name'] ?? ''),
+        ];
     }
 
     /** @return array<string,mixed>|null */
@@ -707,6 +757,12 @@ final class ShopApplicationService
             'registration_amount_due' => isset($row['registration_amount_due']) ? (float) $row['registration_amount_due'] : null,
             'admin_note'          => $row['admin_note'],
             'shop_id'             => $row['shop_id'] !== null ? (int) $row['shop_id'] : null,
+            // True when status looks approved but the shop row is gone / never linked.
+            'shop_removed'        => !empty($row['shop_removed'])
+                || (
+                    ($row['status'] ?? '') === 'approved'
+                    && ($row['shop_id'] === null || $row['shop_id'] === '')
+                ),
             'reviewed_at'         => $row['reviewed_at'],
             'created_at'          => $row['created_at'],
             'accepted_policies_at' => $row['accepted_policies_at'] ?? null,
