@@ -58,8 +58,11 @@ final class AvailabilityService
         if (!Validator::email($email)) {
             return self::fail($email, 'Enter a valid email address.');
         }
-        // Include pending_deletion so the email stays reserved during the 14-day restore window.
-        $sql = 'SELECT id FROM users WHERE email = ?';
+        // Live accounts (incl. 14-day deletion window) reserve the email. Hard-deleted /
+        // anonymized (disabled) rows do not, so the address can be registered again.
+        $sql = "SELECT id, status FROM users
+                WHERE email = ?
+                  AND status IN ('unverified', 'verified', 'pending_deletion')";
         $params = [$email];
         if ($excludeUserId !== null && $excludeUserId > 0) {
             $sql .= ' AND id != ?';
@@ -67,8 +70,13 @@ final class AvailabilityService
         }
         $stmt = $pdo->prepare($sql . ' LIMIT 1');
         $stmt->execute($params);
-        if ($stmt->fetch() !== false) {
-            return self::fail($email, 'This email is already registered.');
+        $row = $stmt->fetch();
+        if ($row !== false) {
+            $msg = (($row['status'] ?? '') === 'pending_deletion')
+                ? 'This email is in use on an account scheduled for deletion. Sign in to restore it, or wait until it is permanently removed.'
+                : 'This email is already in use.';
+
+            return self::fail($email, $msg);
         }
 
         return self::ok($email, 'Email is available.');
@@ -80,7 +88,9 @@ final class AvailabilityService
         if (!Validator::username($username)) {
             return self::fail($username, 'Username must be 3–60 characters (letters, numbers, . _ -).');
         }
-        $sql = 'SELECT id FROM users WHERE LOWER(username) = LOWER(?)';
+        $sql = "SELECT id, status FROM users
+                WHERE LOWER(username) = LOWER(?)
+                  AND status IN ('unverified', 'verified', 'pending_deletion')";
         $params = [$username];
         if ($excludeUserId !== null && $excludeUserId > 0) {
             $sql .= ' AND id != ?';
@@ -88,8 +98,13 @@ final class AvailabilityService
         }
         $stmt = $pdo->prepare($sql . ' LIMIT 1');
         $stmt->execute($params);
-        if ($stmt->fetch() !== false) {
-            return self::fail($username, 'This username is already taken.');
+        $row = $stmt->fetch();
+        if ($row !== false) {
+            $msg = (($row['status'] ?? '') === 'pending_deletion')
+                ? 'This username is in use on an account scheduled for deletion. Sign in to restore it, or wait until it is permanently removed.'
+                : 'This username is already in use.';
+
+            return self::fail($username, $msg);
         }
 
         return self::ok($username, 'Username is available.');

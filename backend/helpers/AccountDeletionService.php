@@ -9,7 +9,8 @@ use PDO;
 use App\Helpers\Response;
 
 /**
- * Soft account deletion: pending for 14 days (restored on login), then anonymized.
+ * Soft account deletion: pending for 14 days (restored on login), then hard-deleted
+ * so email / username can be registered again.
  */
 final class AccountDeletionService
 {
@@ -59,8 +60,14 @@ final class AccountDeletionService
                  deletion_reason = ?, deletion_reason_detail = ? WHERE id = ?"
             )->execute([$reasonKey, $detail !== '' ? $detail : null, $userId]);
         } catch (\Throwable) {
-            // Column/enum may be missing until migration 066.
+            // Column/enum may be missing until migration 066 — disable immediately then hard-delete.
             $pdo->prepare("UPDATE users SET status = 'disabled' WHERE id = ?")->execute([$userId]);
+            self::hardDeleteUser($pdo, $userId);
+
+            return [
+                'ok'      => true,
+                'message' => 'Account deleted. You can register again with the same email or username.',
+            ];
         }
 
         $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$userId]);
@@ -68,7 +75,8 @@ final class AccountDeletionService
         return [
             'ok'      => true,
             'message' => 'Account scheduled for deletion. Sign in within '
-                . self::RETENTION_DAYS . ' days to restore it automatically.',
+                . self::RETENTION_DAYS . ' days to restore it. After that it is permanently removed '
+                . 'and you may register again with the same email or username.',
         ];
     }
 
@@ -89,8 +97,8 @@ final class AccountDeletionService
         }
 
         Response::error(
-            'This account was scheduled for deletion and the '
-            . self::RETENTION_DAYS . '-day recovery window has ended.',
+            'This account was permanently deleted after the '
+            . self::RETENTION_DAYS . '-day recovery window. You can create a new account with the same email.',
             403,
             ['code' => 'account_deleted']
         );
@@ -98,7 +106,7 @@ final class AccountDeletionService
 
     /**
      * If account is pending deletion within the window, restore it. Returns true if restored.
-     * If past the window, anonymize and return false (caller should deny login).
+     * If past the window, hard-delete and return false (caller should deny login).
      */
     public static function restoreOrPurgeOnLogin(PDO $pdo, array &$user): bool
     {
@@ -108,7 +116,6 @@ final class AccountDeletionService
 
         $requested = $user['deletion_requested_at'] ?? null;
         if ($requested === null) {
-            // Load if not selected in login query.
             $stmt = $pdo->prepare('SELECT deletion_requested_at FROM users WHERE id = ?');
             $stmt->execute([(int) $user['id']]);
             $requested = $stmt->fetchColumn() ?: null;
@@ -128,7 +135,7 @@ final class AccountDeletionService
             return true;
         }
 
-        self::anonymizeUser($pdo, (int) $user['id']);
+        self::hardDeleteUser($pdo, (int) $user['id']);
 
         return false;
     }
@@ -148,13 +155,64 @@ final class AccountDeletionService
 
         $count = 0;
         foreach ($stmt->fetchAll() as $row) {
-            self::anonymizeUser($pdo, (int) $row['id']);
-            $count++;
+            if (self::hardDeleteUser($pdo, (int) $row['id'])) {
+                $count++;
+            }
         }
 
         return $count;
     }
 
+    /**
+     * Permanently remove the user row so email/username can be reused.
+     * Falls back to anonymize if a foreign key blocks hard delete.
+     */
+    public static function hardDeleteUser(PDO $pdo, int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        // Best-effort detach of common non-cascade / restrict refs before DELETE.
+        $nulls = [
+            'UPDATE delivery_runs SET driver_user_id = NULL WHERE driver_user_id = ?',
+            'UPDATE station_repack_batches SET created_by = NULL WHERE created_by = ?',
+            'UPDATE support_conversations SET assigned_to = NULL WHERE assigned_to = ?',
+            'UPDATE shop_applications SET reviewed_by = NULL WHERE reviewed_by = ?',
+            'UPDATE shop_applications SET user_id = NULL WHERE user_id = ?',
+            'UPDATE shop_invites SET created_by = NULL WHERE created_by = ?',
+            'UPDATE promoters SET approved_by = NULL WHERE approved_by = ?',
+        ];
+        foreach ($nulls as $sql) {
+            try {
+                $pdo->prepare($sql)->execute([$userId]);
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$userId]);
+        } catch (\Throwable) {
+        }
+        try {
+            $pdo->prepare('DELETE FROM push_subscriptions WHERE user_id = ?')->execute([$userId]);
+        } catch (\Throwable) {
+        }
+
+        try {
+            $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
+            $stmt->execute([$userId]);
+
+            return $stmt->rowCount() > 0;
+        } catch (\Throwable $e) {
+            error_log('hardDeleteUser fallback anonymize #' . $userId . ': ' . $e->getMessage());
+            self::anonymizeUser($pdo, $userId);
+
+            return true;
+        }
+    }
+
+    /** Last-resort: free email/username without removing the row. */
     private static function anonymizeUser(PDO $pdo, int $userId): void
     {
         $email = 'deleted_' . $userId . '_' . bin2hex(random_bytes(4)) . '@deleted.local';
@@ -183,7 +241,10 @@ final class AccountDeletionService
                 "UPDATE users SET name = 'Deleted user', email = ?, password_hash = NULL, status = 'disabled' WHERE id = ?"
             )->execute([$email, $userId]);
         }
-        $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$userId]);
+        try {
+            $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$userId]);
+        } catch (\Throwable) {
+        }
         try {
             $pdo->prepare('DELETE FROM push_subscriptions WHERE user_id = ?')->execute([$userId]);
         } catch (\Throwable) {

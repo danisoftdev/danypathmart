@@ -68,10 +68,9 @@ final class PromoterService
         }
         self::assertCodeAvailable($pdo, $code);
 
-        $dup = $pdo->prepare('SELECT 1 FROM users WHERE email = ?');
-        $dup->execute([$email]);
-        if ($dup->fetch() !== false) {
-            throw new \InvalidArgumentException('Email is already registered.');
+        $emailCheck = AvailabilityService::check($pdo, 'email', $email);
+        if (!$emailCheck['available']) {
+            throw new \InvalidArgumentException($emailCheck['message']);
         }
 
         $usernameBase = preg_replace('/[^a-z0-9._-]/', '', strtolower(explode('@', $email)[0])) ?? 'promoter';
@@ -81,9 +80,8 @@ final class PromoterService
         $username = substr($usernameBase, 0, 50);
         for ($n = 0; $n < 100; $n++) {
             $try = $n === 0 ? $username : $username . $n;
-            $chk = $pdo->prepare('SELECT 1 FROM users WHERE username = ?');
-            $chk->execute([$try]);
-            if ($chk->fetch() === false) {
+            $chk = AvailabilityService::check($pdo, 'username', $try);
+            if ($chk['available']) {
                 $username = $try;
                 break;
             }
@@ -92,22 +90,37 @@ final class PromoterService
         $pdo->beginTransaction();
         try {
             $hash = password_hash($password, PASSWORD_DEFAULT);
-            $pdo->prepare(
-                "INSERT INTO users (name, username, email, password_hash, role, status, email_verified_at)
-                 VALUES (?, ?, ?, ?, 'promoter', 'verified', NOW())"
-            )->execute([$name !== '' ? $name : $displayName, $username, $email, $hash]);
+            try {
+                $pdo->prepare(
+                    "INSERT INTO users (name, username, email, password_hash, role, status, email_verified_at)
+                     VALUES (?, ?, ?, ?, 'promoter', 'verified', NOW())"
+                )->execute([$name !== '' ? $name : $displayName, $username, $email, $hash]);
+            } catch (\Throwable $roleErr) {
+                // Role enum may still be missing 'promoter' until migration 070 runs.
+                throw new \InvalidArgumentException(
+                    'Could not create promoter user (role may be missing). ' . $roleErr->getMessage()
+                );
+            }
             $userId = (int) $pdo->lastInsertId();
 
-            $pdo->prepare(
-                'INSERT INTO promoters (user_id, display_name, code, status, approved_by, approved_at)
-                 VALUES (?, ?, ?, ?, ?, NOW())'
-            )->execute([$userId, $displayName, $code, 'active', $adminId]);
+            try {
+                $pdo->prepare(
+                    'INSERT INTO promoters (user_id, display_name, code, status, approved_by, approved_at)
+                     VALUES (?, ?, ?, ?, ?, NOW())'
+                )->execute([$userId, $displayName, $code, 'active', $adminId]);
+            } catch (\Throwable $promoErr) {
+                throw new \InvalidArgumentException(
+                    'Could not create promoter profile. ' . $promoErr->getMessage()
+                );
+            }
             $promoterId = (int) $pdo->lastInsertId();
             PromoterWalletService::getWallet($pdo, $promoterId);
 
             $pdo->commit();
         } catch (\Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             throw $e;
         }
 
