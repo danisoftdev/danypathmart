@@ -7,6 +7,7 @@ import {
   saveSupportGuestProfile,
   useSendSupportChatMessage,
   useStartSupportChat,
+  useSupportBotChoice,
   useSupportChatThread,
   useUploadSupportChatImage,
 } from '../../hooks/supportChat';
@@ -72,12 +73,19 @@ export default function SupportChatWidget() {
   const startChat = useStartSupportChat();
   const sendMessage = useSendSupportChatMessage();
   const uploadImage = useUploadSupportChatImage();
+  const botChoice = useSupportBotChoice();
+  const [localBotOptions, setLocalBotOptions] = useState([]);
 
   const conversation = data?.conversation ?? null;
   const messages = data?.messages ?? [];
   const unread = conversation?.customer_unread_count ?? 0;
+  const botOptions = (data?.bot_options?.length ? data.bot_options : localBotOptions) || [];
 
   const needsGuestForm = !isLoggedIn && !conversation && !guestProfile?.name;
+
+  useEffect(() => {
+    if (conversation) setError('');
+  }, [conversation]);
 
   useEffect(() => {
     if (!open || conversation || needsGuestForm) return;
@@ -93,15 +101,19 @@ export default function SupportChatWidget() {
 
     startChat
       .mutateAsync(payload)
-      .then(() => refetch())
-      .catch(() => setError('Could not start chat.'))
+      .then((res) => {
+        if (res?.bot_options) setLocalBotOptions(res.bot_options);
+        setError('');
+        return refetch();
+      })
+      .catch((err) => setError(err.response?.data?.message || 'Could not start chat.'))
       .finally(() => setStarting(false));
   }, [open, conversation, needsGuestForm, isLoggedIn, guestProfile, guestForm.name, guestForm.email, starting, startChat, refetch]);
 
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [messages.length, open]);
+  }, [messages.length, botOptions.length, open]);
 
   const handleGuestStart = async (e) => {
     e.preventDefault();
@@ -222,6 +234,34 @@ export default function SupportChatWidget() {
                   {messages.map((m) => (
                     <ChatBubble key={m.id} message={m} />
                   ))}
+                  {conversation && botOptions.length > 0 && (
+                    <div className="flex flex-col gap-2 pt-1">
+                      {botOptions.map((opt) => (
+                        <button
+                          key={opt.node_key || opt.id}
+                          type="button"
+                          disabled={botChoice.isPending}
+                          onClick={async () => {
+                            setError('');
+                            try {
+                              const res = await botChoice.mutateAsync({
+                                node_key: opt.node_key,
+                                conversation_id: conversation.id,
+                              });
+                              if (res?.options) setLocalBotOptions(res.options);
+                              else setLocalBotOptions([]);
+                              await refetch();
+                            } catch (err) {
+                              setError(err.response?.data?.message || 'Could not send choice.');
+                            }
+                          }}
+                          className="rounded-xl border border-brand-green/40 bg-white px-3 py-2 text-left text-sm font-semibold text-brand-green hover:bg-brand-green/10 dark:bg-[#1E1E1E]"
+                        >
+                          {opt.question_text || opt.node_key}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <form onSubmit={handleSend} className="border-t border-black/8 p-3 dark:border-white/10">

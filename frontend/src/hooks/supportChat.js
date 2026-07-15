@@ -92,6 +92,17 @@ export function useUploadSupportChatImage() {
   });
 }
 
+export function useSupportBotChoice() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) =>
+      (await api.post('/public/support-chat/bot-choice', payload, {
+        headers: supportHeaders(),
+      })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
+  });
+}
+
 export function useAdminSupportChatConversations(status = 'open', enabled = true) {
   return useQuery({
     queryKey: ['admin-support-chat', status],

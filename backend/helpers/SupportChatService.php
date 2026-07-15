@@ -74,18 +74,16 @@ final class SupportChatService
                 self::attachContext($pdo, (int) $existing['id'], $productId, $shopId, $orderId);
                 return self::requireConversationPublic($pdo, (int) $existing['id']);
             }
-            $pdo->prepare(
-                'INSERT INTO support_conversations (user_id, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
-            )->execute([
+            self::insertOpenConversation(
+                $pdo,
                 (int) $user['id'],
+                null,
                 $name,
                 $email,
                 $productId,
                 $shopId,
-                $orderId,
-                $productId !== null ? 'product' : ($orderId !== null ? 'order' : 'general'),
-            ]);
+                $orderId
+            );
         } else {
             if ($guestToken === null) {
                 throw new RuntimeException('Guest token required.');
@@ -95,27 +93,69 @@ final class SupportChatService
                 self::attachContext($pdo, (int) $existing['id'], $productId, $shopId, $orderId);
                 return self::requireConversationPublic($pdo, (int) $existing['id']);
             }
-            $pdo->prepare(
-                'INSERT INTO support_conversations (guest_token, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
-            )->execute([
+            self::insertOpenConversation(
+                $pdo,
+                null,
                 $guestToken,
                 $name,
                 $email,
                 $productId,
                 $shopId,
-                $orderId,
-                $productId !== null ? 'product' : ($orderId !== null ? 'order' : 'general'),
-            ]);
+                $orderId
+            );
         }
 
         $conv = self::requireConversationPublic($pdo, (int) $pdo->lastInsertId());
         $intro = $productId !== null && $product !== false && $product !== null
             ? 'Hi! You asked about: ' . ($product['name'] ?? 'this product') . '. Choose an option below.'
             : 'Hi! How can we help you today? Choose an option below.';
-        self::insertBotMessage($pdo, (int) $conv['id'], $intro);
+        try {
+            self::insertBotMessage($pdo, (int) $conv['id'], $intro);
+        } catch (\Throwable $e) {
+            // Older DBs without sender_type=bot — still open the chat.
+            error_log('support intro bot message: ' . $e->getMessage());
+        }
 
         return $conv;
+    }
+
+    private static function insertOpenConversation(
+        PDO $pdo,
+        ?int $userId,
+        ?string $guestToken,
+        string $name,
+        string $email,
+        ?int $productId,
+        ?int $shopId,
+        ?int $orderId
+    ): void {
+        $context = $productId !== null ? 'product' : ($orderId !== null ? 'order' : 'general');
+        try {
+            if ($userId !== null) {
+                $pdo->prepare(
+                    'INSERT INTO support_conversations (user_id, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
+                )->execute([$userId, $name, $email, $productId, $shopId, $orderId, $context]);
+            } else {
+                $pdo->prepare(
+                    'INSERT INTO support_conversations (guest_token, guest_name, guest_email, product_id, shop_id, order_id, context_type, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, \'open\')'
+                )->execute([$guestToken, $name, $email, $productId, $shopId, $orderId, $context]);
+            }
+        } catch (\Throwable) {
+            // Fallback when context columns from migration 055/071 are not present yet.
+            if ($userId !== null) {
+                $pdo->prepare(
+                    'INSERT INTO support_conversations (user_id, guest_name, guest_email, status)
+                     VALUES (?, ?, ?, \'open\')'
+                )->execute([$userId, $name, $email]);
+            } else {
+                $pdo->prepare(
+                    'INSERT INTO support_conversations (guest_token, guest_name, guest_email, status)
+                     VALUES (?, ?, ?, \'open\')'
+                )->execute([$guestToken, $name, $email]);
+            }
+        }
     }
 
     public static function attachContext(PDO $pdo, int $conversationId, ?int $productId, ?int $shopId, ?int $orderId): void

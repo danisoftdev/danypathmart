@@ -27,12 +27,18 @@ final class SupportBotService
         if ($parentKey === null || $parentKey === '') {
             $parentKey = 'root';
         }
-        $stmt = $pdo->prepare(
-            'SELECT * FROM support_bot_nodes WHERE parent_key <=> ? AND is_active = 1 ORDER BY sort_order ASC, id ASC'
-        );
-        $stmt->execute([$parentKey === 'root' ? 'root' : $parentKey]);
+        try {
+            // Top-level choices are seeded with parent_key = 'root' (not NULL).
+            $stmt = $pdo->prepare(
+                'SELECT * FROM support_bot_nodes WHERE parent_key <=> ? AND is_active = 1 ORDER BY sort_order ASC, id ASC'
+            );
+            $stmt->execute([$parentKey]);
 
-        return array_map(static fn (array $r): array => self::mapNode($r), $stmt->fetchAll());
+            return array_map(static fn (array $r): array => self::mapNode($r), $stmt->fetchAll());
+        } catch (\Throwable) {
+            // Table missing until migration 071 — chat can still open without bot buttons.
+            return [];
+        }
     }
 
     /** @return array{messages:array<int,array<string,mixed>>,conversation:array<string,mixed>,options:array<int,array<string,mixed>>} */
