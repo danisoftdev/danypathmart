@@ -2,6 +2,10 @@
 
 RewriteEngine On
 
+# Preserve Bearer tokens on hosts that strip Authorization (common on Apache/Hostinger).
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 # Allow the front controller and real files/directories to be served directly.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

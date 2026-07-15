@@ -31,7 +31,12 @@ export function useSupportChatThread(enabled = true) {
     refetchInterval: enabled && getToken() ? 4000 : false,
     staleTime: 2000,
     placeholderData: (prev) => prev,
-    retry: 1,
+    // Keep the open thread if a poll fails (auth blip / network).
+    retry: (count, err) => {
+      const status = err?.response?.status;
+      if (status === 403 || status === 401) return false;
+      return count < 1;
+    },
   });
 }
 
@@ -42,7 +47,18 @@ export function useStartSupportChat() {
       const res = await api.post('/public/support-chat/start', payload || {});
       return res.data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
+    onSuccess: (data) => {
+      if (data?.conversation) {
+        qc.setQueryData(['support-chat-thread'], (old) => ({
+          success: true,
+          ...(old || {}),
+          conversation: data.conversation,
+          messages: old?.messages || [],
+          needs_routing: (data.conversation.routed_to || 'pending') === 'pending',
+        }));
+      }
+      qc.invalidateQueries({ queryKey: ['support-chat-thread'] });
+    },
   });
 }
 

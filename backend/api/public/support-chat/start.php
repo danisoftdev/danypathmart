@@ -13,10 +13,11 @@ $user = AuthMiddleware::optional();
 $body = Response::body();
 
 // Persisted live chat requires an account. Guests use ephemeral client-only chat.
+// Use 403 (not 401) so the frontend does not treat this as an expired session / force logout.
 if ($user === null) {
     Response::error(
         'Sign in to chat with support. You can continue without an account, but that chat is not saved.',
-        401,
+        403,
         ['code' => 'account_required']
     );
 }

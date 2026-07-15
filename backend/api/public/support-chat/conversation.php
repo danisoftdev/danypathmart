@@ -14,23 +14,23 @@ if ($sinceId !== null && $sinceId <= 0) {
     $sinceId = null;
 }
 
-// Guest / ephemeral chats are not persisted — only signed-in users load a server thread.
+// Never return a successful empty thread for guests — that was wiping the
+// logged-in chat UI when a poll briefly lacked auth.
 if ($user === null) {
-    Response::success([
-        'conversation'  => null,
-        'messages'      => [],
-        'guest_token'   => null,
-        'needs_routing' => false,
-        'ephemeral'     => true,
-    ]);
+    Response::error('Sign in to load your chat.', 403, ['code' => 'account_required']);
 }
 
-$thread = SupportChatService::loadCustomerThread($pdo, $user, null, $sinceId);
+try {
+    $thread = SupportChatService::loadCustomerThread($pdo, $user, null, $sinceId);
+} catch (Throwable $e) {
+    error_log('public/support-chat: ' . $e->getMessage());
+    Response::error('Could not load chat.', 500);
+}
+
 $conversation = $thread['conversation'];
 
 Response::success([
     'conversation'  => $conversation,
     'messages'      => $thread['messages'],
-    'guest_token'   => null,
     'needs_routing' => is_array($conversation) && ($conversation['routed_to'] ?? 'pending') === 'pending',
 ]);

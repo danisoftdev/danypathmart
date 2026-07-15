@@ -52,11 +52,17 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
     const status = error.response?.status;
+    const code = error.response?.data?.code;
     const isAuthRoute =
       original?.url?.includes('/auth/login') ||
       original?.url?.includes('/auth/refresh');
+    // Business "please sign in" responses — not an expired JWT session.
+    const isSoftAuth =
+      code === 'account_required' ||
+      code === 'forbidden' ||
+      (typeof original?.url === 'string' && original.url.includes('/public/support-chat/start'));
 
-    if (status === 401 && !original?._retry && !isAuthRoute) {
+    if (status === 401 && !original?._retry && !isAuthRoute && !isSoftAuth) {
       original._retry = true;
       try {
         const token = await refreshAccessToken();

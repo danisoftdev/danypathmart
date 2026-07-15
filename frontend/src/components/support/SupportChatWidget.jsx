@@ -99,9 +99,10 @@ function emptyEphemeral(name = 'Guest') {
 
 export default function SupportChatWidget() {
   const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const hasSession = isAuthenticated || !!getToken();
   const qc = useQueryClient();
+  // Token only — isAuthenticated can lag and falsely keep "live" mode after logout.
+  const token = getToken();
+  const hasSession = !!token;
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
@@ -115,6 +116,7 @@ export default function SupportChatWidget() {
   const listRef = useRef(null);
   const fileRef = useRef(null);
   const startAttemptRef = useRef(0);
+  const startedForOpenRef = useRef(false);
 
   const canPoll = open && hasSession && mode === 'live';
 
@@ -144,22 +146,20 @@ export default function SupportChatWidget() {
 
   const messages = mode === 'ephemeral' ? (ephemeral?.messages ?? []) : liveMessages;
 
-  // Prefer session token over user object so chat doesn't reset while /auth/me loads.
+  // Sync mode when login/logout changes. Do not thrash while chatting.
   useEffect(() => {
-    if (hasSession) {
+    if (getToken()) {
       setMode('live');
       clearEphemeralChat();
       setEphemeral(null);
       return;
     }
-    setMode((prev) => {
-      if (prev === 'ephemeral') return 'ephemeral';
-      return getEphemeralChat() ? 'ephemeral' : 'gate';
-    });
-  }, [hasSession]);
+    setMode((prev) => (prev === 'ephemeral' || getEphemeralChat() ? 'ephemeral' : 'gate'));
+  }, [user?.id, token]);
 
   const startLiveChat = async () => {
-    if (!hasSession || mode !== 'live' || starting) return;
+    if (!getToken() || mode !== 'live' || starting || startedForOpenRef.current) return;
+    startedForOpenRef.current = true;
     setStarting(true);
     setStartFailed(false);
     setError('');
@@ -167,17 +167,34 @@ export default function SupportChatWidget() {
     try {
       const res = await startChat.mutateAsync({});
       if (attempt !== startAttemptRef.current) return;
-      if (res?.conversation) {
+      const conv = res?.conversation;
+      if (conv) {
         qc.setQueryData(['support-chat-thread'], (old) => ({
+          success: true,
           ...(old || {}),
-          conversation: res.conversation,
-          messages: old?.messages || [],
-          needs_routing: (res.conversation.routed_to || 'pending') === 'pending',
+          conversation: conv,
+          messages: Array.isArray(old?.messages) ? old.messages : [],
+          needs_routing: (conv.routed_to || 'pending') === 'pending',
         }));
       }
-      await refetch();
+      const thread = await refetch();
+      if (!thread?.data?.conversation && conv) {
+        qc.setQueryData(['support-chat-thread'], (old) => ({
+          success: true,
+          ...(old || {}),
+          conversation: conv,
+          messages: old?.messages || [],
+        }));
+      }
     } catch (err) {
       if (attempt !== startAttemptRef.current) return;
+      startedForOpenRef.current = false;
+      const code = err.response?.data?.code;
+      if (code === 'account_required' || err.response?.status === 403) {
+        setMode('gate');
+        setError('Please sign in to use live chat.');
+        return;
+      }
       setStartFailed(true);
       setError(err.response?.data?.message || 'Could not start chat.');
     } finally {
@@ -186,16 +203,16 @@ export default function SupportChatWidget() {
   };
 
   useEffect(() => {
-    if (!open || !hasSession || mode !== 'live') return;
-    if (conversation || starting || startFailed) return;
+    if (!open || !getToken() || mode !== 'live') return;
+    if (conversation || starting || startFailed || startedForOpenRef.current) return;
     startLiveChat();
-    // Intentionally only when open/session/conversation/failure state changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, hasSession, mode, conversation, startFailed]);
+  }, [open, mode, conversation, startFailed, token]);
 
   useEffect(() => {
     if (!open) {
       setStartFailed(false);
+      startedForOpenRef.current = false;
       startAttemptRef.current += 1;
     }
   }, [open]);
