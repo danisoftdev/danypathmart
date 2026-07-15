@@ -90,17 +90,18 @@ final class PromoterService
         $pdo->beginTransaction();
         try {
             $hash = password_hash($password, PASSWORD_DEFAULT);
+            $display = $name !== '' ? $name : $displayName;
             try {
-                // Match other account creates — no email_verified_at (column not on all DBs).
+                // Match staff/driver inserts — do not require email_verified_at (absent on some DBs).
                 $pdo->prepare(
-                    "INSERT INTO users (name, username, email, password_hash, role, status, totp_enabled)
-                     VALUES (?, ?, ?, ?, 'promoter', 'verified', 0)"
-                )->execute([$name !== '' ? $name : $displayName, $username, $email, $hash]);
-            } catch (\Throwable $userErr) {
-                $msg = $userErr->getMessage();
+                    "INSERT INTO users (name, username, email, password_hash, role, status)
+                     VALUES (?, ?, ?, ?, 'promoter', 'verified')"
+                )->execute([$display, $username, $email, $hash]);
+            } catch (\Throwable $roleErr) {
+                $msg = $roleErr->getMessage();
                 if (str_contains($msg, 'role') || str_contains($msg, 'Data truncated')) {
                     throw new \InvalidArgumentException(
-                        'Could not create promoter user (promoter role may be missing). ' . $msg
+                        'Could not create promoter user (role may be missing). Deploy migration 070, then retry. ' . $msg
                     );
                 }
                 throw new \InvalidArgumentException('Could not create promoter user. ' . $msg);
