@@ -15,9 +15,13 @@ $status = isset($_GET['status']) ? trim((string) $_GET['status']) : null;
 if ($status === 'all') {
     $status = null;
 }
+$routedTo = isset($_GET['routed_to']) ? trim((string) $_GET['routed_to']) : null;
+if ($routedTo === 'all' || $routedTo === '') {
+    $routedTo = null;
+}
 
 $pdo = Database::pdo();
-$conversations = SupportChatService::listForAdmin($pdo, $status);
+$conversations = SupportChatService::listForAdmin($pdo, $status, $routedTo);
 $unread = SupportChatService::unreadAdminCount($pdo);
 
 Response::success([

@@ -170,6 +170,7 @@ $routes = [
     'POST ' . 'public/support-chat/messages' => 'public/support-chat/messages.php',
     'POST ' . 'public/support-chat/upload' => 'public/support-chat/upload.php',
     'POST ' . 'public/support-chat/bot-choice' => 'public/support-chat/bot-choice.php',
+    'POST ' . 'public/support-chat/route'     => 'public/support-chat/route.php',
     'GET '  . 'public/catalog-settings'    => 'public/catalog-settings.php',
     'GET '  . 'public/reviews'            => 'public/reviews/index.php',
     'POST ' . 'public/reviews/submit'     => 'public/reviews/submit.php',
@@ -278,6 +279,7 @@ $routes = [
     'GET '  . 'shop/orders/export'           => 'shop/orders/export.php',
     'GET '  . 'shop/support'                 => 'shop/support/index.php',
     'POST ' . 'shop/support/reply'           => 'shop/support/reply.php',
+    'POST ' . 'shop/support/upload'          => 'shop/support/upload.php',
     'GET '  . 'shop/wallet'                 => 'shop/wallet/index.php',
     'POST ' . 'shop/wallet/withdraw'        => 'shop/wallet/withdraw.php',
     'GET '  . 'shop/profile'                => 'shop/profile.php',
@@ -390,6 +392,20 @@ if ($handlerFile === null && $method === 'POST'
     && preg_match('#^admin/support-chat/conversations/([0-9]+)/read$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/support-chat/conversations/read.php';
+}
+
+// Dynamic route: POST admin/support-chat/conversations/{id}/join
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/support-chat/conversations/([0-9]+)/join$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/support-chat/conversations/join.php';
+}
+
+// Dynamic route: GET shop/support/{id}
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^shop/support/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'shop/support/show.php';
 }
 
 // Dynamic route: PUT admin/job-posts/{id}

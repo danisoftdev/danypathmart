@@ -11,21 +11,29 @@ $ctx = ShopMiddleware::requireShopMember();
 
 $body = Response::body();
 $id = (int) ($body['conversation_id'] ?? 0);
-$text = trim((string) ($body['body'] ?? ''));
-
-if ($id <= 0 || $text === '') {
-    Response::error('conversation_id and body required.', 422);
+$text = isset($body['body']) ? trim((string) $body['body']) : null;
+$imageUrl = isset($body['image_url']) ? trim((string) $body['image_url']) : null;
+if ($text === '') {
+    $text = null;
+}
+if ($imageUrl === '') {
+    $imageUrl = null;
 }
 
-$conv = SupportChatService::requireConversationPublic(Database::pdo(), $id);
-if ((int) ($conv['shop_id'] ?? 0) !== $ctx['shop_id'] || ($conv['routed_to'] ?? '') !== 'shop') {
+if ($id <= 0 || ($text === null && $imageUrl === null)) {
+    Response::error('conversation_id and a message or image are required.', 422);
+}
+
+$pdo = Database::pdo();
+$conv = SupportChatService::requireConversationPublic($pdo, $id);
+if ((int) ($conv['shop_id'] ?? 0) !== (int) $ctx['shop_id'] || ($conv['routed_to'] ?? '') !== 'shop') {
     Response::error('Conversation not found.', 404);
 }
 
 try {
-    $msg = SupportChatService::sendShopMessage(Database::pdo(), $id, (int) $ctx['user']['id'], $text);
+    $msg = SupportChatService::sendShopMessage($pdo, $id, (int) $ctx['user']['id'], $text, $imageUrl);
 } catch (Throwable $e) {
     Response::error($e->getMessage(), 422);
 }
 
-Response::success(['message' => $msg]);
+Response::success(['message' => $msg], 201);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  useAdminJoinSupportChat,
   useAdminReplySupportChat,
   useAdminSupportChatConversation,
   useAdminSupportChatConversations,
@@ -19,9 +20,35 @@ function formatWhen(iso) {
   }
 }
 
-function MessageBubble({ message }) {
+function routeBadge(c) {
+  if (c.routed_to === 'shop') return c.shop_name ? `Shop · ${c.shop_name}` : 'Shop';
+  if (c.routed_to === 'dpm') return 'DPM';
+  return 'New';
+}
+
+function MessageBubble({ message, shopName }) {
   const isAdmin = message.sender_type === 'admin';
+  const isSystem = message.sender_type === 'system' || message.sender_type === 'bot';
   const imageSrc = message.image_url ? resolveImageUrl(message.image_url) : null;
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-center">
+        <p className="max-w-[90%] rounded-full bg-black/5 px-3 py-1.5 text-center text-xs text-muted dark:bg-white/10">
+          {message.body}
+        </p>
+      </div>
+    );
+  }
+
+  const label =
+    message.sender_type === 'customer'
+      ? 'Customer'
+      : message.sender_type === 'shop'
+        ? shopName || 'Shop'
+        : message.sender_type === 'admin'
+          ? 'DPM Support'
+          : 'Support';
 
   return (
     <div className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
@@ -31,6 +58,9 @@ function MessageBubble({ message }) {
           isAdmin ? 'bg-brand-green text-white' : 'border border-black/8 bg-white dark:border-white/10 dark:bg-[#1E1E1E]',
         ].join(' ')}
       >
+        <p className={`mb-1 text-[10px] font-bold uppercase tracking-wide ${isAdmin ? 'text-white/75' : 'opacity-60'}`}>
+          {label}
+        </p>
         {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
         {imageSrc && (
           <a href={imageSrc} target="_blank" rel="noreferrer" className="mt-2 block">
@@ -47,19 +77,23 @@ export default function AdminSupportChatPage() {
   const [params, setParams] = useSearchParams();
   const selectedId = Number(params.get('c') || 0) || null;
   const [filter, setFilter] = useState('open');
+  const [routeFilter, setRouteFilter] = useState('all');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
-  const { data: listData, isLoading: listLoading } = useAdminSupportChatConversations(filter);
-  const { data: threadData, isLoading: threadLoading } = useAdminSupportChatConversation(selectedId, !!selectedId);
+  const { data: listData, isLoading: listLoading } = useAdminSupportChatConversations(filter, routeFilter);
+  const { data: threadData, isLoading: threadLoading, refetch } = useAdminSupportChatConversation(selectedId, !!selectedId);
   const reply = useAdminReplySupportChat();
+  const join = useAdminJoinSupportChat();
   const upload = useAdminUploadSupportChatImage();
 
   const conversations = listData?.conversations ?? [];
   const messages = threadData?.messages ?? [];
   const active = threadData?.conversation ?? null;
+  const canReply = threadData?.can_reply ?? (active ? active.routed_to !== 'shop' || active.dpm_joined : false);
+  const watchingShop = active?.routed_to === 'shop' && !canReply;
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -68,6 +102,17 @@ export default function AdminSupportChatPage() {
 
   const selectConversation = (id) => {
     setParams(id ? { c: String(id) } : {});
+  };
+
+  const handleJoin = async () => {
+    if (!selectedId) return;
+    setError('');
+    try {
+      await join.mutateAsync(selectedId);
+      await refetch();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not join chat.');
+    }
   };
 
   const handleReply = async (e) => {
@@ -98,8 +143,9 @@ export default function AdminSupportChatPage() {
   };
 
   const headerSubtitle = useMemo(() => {
-    if (!active) return 'Reply to storefront live chat messages.';
-    return `${active.guest_name || 'Customer'} · ${active.guest_email || '—'}`;
+    if (!active) return 'Watch every chat. Join shop chats when you need to help.';
+    const route = routeBadge(active);
+    return `${active.guest_name || 'Customer'} · ${active.guest_email || '—'} · ${route}`;
   }, [active]);
 
   return (
@@ -125,6 +171,22 @@ export default function AdminSupportChatPage() {
             className={filter === s ? 'admin-mobile-pill-active' : 'admin-mobile-pill'}
           >
             {s}
+          </button>
+        ))}
+        <span className="mx-1 self-center text-muted">|</span>
+        {[
+          { id: 'all', label: 'All routes' },
+          { id: 'dpm', label: 'DPM' },
+          { id: 'shop', label: 'Shops' },
+          { id: 'pending', label: 'New' },
+        ].map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setRouteFilter(s.id)}
+            className={routeFilter === s.id ? 'admin-mobile-pill-active' : 'admin-mobile-pill'}
+          >
+            {s.label}
           </button>
         ))}
       </div>
@@ -156,6 +218,11 @@ export default function AdminSupportChatPage() {
                       )}
                     </div>
                     <p className="truncate text-xs text-muted">{c.guest_email}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-green/80">
+                      {routeBadge(c)}
+                      {c.routed_to === 'shop' && !c.dpm_joined ? ' · watching' : ''}
+                      {c.dpm_joined && c.routed_to === 'shop' ? ' · joined' : ''}
+                    </p>
                     <p className="mt-1 truncate text-xs">{c.last_preview || '—'}</p>
                   </button>
                 </li>
@@ -166,34 +233,50 @@ export default function AdminSupportChatPage() {
 
         <div className="admin-panel flex min-h-[420px] max-h-[70vh] flex-col">
           {!selectedId ? (
-            <p className="flex flex-1 items-center justify-center p-6 text-sm text-muted">Select a conversation to reply.</p>
+            <p className="flex flex-1 items-center justify-center p-6 text-sm text-muted">Select a conversation.</p>
           ) : threadLoading ? (
             <div className="p-4"><AdminTableSkeleton rows={4} cols={1} /></div>
           ) : (
             <>
-              <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                {messages.map((m) => (
-                  <MessageBubble key={m.id} message={m} />
-                ))}
-              </div>
-              <form onSubmit={handleReply} className="border-t border-black/8 p-3 dark:border-white/10">
-                <div className="flex items-end gap-2">
-                  <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImage} />
-                  <button type="button" className="btn-ghost px-2 py-2" onClick={() => fileRef.current?.click()} disabled={upload.isPending}>
-                    📷
-                  </button>
-                  <textarea
-                    className="input-field min-h-[44px] flex-1 resize-none py-2"
-                    rows={2}
-                    placeholder="Reply to customer…"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                  />
-                  <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={!draft.trim() || reply.isPending}>
-                    Send
+              {watchingShop && (
+                <div className="flex items-center justify-between gap-3 border-b border-black/8 px-4 py-3 dark:border-white/10">
+                  <p className="text-sm text-muted">
+                    Watching silently — {active?.shop_name || 'the shop'} is handling this chat.
+                  </p>
+                  <button type="button" className="btn-primary shrink-0 px-3 py-2 text-sm" onClick={handleJoin} disabled={join.isPending}>
+                    {join.isPending ? 'Joining…' : 'Join chat'}
                   </button>
                 </div>
-              </form>
+              )}
+              <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
+                {messages.map((m) => (
+                  <MessageBubble key={m.id} message={m} shopName={active?.shop_name} />
+                ))}
+              </div>
+              {canReply ? (
+                <form onSubmit={handleReply} className="border-t border-black/8 p-3 dark:border-white/10">
+                  <div className="flex items-end gap-2">
+                    <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImage} />
+                    <button type="button" className="btn-ghost px-2 py-2" onClick={() => fileRef.current?.click()} disabled={upload.isPending}>
+                      📷
+                    </button>
+                    <textarea
+                      className="input-field min-h-[44px] flex-1 resize-none py-2"
+                      rows={2}
+                      placeholder="Reply to customer…"
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                    />
+                    <button type="submit" className="btn-primary px-4 py-2 text-sm" disabled={!draft.trim() || reply.isPending}>
+                      Send
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="border-t border-black/8 p-4 text-center text-sm text-muted dark:border-white/10">
+                  Join the chat to reply. Until then you’re watching only.
+                </div>
+              )}
             </>
           )}
         </div>

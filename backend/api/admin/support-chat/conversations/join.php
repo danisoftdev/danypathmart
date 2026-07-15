@@ -19,16 +19,12 @@ if ($id <= 0) {
 $pdo = Database::pdo();
 
 try {
-    $conversation = SupportChatService::requireConversationPublic($pdo, $id);
+    $result = SupportChatService::adminJoinChat($pdo, $id);
 } catch (RuntimeException $e) {
-    Response::error('Conversation not found.', 404);
+    Response::error($e->getMessage(), 422);
+} catch (Throwable $e) {
+    error_log('admin support-chat join: ' . $e->getMessage());
+    Response::error('Could not join chat.', 500);
 }
 
-SupportChatService::markAdminRead($pdo, $id);
-$conversation = SupportChatService::requireConversationPublic($pdo, $id);
-
-Response::success([
-    'conversation' => $conversation,
-    'messages'     => SupportChatService::listMessages($pdo, $id),
-    'can_reply'    => SupportChatService::adminCanReply($conversation),
-]);
+Response::success($result);

@@ -10,6 +10,7 @@ const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
   { to: '/seller/products', end: false, label: 'Products', icon: '🏷️' },
   { to: '/seller/orders', end: false, label: 'Shop orders', icon: '📦' },
+  { to: '/seller/chat', end: false, label: 'Live chat', icon: '💬' },
   { to: '/seller/billing', end: false, label: 'Billing', icon: '🧾' },
   { to: '/seller/payments', end: false, label: 'Payouts', icon: '💳' },
   { to: '/seller/settings', end: false, label: 'Shop profile', icon: '⚙️' },

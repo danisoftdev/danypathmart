@@ -107,13 +107,16 @@ final class SupportChatService
 
         $conv = self::requireConversationPublic($pdo, (int) $pdo->lastInsertId());
         $intro = $productId !== null && $product !== false && $product !== null
-            ? 'Hi! You asked about: ' . ($product['name'] ?? 'this product') . '. Choose an option below.'
-            : 'Hi! How can we help you today? Choose an option below.';
+            ? 'Hi! You asked about: ' . ($product['name'] ?? 'this product') . '. Is this about Danypath Mart, or a shop?'
+            : 'Hi! How can we help you today? Is this about Danypath Mart, or a shop?';
         try {
-            self::insertBotMessage($pdo, (int) $conv['id'], $intro);
+            self::insertSystemMessage($pdo, (int) $conv['id'], $intro);
         } catch (\Throwable $e) {
-            // Older DBs without sender_type=bot — still open the chat.
-            error_log('support intro bot message: ' . $e->getMessage());
+            try {
+                self::insertBotMessage($pdo, (int) $conv['id'], $intro);
+            } catch (\Throwable $e2) {
+                error_log('support intro message: ' . $e2->getMessage());
+            }
         }
 
         return $conv;
@@ -171,15 +174,138 @@ final class SupportChatService
         if (!in_array($routedTo, ['dpm', 'shop'], true)) {
             return;
         }
+        if ($routedTo === 'shop') {
+            $pdo->prepare(
+                'UPDATE support_conversations SET routed_to = ?, shop_id = ?, updated_at = NOW() WHERE id = ?'
+            )->execute([$routedTo, $shopId, $conversationId]);
+            return;
+        }
         $pdo->prepare(
             'UPDATE support_conversations SET routed_to = ?, shop_id = COALESCE(?, shop_id), updated_at = NOW() WHERE id = ?'
         )->execute([$routedTo, $shopId, $conversationId]);
+    }
+
+    /**
+     * Route an open conversation to DPM or a shop (customer-driven).
+     *
+     * @return array{conversation:array<string,mixed>,message:array<string,mixed>}
+     */
+    public static function routeCustomerChat(PDO $pdo, int $conversationId, string $route, ?int $shopId = null): array
+    {
+        $conv = self::requireConversation($pdo, $conversationId);
+        if (($conv['status'] ?? '') !== 'open') {
+            throw new RuntimeException('This chat is closed.');
+        }
+        if (($conv['routed_to'] ?? 'pending') !== 'pending') {
+            throw new RuntimeException('This chat is already connected.');
+        }
+
+        if ($route === 'dpm') {
+            self::routeConversation($pdo, $conversationId, 'dpm', null);
+            $pdo->prepare(
+                'UPDATE support_conversations SET dpm_joined_at = COALESCE(dpm_joined_at, NOW()), updated_at = NOW() WHERE id = ?'
+            )->execute([$conversationId]);
+            $msg = self::insertSystemMessage(
+                $pdo,
+                $conversationId,
+                "You're chatting with Danypath Mart support. Send a message or photo — we'll reply here."
+            );
+
+            return [
+                'conversation' => self::requireConversation($pdo, $conversationId),
+                'message'      => $msg,
+            ];
+        }
+
+        if ($route !== 'shop') {
+            throw new RuntimeException('Choose Danypath Mart or a shop.');
+        }
+        if ($shopId === null || $shopId <= 0) {
+            throw new RuntimeException('Please choose a shop.');
+        }
+
+        $shopStmt = $pdo->prepare(
+            "SELECT id, name FROM shops WHERE id = ? AND status = 'active' LIMIT 1"
+        );
+        $shopStmt->execute([$shopId]);
+        $shop = $shopStmt->fetch();
+        if ($shop === false) {
+            throw new RuntimeException('That shop was not found.');
+        }
+
+        self::routeConversation($pdo, $conversationId, 'shop', (int) $shop['id']);
+        $shopName = (string) $shop['name'];
+        $msg = self::insertSystemMessage(
+            $pdo,
+            $conversationId,
+            "You're chatting with {$shopName}. Send a message or photo — they'll reply here. Danypath Mart can step in if needed."
+        );
+
+        return [
+            'conversation' => self::requireConversation($pdo, $conversationId),
+            'message'      => $msg,
+        ];
+    }
+
+    /**
+     * DPM joins a shop (or pending) chat so they can reply. Shop chats stay shop-routed.
+     *
+     * @return array{conversation:array<string,mixed>,message:array<string,mixed>}
+     */
+    public static function adminJoinChat(PDO $pdo, int $conversationId): array
+    {
+        $conv = self::requireConversation($pdo, $conversationId);
+        if (!empty($conv['dpm_joined_at']) || ($conv['routed_to'] ?? '') === 'dpm') {
+            return [
+                'conversation' => $conv,
+                'message'      => null,
+            ];
+        }
+
+        $pdo->prepare(
+            'UPDATE support_conversations SET dpm_joined_at = NOW(), updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
+
+        $msg = self::insertSystemMessage($pdo, $conversationId, 'DPM Support joined the chat.');
+
+        return [
+            'conversation' => self::requireConversation($pdo, $conversationId),
+            'message'      => $msg,
+        ];
+    }
+
+    public static function adminCanReply(array $conversation): bool
+    {
+        $routed = (string) ($conversation['routed_to'] ?? 'pending');
+        if ($routed === 'dpm' || $routed === 'pending') {
+            return true;
+        }
+        if ($routed === 'shop') {
+            return !empty($conversation['dpm_joined_at']);
+        }
+
+        return false;
     }
 
     /** @return array<string,mixed> */
     public static function insertBotMessage(PDO $pdo, int $conversationId, string $body): array
     {
         self::insertMessage($pdo, $conversationId, 'bot', null, $body, null);
+        $pdo->prepare(
+            'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
+
+        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+    }
+
+    /** @return array<string,mixed> */
+    public static function insertSystemMessage(PDO $pdo, int $conversationId, string $body): array
+    {
+        try {
+            self::insertMessage($pdo, $conversationId, 'system', null, $body, null);
+        } catch (\Throwable) {
+            return self::insertBotMessage($pdo, $conversationId, $body);
+        }
         $pdo->prepare(
             'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
         )->execute([$conversationId]);
@@ -204,16 +330,31 @@ final class SupportChatService
     }
 
     /** @return array<string,mixed> */
-    public static function sendShopMessage(PDO $pdo, int $conversationId, int $shopUserId, ?string $body): array
-    {
-        self::requireConversation($pdo, $conversationId);
-        self::insertMessage($pdo, $conversationId, 'shop', $shopUserId, $body, null);
+    public static function sendShopMessage(
+        PDO $pdo,
+        int $conversationId,
+        int $shopUserId,
+        ?string $body,
+        ?string $imageUrl = null
+    ): array {
+        $conv = self::requireConversation($pdo, $conversationId);
+        if (($conv['routed_to'] ?? '') !== 'shop') {
+            throw new RuntimeException('This chat is not assigned to a shop.');
+        }
+        self::insertMessage($pdo, $conversationId, 'shop', $shopUserId, $body, $imageUrl);
         $pdo->prepare(
             'UPDATE support_conversations SET customer_unread_count = customer_unread_count + 1,
                 shop_unread_count = 0, last_message_at = NOW(), updated_at = NOW() WHERE id = ?'
         )->execute([$conversationId]);
 
         return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+    }
+
+    public static function markShopRead(PDO $pdo, int $conversationId): void
+    {
+        $pdo->prepare(
+            'UPDATE support_conversations SET shop_unread_count = 0, updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
     }
 
     /** @return array<string,mixed> */
@@ -336,23 +477,35 @@ final class SupportChatService
 
         self::insertMessage($pdo, $conversationId, 'customer', $user !== null ? (int) $user['id'] : null, $body, $imageUrl);
 
-        $pdo->prepare(
-            'UPDATE support_conversations
-             SET admin_unread_count = admin_unread_count + 1,
-                 last_message_at = NOW(),
-                 updated_at = NOW()
-             WHERE id = ?'
-        )->execute([$conversationId]);
+        $routedTo = (string) ($conversation['routed_to'] ?? 'pending');
+        if ($routedTo === 'shop') {
+            $pdo->prepare(
+                'UPDATE support_conversations
+                 SET admin_unread_count = admin_unread_count + 1,
+                     shop_unread_count = shop_unread_count + 1,
+                     last_message_at = NOW(),
+                     updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$conversationId]);
+        } else {
+            $pdo->prepare(
+                'UPDATE support_conversations
+                 SET admin_unread_count = admin_unread_count + 1,
+                     last_message_at = NOW(),
+                     updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$conversationId]);
 
-        $preview = self::messagePreview($body, $imageUrl);
-        $who = (string) ($conversation['guest_name'] ?? 'Customer');
-        NotificationService::notifyAdmins(
-            $pdo,
-            'Live chat — ' . $who,
-            $preview,
-            '/admin/support-chat?c=' . $conversationId,
-            'admin_support_chat'
-        );
+            $preview = self::messagePreview($body, $imageUrl);
+            $who = (string) ($conversation['guest_name'] ?? 'Customer');
+            NotificationService::notifyAdmins(
+                $pdo,
+                'Live chat — ' . $who,
+                $preview,
+                '/admin/support-chat?c=' . $conversationId,
+                'admin_support_chat'
+            );
+        }
 
         return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
     }
@@ -365,13 +518,17 @@ final class SupportChatService
         ?string $body,
         ?string $imageUrl
     ): array {
-        self::requireConversation($pdo, $conversationId);
+        $conv = self::requireConversation($pdo, $conversationId);
+        if (!self::adminCanReply($conv)) {
+            throw new RuntimeException('Join this chat before replying. You can watch silently until then.');
+        }
         self::insertMessage($pdo, $conversationId, 'admin', $adminUserId, $body, $imageUrl);
 
         $pdo->prepare(
             'UPDATE support_conversations
              SET customer_unread_count = customer_unread_count + 1,
                  admin_unread_count = 0,
+                 dpm_joined_at = COALESCE(dpm_joined_at, NOW()),
                  last_message_at = NOW(),
                  updated_at = NOW()
              WHERE id = ?'
@@ -381,16 +538,23 @@ final class SupportChatService
     }
 
     /** @return array<int,array<string,mixed>> */
-    public static function listForAdmin(PDO $pdo, ?string $status = null): array
+    public static function listForAdmin(PDO $pdo, ?string $status = null, ?string $routedTo = null): array
     {
         $sql = 'SELECT c.*,
+                       s.name AS shop_name,
                        (SELECT body FROM support_messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS last_body,
                        (SELECT image_url FROM support_messages m WHERE m.conversation_id = c.id ORDER BY m.id DESC LIMIT 1) AS last_image_url
-                FROM support_conversations c WHERE c.routed_to IN (\'pending\', \'dpm\')';
+                FROM support_conversations c
+                LEFT JOIN shops s ON s.id = c.shop_id
+                WHERE 1=1';
         $params = [];
         if ($status === 'open' || $status === 'closed') {
             $sql .= ' AND c.status = ?';
             $params[] = $status;
+        }
+        if ($routedTo !== null && $routedTo !== '' && $routedTo !== 'all') {
+            $sql .= ' AND c.routed_to = ?';
+            $params[] = $routedTo;
         }
         $sql .= ' ORDER BY COALESCE(c.last_message_at, c.created_at) DESC LIMIT 200';
 
@@ -399,6 +563,7 @@ final class SupportChatService
 
         return array_map(static function (array $r): array {
             $conv = self::mapConversation($r);
+            $conv['shop_name'] = isset($r['shop_name']) && $r['shop_name'] !== null ? (string) $r['shop_name'] : null;
             $conv['last_preview'] = self::messagePreview(
                 isset($r['last_body']) ? (string) $r['last_body'] : null,
                 isset($r['last_image_url']) ? (string) $r['last_image_url'] : null
@@ -537,7 +702,13 @@ final class SupportChatService
     /** @return array<string,mixed> */
     private static function requireConversation(PDO $pdo, int $id): array
     {
-        $stmt = $pdo->prepare('SELECT * FROM support_conversations WHERE id = ? LIMIT 1');
+        $stmt = $pdo->prepare(
+            'SELECT c.*, s.name AS shop_name
+             FROM support_conversations c
+             LEFT JOIN shops s ON s.id = c.shop_id
+             WHERE c.id = ?
+             LIMIT 1'
+        );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
         if ($row === false) {
@@ -580,6 +751,9 @@ final class SupportChatService
             'context_type'            => (string) ($row['context_type'] ?? 'general'),
             'routed_to'               => (string) ($row['routed_to'] ?? 'pending'),
             'bot_step_key'            => $row['bot_step_key'] ?? null,
+            'dpm_joined_at'           => $row['dpm_joined_at'] ?? null,
+            'dpm_joined'              => !empty($row['dpm_joined_at']) || (string) ($row['routed_to'] ?? '') === 'dpm',
+            'shop_name'               => isset($row['shop_name']) && $row['shop_name'] !== null ? (string) $row['shop_name'] : null,
             'status'                  => (string) $row['status'],
             'admin_unread_count'      => (int) ($row['admin_unread_count'] ?? 0),
             'shop_unread_count'       => (int) ($row['shop_unread_count'] ?? 0),

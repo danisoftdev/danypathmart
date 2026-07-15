@@ -36,22 +36,7 @@ export function useUpsertSupportBotNode() {
   });
 }
 
-export function useShopSupportChats(enabled = true) {
-  return useQuery({
-    queryKey: ['shop-support-chats'],
-    queryFn: async () => (await api.get('/shop/support')).data.data ?? [],
-    enabled,
-    refetchInterval: 10000,
-  });
-}
-
-export function useShopSupportReply() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload) => (await api.post('/shop/support/reply', payload)).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shop-support-chats'] }),
-  });
-}
+export { useShopSupportChats, useShopSupportReply } from './supportChat';
 
 export function useProductReviews(productId) {
   return useQuery({

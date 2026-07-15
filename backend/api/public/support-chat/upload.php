@@ -6,7 +6,7 @@ use App\Helpers\Response;
 use App\Helpers\SupportChatService;
 use App\Middleware\AuthMiddleware;
 
-AuthMiddleware::optional();
+AuthMiddleware::authenticate();
 
 $file = $_FILES['image'] ?? null;
 if (!is_array($file)) {
@@ -25,4 +25,4 @@ try {
 Response::success([
     'message' => 'Image uploaded.',
     'url'     => $result['url'],
-]);
+], 201);

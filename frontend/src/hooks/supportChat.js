@@ -1,53 +1,34 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { getToken } from '../lib/api';
 
-const GUEST_TOKEN_KEY = 'dpm_support_guest_token';
-const GUEST_PROFILE_KEY = 'dpm_support_guest_profile';
+const EPHEMERAL_KEY = 'dpm_support_ephemeral';
 
-export function getSupportGuestToken() {
-  let token = localStorage.getItem(GUEST_TOKEN_KEY);
-  if (!token) {
-    token = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID().replace(/-/g, '')
-      : `guest${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem(GUEST_TOKEN_KEY, token);
-  }
-  return token;
-}
-
-export function getSupportGuestProfile() {
+export function getEphemeralChat() {
   try {
-    const raw = localStorage.getItem(GUEST_PROFILE_KEY);
+    const raw = sessionStorage.getItem(EPHEMERAL_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function saveSupportGuestProfile(profile) {
-  localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify(profile));
+export function saveEphemeralChat(state) {
+  sessionStorage.setItem(EPHEMERAL_KEY, JSON.stringify(state));
 }
 
-function guestHeaders() {
-  return { 'X-Support-Guest-Token': getSupportGuestToken() };
-}
-
-function supportHeaders() {
-  const headers = { ...guestHeaders() };
-  return headers;
+export function clearEphemeralChat() {
+  sessionStorage.removeItem(EPHEMERAL_KEY);
 }
 
 export function useSupportChatThread(enabled = true) {
   return useQuery({
     queryKey: ['support-chat-thread'],
     queryFn: async () => {
-      const res = await api.get('/public/support-chat', {
-        headers: supportHeaders(),
-      });
+      const res = await api.get('/public/support-chat');
       return res.data;
     },
-    enabled,
-    refetchInterval: enabled ? 8000 : false,
+    enabled: enabled && !!getToken(),
+    refetchInterval: enabled && getToken() ? 8000 : false,
     staleTime: 3000,
   });
 }
@@ -56,12 +37,17 @@ export function useStartSupportChat() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => {
-      const isLoggedIn = !!getToken();
-      const res = await api.post('/public/support-chat/start', payload || {}, {
-        headers: isLoggedIn ? {} : supportHeaders(),
-      });
+      const res = await api.post('/public/support-chat/start', payload || {});
       return res.data;
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
+  });
+}
+
+export function useRouteSupportChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/public/support-chat/route', payload)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
   });
 }
@@ -69,9 +55,7 @@ export function useStartSupportChat() {
 export function useSendSupportChatMessage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload) => (await api.post('/public/support-chat/messages', payload, {
-      headers: supportHeaders(),
-    })).data,
+    mutationFn: async (payload) => (await api.post('/public/support-chat/messages', payload)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
   });
 }
@@ -82,31 +66,32 @@ export function useUploadSupportChatImage() {
       const form = new FormData();
       form.append('image', file);
       const res = await api.post('/public/support-chat/upload', form, {
-        headers: {
-          ...supportHeaders(),
-          'Content-Type': 'multipart/form-data',
-        },
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       return res.data;
     },
   });
 }
 
-export function useSupportBotChoice() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (payload) =>
-      (await api.post('/public/support-chat/bot-choice', payload, {
-        headers: supportHeaders(),
-      })).data,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
+export function useSearchSupportShops(q, enabled = true) {
+  return useQuery({
+    queryKey: ['support-shop-search', q],
+    queryFn: async () => {
+      const res = await api.get('/public/shops', { params: { q, per_page: 8 } });
+      return res.data?.data ?? [];
+    },
+    enabled: enabled && q.trim().length >= 1,
+    staleTime: 15000,
   });
 }
 
-export function useAdminSupportChatConversations(status = 'open', enabled = true) {
+export function useAdminSupportChatConversations(status = 'open', routedTo = 'all', enabled = true) {
   return useQuery({
-    queryKey: ['admin-support-chat', status],
-    queryFn: async () => (await api.get('/admin/support-chat/conversations', { params: { status } })).data,
+    queryKey: ['admin-support-chat', status, routedTo],
+    queryFn: async () =>
+      (await api.get('/admin/support-chat/conversations', {
+        params: { status, routed_to: routedTo },
+      })).data,
     enabled,
     refetchInterval: 10000,
     staleTime: 5000,
@@ -146,12 +131,64 @@ export function useAdminReplySupportChat() {
   });
 }
 
+export function useAdminJoinSupportChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.post(`/admin/support-chat/conversations/${id}/join`)).data,
+    onSuccess: (_data, id) => {
+      qc.invalidateQueries({ queryKey: ['admin-support-chat'] });
+      qc.invalidateQueries({ queryKey: ['admin-support-chat-conversation', id] });
+    },
+  });
+}
+
 export function useAdminUploadSupportChatImage() {
   return useMutation({
     mutationFn: async (file) => {
       const form = new FormData();
       form.append('image', file);
       return (await api.post('/admin/support-chat/upload', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })).data;
+    },
+  });
+}
+
+export function useShopSupportChats(enabled = true) {
+  return useQuery({
+    queryKey: ['shop-support-chats'],
+    queryFn: async () => (await api.get('/shop/support')).data.data ?? [],
+    enabled,
+    refetchInterval: 10000,
+  });
+}
+
+export function useShopSupportConversation(id, enabled = true) {
+  return useQuery({
+    queryKey: ['shop-support-conversation', id],
+    queryFn: async () => (await api.get(`/shop/support/${id}`)).data,
+    enabled: enabled && !!id,
+    refetchInterval: enabled && id ? 8000 : false,
+  });
+}
+
+export function useShopSupportReply() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/shop/support/reply', payload)).data,
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['shop-support-chats'] });
+      qc.invalidateQueries({ queryKey: ['shop-support-conversation', vars.conversation_id] });
+    },
+  });
+}
+
+export function useShopSupportUpload() {
+  return useMutation({
+    mutationFn: async (file) => {
+      const form = new FormData();
+      form.append('image', file);
+      return (await api.post('/shop/support/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })).data;
     },

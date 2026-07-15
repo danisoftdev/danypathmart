@@ -8,8 +8,7 @@ use App\Helpers\SupportChatService;
 use App\Middleware\AuthMiddleware;
 
 $pdo = Database::pdo();
-$user = AuthMiddleware::optional();
-$guestToken = SupportChatService::guestTokenFromRequest();
+$user = AuthMiddleware::authenticate();
 $body = Response::body();
 
 $text = isset($body['body']) ? trim((string) $body['body']) : null;
@@ -22,7 +21,7 @@ if ($imageUrl === '') {
 }
 
 try {
-    $message = SupportChatService::sendCustomerMessage($pdo, $user, $guestToken, $text, $imageUrl);
+    $message = SupportChatService::sendCustomerMessage($pdo, $user, null, $text, $imageUrl);
 } catch (RuntimeException $e) {
     Response::error($e->getMessage(), 422);
 } catch (Throwable $e) {
