@@ -5,6 +5,7 @@ import { useAuthStore } from '../../store/authStore';
 import UserAvatar from '../brand/UserAvatar';
 import { resolveProductImageUrl } from '../../lib/productImages';
 import { formatPrice } from '../../lib/currency';
+import ShopSupportInboxWidget from '../support/ShopSupportInboxWidget';
 
 const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
@@ -243,6 +244,7 @@ export default function ShopLayout() {
           <Outlet context={{ shop, dashboard: data }} />
         </div>
       </div>
+      <ShopSupportInboxWidget />
     </section>
   );
 }

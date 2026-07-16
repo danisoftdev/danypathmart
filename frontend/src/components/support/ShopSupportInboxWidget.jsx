@@ -1,12 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  useAdminJoinSupportChat,
-  useAdminReplySupportChat,
-  useAdminSupportChatConversation,
-  useAdminSupportChatConversations,
-  useAdminSupportChatCount,
-  useAdminUploadSupportChatImage,
+  useShopSupportChats,
+  useShopSupportConversation,
+  useShopSupportReply,
+  useShopSupportUpload,
 } from '../../hooks/supportChat';
 import { resolveImageUrl } from '../../lib/currency';
 import { staffVisibleMessages } from '../../lib/supportChatMessages';
@@ -25,8 +23,8 @@ function visitorLabel(c) {
   return c.guest_name || 'Customer';
 }
 
-function Bubble({ message, shopName }) {
-  const isAdmin = message.sender_type === 'admin';
+function Bubble({ message }) {
+  const isShop = message.sender_type === 'shop';
   const isHandoff = (message.sender_type === 'system' || message.sender_type === 'bot')
     && String(message.body || '').toLowerCase().includes('joined the chat');
   const imageSrc = message.image_url ? resolveImageUrl(message.image_url) : null;
@@ -44,16 +42,16 @@ function Bubble({ message, shopName }) {
   const label =
     message.sender_type === 'customer'
       ? 'Customer'
-      : message.sender_type === 'shop'
-        ? shopName || 'Shop'
-        : 'You (DPM)';
+      : message.sender_type === 'admin'
+        ? 'DPM Support'
+        : 'You (shop)';
 
   return (
-    <div className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${isShop ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
           'max-w-[85%] rounded-2xl px-3 py-2 text-sm',
-          isAdmin ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white',
+          isShop ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white',
         ].join(' ')}
       >
         <p className="mb-1 text-[10px] font-bold uppercase tracking-wide opacity-70">{label}</p>
@@ -69,10 +67,8 @@ function Bubble({ message, shopName }) {
   );
 }
 
-/**
- * Staff / DPM support floating inbox — intentionally different from the buyer chat widget.
- */
-export default function StaffSupportInboxWidget() {
+/** Shop seller floating inbox — same style as DPM staff inbox, not buyer chat. */
+export default function ShopSupportInboxWidget() {
   const [open, setOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState('');
@@ -80,18 +76,17 @@ export default function StaffSupportInboxWidget() {
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
-  const { data: unread = 0 } = useAdminSupportChatCount(true);
-  const { data: listData, isLoading } = useAdminSupportChatConversations('open', 'all', open);
-  const { data: thread, isLoading: threadLoading, refetch } = useAdminSupportChatConversation(selectedId, open && !!selectedId);
-  const reply = useAdminReplySupportChat();
-  const join = useAdminJoinSupportChat();
-  const upload = useAdminUploadSupportChatImage();
+  const { data: conversations = [], isLoading } = useShopSupportChats(open);
+  const { data: thread, isLoading: threadLoading } = useShopSupportConversation(selectedId, open && !!selectedId);
+  const reply = useShopSupportReply();
+  const upload = useShopSupportUpload();
 
-  const conversations = listData?.conversations ?? [];
+  const unread = useMemo(
+    () => conversations.reduce((sum, c) => sum + (Number(c.shop_unread_count) || 0), 0),
+    [conversations]
+  );
   const active = thread?.conversation ?? null;
   const messages = staffVisibleMessages(thread?.messages ?? []);
-  const canReply = thread?.can_reply ?? (active ? active.routed_to !== 'shop' || active.dpm_joined : false);
-  const watchingShop = active?.routed_to === 'shop' && !canReply;
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -105,7 +100,7 @@ export default function StaffSupportInboxWidget() {
     setDraft('');
     setError('');
     try {
-      await reply.mutateAsync({ id: selectedId, body: text });
+      await reply.mutateAsync({ conversation_id: selectedId, body: text });
     } catch (err) {
       setDraft(text);
       setError(err.response?.data?.message || 'Could not send.');
@@ -119,7 +114,7 @@ export default function StaffSupportInboxWidget() {
     setError('');
     try {
       const uploaded = await upload.mutateAsync(file);
-      await reply.mutateAsync({ id: selectedId, image_url: uploaded.url });
+      await reply.mutateAsync({ conversation_id: selectedId, image_url: uploaded.url });
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send image.');
     }
@@ -129,11 +124,11 @@ export default function StaffSupportInboxWidget() {
     <>
       <button
         type="button"
-        aria-label="Open DPM support inbox"
+        aria-label="Open shop support inbox"
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1a2332] text-xl text-white shadow-lg ring-4 ring-[#1a2332]/25 transition hover:scale-105 md:bottom-6"
       >
-        <span aria-hidden>🎧</span>
+        <span aria-hidden>🏪</span>
         {!open && unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-400 px-1 text-[10px] font-bold text-[#1a2332]">
             {unread > 9 ? '9+' : unread}
@@ -147,9 +142,9 @@ export default function StaffSupportInboxWidget() {
           <div className="relative flex h-[min(88vh,620px)] w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#121820] text-white shadow-2xl md:h-[560px] md:w-[400px] md:rounded-3xl">
             <div className="flex items-center justify-between border-b border-white/10 bg-[#1a2332] px-4 py-3">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">DPM staff</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-300">Shop staff</p>
                 <p className="text-sm font-extrabold">Support inbox</p>
-                <p className="text-xs text-white/60">Reply to customers & guests — not the buyer chat.</p>
+                <p className="text-xs text-white/60">Reply to customers — not the buyer chat.</p>
               </div>
               <button type="button" className="rounded-lg px-2 py-1 text-lg leading-none hover:bg-white/10" onClick={() => setOpen(false)}>
                 ×
@@ -165,7 +160,7 @@ export default function StaffSupportInboxWidget() {
                 {isLoading ? (
                   <p className="p-3 text-xs text-white/50">Loading…</p>
                 ) : conversations.length === 0 ? (
-                  <p className="p-3 text-xs text-white/50">No open chats.</p>
+                  <p className="p-3 text-xs text-white/50">No shop chats yet.</p>
                 ) : (
                   <ul className="p-1">
                     {conversations.slice(0, 30).map((c) => (
@@ -180,14 +175,14 @@ export default function StaffSupportInboxWidget() {
                         >
                           <div className="flex items-start justify-between gap-1">
                             <span className="font-bold leading-tight">{visitorLabel(c)}</span>
-                            {c.admin_unread_count > 0 && (
+                            {(c.shop_unread_count || 0) > 0 && (
                               <span className="rounded-full bg-amber-400 px-1.5 text-[10px] font-bold text-[#1a2332]">
-                                {c.admin_unread_count}
+                                {c.shop_unread_count}
                               </span>
                             )}
                           </div>
                           <p className="mt-0.5 truncate text-[10px] text-white/45">
-                            {(c.is_guest || !c.user_id) ? 'Guest' : 'Account'} · {c.routed_to || 'new'}
+                            {(c.is_guest || !c.user_id) ? 'Guest' : 'Account'}
                           </p>
                         </button>
                       </li>
@@ -200,7 +195,7 @@ export default function StaffSupportInboxWidget() {
                 {!selectedId ? (
                   <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
                     <p className="text-sm text-white/70">Select a conversation to reply.</p>
-                    <Link to="/admin/support-chat" className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-[#1a2332]" onClick={() => setOpen(false)}>
+                    <Link to="/seller/chat" className="rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-[#1a2332]" onClick={() => setOpen(false)}>
                       Open full inbox
                     </Link>
                   </div>
@@ -211,67 +206,43 @@ export default function StaffSupportInboxWidget() {
                     <div className="border-b border-white/10 px-3 py-2">
                       <p className="text-sm font-bold">{visitorLabel(active)}</p>
                       <p className="text-[11px] text-white/50">{active?.guest_email}</p>
-                      {(active?.is_guest || !active?.user_id) && (
-                        <span className="mt-1 inline-block rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
-                          Guest chat
+                      {active?.dpm_joined && (
+                        <span className="mt-1 inline-block rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+                          DPM joined
                         </span>
                       )}
                     </div>
-                    {watchingShop && (
-                      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-                        <p className="text-[11px] text-white/60">Watching shop chat</p>
-                        <button
-                          type="button"
-                          className="rounded-lg bg-emerald-500 px-2 py-1 text-[11px] font-bold"
-                          disabled={join.isPending}
-                          onClick={async () => {
-                            try {
-                              await join.mutateAsync(selectedId);
-                              await refetch();
-                            } catch (err) {
-                              setError(err.response?.data?.message || 'Could not join.');
-                            }
-                          }}
-                        >
-                          Join
-                        </button>
-                      </div>
-                    )}
                     <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
                       {messages.map((m) => (
-                        <Bubble key={m.id} message={m} shopName={active?.shop_name} />
+                        <Bubble key={m.id} message={m} />
                       ))}
                     </div>
-                    {canReply ? (
-                      <form onSubmit={handleReply} className="border-t border-white/10 p-2">
-                        <div className="flex items-end gap-2">
-                          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImage} />
-                          <button type="button" className="rounded-lg px-2 py-2 text-lg hover:bg-white/10" onClick={() => fileRef.current?.click()}>
-                            📷
-                          </button>
-                          <textarea
-                            className="min-h-[40px] flex-1 resize-none rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40"
-                            rows={1}
-                            placeholder="Reply as DPM…"
-                            value={draft}
-                            onChange={(e) => setDraft(e.target.value)}
-                          />
-                          <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-bold disabled:opacity-50" disabled={!draft.trim() || reply.isPending}>
-                            Send
-                          </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <p className="border-t border-white/10 p-3 text-center text-xs text-white/50">Join to reply, or open the full inbox.</p>
-                    )}
+                    <form onSubmit={handleReply} className="border-t border-white/10 p-2">
+                      <div className="flex items-end gap-2">
+                        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleImage} />
+                        <button type="button" className="rounded-lg px-2 py-2 text-lg hover:bg-white/10" onClick={() => fileRef.current?.click()}>
+                          📷
+                        </button>
+                        <textarea
+                          className="min-h-[40px] flex-1 resize-none rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-white/40"
+                          rows={1}
+                          placeholder="Reply as shop…"
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                        />
+                        <button type="submit" className="rounded-xl bg-emerald-500 px-3 py-2 text-sm font-bold disabled:opacity-50" disabled={!draft.trim() || reply.isPending}>
+                          Send
+                        </button>
+                      </div>
+                    </form>
                   </>
                 )}
               </div>
             </div>
 
             <div className="border-t border-white/10 px-3 py-2 text-center">
-              <Link to="/admin/support-chat" className="text-xs font-bold text-amber-300 hover:underline" onClick={() => setOpen(false)}>
-                Open full support inbox →
+              <Link to="/seller/chat" className="text-xs font-bold text-amber-300 hover:underline" onClick={() => setOpen(false)}>
+                Open full shop inbox →
               </Link>
             </div>
           </div>

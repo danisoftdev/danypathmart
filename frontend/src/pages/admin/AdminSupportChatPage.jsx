@@ -11,6 +11,7 @@ import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import { resolveImageUrl } from '../../lib/currency';
+import { staffVisibleMessages } from '../../lib/supportChatMessages';
 
 function formatWhen(iso) {
   try {
@@ -33,10 +34,11 @@ function visitorKind(c) {
 
 function MessageBubble({ message, shopName }) {
   const isAdmin = message.sender_type === 'admin';
-  const isSystem = message.sender_type === 'system' || message.sender_type === 'bot';
+  const isHandoff = (message.sender_type === 'system' || message.sender_type === 'bot')
+    && String(message.body || '').toLowerCase().includes('joined the chat');
   const imageSrc = message.image_url ? resolveImageUrl(message.image_url) : null;
 
-  if (isSystem) {
+  if (isHandoff) {
     return (
       <div className="flex justify-center">
         <p className="max-w-[90%] rounded-full bg-black/5 px-3 py-1.5 text-center text-xs text-muted dark:bg-white/10">
@@ -95,7 +97,7 @@ export default function AdminSupportChatPage() {
   const upload = useAdminUploadSupportChatImage();
 
   const conversations = listData?.conversations ?? [];
-  const messages = threadData?.messages ?? [];
+  const messages = staffVisibleMessages(threadData?.messages ?? []);
   const active = threadData?.conversation ?? null;
   const canReply = threadData?.can_reply ?? (active ? active.routed_to !== 'shop' || active.dpm_joined : false);
   const watchingShop = active?.routed_to === 'shop' && !canReply;

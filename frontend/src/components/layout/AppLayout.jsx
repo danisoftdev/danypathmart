@@ -11,13 +11,22 @@ import AdminNotificationWatcher from '../notifications/AdminNotificationWatcher'
 
 import SupportChatWidget from '../support/SupportChatWidget';
 import StaffSupportInboxWidget from '../support/StaffSupportInboxWidget';
+import ShopSupportInboxWidget from '../support/ShopSupportInboxWidget';
 import PushNotificationPrompt from '../notifications/PushNotificationPrompt';
 import { useAuthStore } from '../../store/authStore';
-import { canManageSupportChat } from '../../lib/permissions';
+import { canManageSupportChat, isShopOwnerUser } from '../../lib/permissions';
 
 export default function AppLayout() {
   const user = useAuthStore((s) => s.user);
   const isSupportStaff = canManageSupportChat(user);
+  const isShopOwner = isShopOwnerUser(user);
+
+  let chatWidget = <SupportChatWidget />;
+  if (isSupportStaff) {
+    chatWidget = <StaffSupportInboxWidget />;
+  } else if (isShopOwner) {
+    chatWidget = <ShopSupportInboxWidget />;
+  }
 
   return (
     <SearchProvider>
@@ -33,7 +42,7 @@ export default function AppLayout() {
         <BottomNav />
         <SearchOverlay />
         <ScrollToTop />
-        {isSupportStaff ? <StaffSupportInboxWidget /> : <SupportChatWidget />}
+        {chatWidget}
         <PushNotificationPrompt />
       </div>
     </SearchProvider>

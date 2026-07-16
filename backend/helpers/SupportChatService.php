@@ -319,21 +319,28 @@ final class SupportChatService
     /** @return array<string,mixed> */
     public static function insertSystemMessage(PDO $pdo, int $conversationId, string $body): array
     {
-        // Prefer system → bot → admin label fallbacks for older ENUM values.
+        // Prefer system → bot → admin for older ENUM values. Insert once only.
+        $id = null;
+        $lastError = null;
         foreach (['system', 'bot', 'admin'] as $senderType) {
             try {
                 $id = self::insertMessage($pdo, $conversationId, $senderType, null, $body, null);
-                $pdo->prepare(
-                    'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
-                )->execute([$conversationId]);
-
-                return self::mapMessage(self::fetchMessage($pdo, $id));
-            } catch (\Throwable) {
-                // Try next sender_type compatible with this DB.
+                break;
+            } catch (\Throwable $e) {
+                $lastError = $e;
             }
         }
+        if ($id === null || $id <= 0) {
+            throw $lastError instanceof \Throwable
+                ? new RuntimeException('Could not post chat system message.', 0, $lastError)
+                : new RuntimeException('Could not post chat system message.');
+        }
 
-        throw new RuntimeException('Could not post chat system message.');
+        $pdo->prepare(
+            'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
+        )->execute([$conversationId]);
+
+        return self::mapMessage(self::fetchMessage($pdo, $id));
     }
 
     /** @return array<int,array<string,mixed>> */
