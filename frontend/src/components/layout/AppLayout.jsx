@@ -10,9 +10,15 @@ import ScrollToTop from '../ui/ScrollToTop';
 import AdminNotificationWatcher from '../notifications/AdminNotificationWatcher';
 
 import SupportChatWidget from '../support/SupportChatWidget';
+import StaffSupportInboxWidget from '../support/StaffSupportInboxWidget';
 import PushNotificationPrompt from '../notifications/PushNotificationPrompt';
+import { useAuthStore } from '../../store/authStore';
+import { canManageSupportChat } from '../../lib/permissions';
 
 export default function AppLayout() {
+  const user = useAuthStore((s) => s.user);
+  const isSupportStaff = canManageSupportChat(user);
+
   return (
     <SearchProvider>
       <div className="flex min-h-screen flex-col bg-[#FFF9F3] dark:bg-[#121212]">
@@ -27,7 +33,7 @@ export default function AppLayout() {
         <BottomNav />
         <SearchOverlay />
         <ScrollToTop />
-        <SupportChatWidget />
+        {isSupportStaff ? <StaffSupportInboxWidget /> : <SupportChatWidget />}
         <PushNotificationPrompt />
       </div>
     </SearchProvider>

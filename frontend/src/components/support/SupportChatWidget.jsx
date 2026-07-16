@@ -5,9 +5,10 @@ import { useAuthStore } from '../../store/authStore';
 import { getToken } from '../../lib/api';
 import { resolveImageUrl } from '../../lib/currency';
 import {
-  clearEphemeralChat,
-  getEphemeralChat,
-  saveEphemeralChat,
+  clearSupportGuestProfile,
+  getSupportGuestProfile,
+  getSupportGuestToken,
+  saveSupportGuestProfile,
   useRouteSupportChat,
   useSearchSupportShops,
   useSendSupportChatMessage,
@@ -24,27 +25,10 @@ function formatWhen(iso) {
   }
 }
 
-function senderLabel(message, shopName) {
-  switch (message.sender_type) {
-    case 'customer':
-      return null;
-    case 'admin':
-      return 'DPM Support';
-    case 'shop':
-      return shopName || 'Shop';
-    case 'system':
-    case 'bot':
-      return 'Chat';
-    default:
-      return 'Support';
-  }
-}
-
-function ChatBubble({ message, shopName }) {
+function ChatBubble({ message, shopName, isGuestThread }) {
   const isCustomer = message.sender_type === 'customer';
   const isSystem = message.sender_type === 'system' || message.sender_type === 'bot';
   const imageSrc = message.image_url ? resolveImageUrl(message.image_url) : null;
-  const label = senderLabel(message, shopName);
 
   if (isSystem) {
     return (
@@ -56,13 +40,23 @@ function ChatBubble({ message, shopName }) {
     );
   }
 
+  const label = isCustomer
+    ? null
+    : message.sender_type === 'admin'
+      ? 'DPM Support'
+      : message.sender_type === 'shop'
+        ? shopName || 'Shop'
+        : 'Support';
+
   return (
     <div className={`flex ${isCustomer ? 'justify-end' : 'justify-start'}`}>
       <div
         className={[
           'max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm',
           isCustomer
-            ? 'rounded-br-md bg-brand-green text-white'
+            ? isGuestThread
+              ? 'rounded-br-md bg-[#c45c26] text-white'
+              : 'rounded-br-md bg-brand-green text-white'
             : 'rounded-bl-md border border-black/8 bg-white text-[#111] dark:border-white/10 dark:bg-[#1E1E1E] dark:text-white',
         ].join(' ')}
       >
@@ -81,139 +75,99 @@ function ChatBubble({ message, shopName }) {
   );
 }
 
-function emptyEphemeral(name = 'Guest') {
-  return {
-    name,
-    route: 'pending',
-    shop: null,
-    messages: [
-      {
-        id: 'sys-1',
-        sender_type: 'system',
-        body: 'Hi! How can we help you today? Is this about Danypath Mart, or a shop?',
-        created_at: new Date().toISOString(),
-      },
-    ],
-  };
-}
-
+/** Buyer / guest storefront chat — not the staff inbox. */
 export default function SupportChatWidget() {
   const user = useAuthStore((s) => s.user);
   const qc = useQueryClient();
-  // Token only — isAuthenticated can lag and falsely keep "live" mode after logout.
-  const token = getToken();
-  const hasSession = !!token;
+  const isLoggedIn = !!getToken();
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
-  const [mode, setMode] = useState(() => (getToken() ? 'live' : getEphemeralChat() ? 'ephemeral' : 'gate'));
-  const [ephemeral, setEphemeral] = useState(() => getEphemeralChat());
+  const [guestForm, setGuestForm] = useState(() => {
+    const saved = getSupportGuestProfile();
+    return { name: saved?.name || '', email: saved?.email || '' };
+  });
+  const [pickingShop, setPickingShop] = useState(false);
   const [shopQuery, setShopQuery] = useState('');
-  const [pickingShopLive, setPickingShopLive] = useState(false);
   const [starting, setStarting] = useState(false);
   const [startFailed, setStartFailed] = useState(false);
   const listRef = useRef(null);
   const fileRef = useRef(null);
-  const startAttemptRef = useRef(0);
   const startedForOpenRef = useRef(false);
 
-  const canPoll = open && hasSession && mode === 'live';
+  const guestProfile = getSupportGuestProfile();
+  const isGuest = !isLoggedIn && !!guestProfile?.name;
+  const canPoll = open && (isLoggedIn || isGuest);
 
   const { data, isLoading, isFetching, refetch } = useSupportChatThread(canPoll);
   const startChat = useStartSupportChat();
   const routeChat = useRouteSupportChat();
   const sendMessage = useSendSupportChatMessage();
   const uploadImage = useUploadSupportChatImage();
+  const { data: shopResults = [], isFetching: shopsLoading } = useSearchSupportShops(shopQuery, open && pickingShop);
 
-  const conversation = mode === 'live' ? data?.conversation ?? null : null;
-  const liveMessages = mode === 'live' ? data?.messages ?? [] : [];
+  const conversation = data?.conversation ?? null;
+  const messages = data?.messages ?? [];
   const unread = conversation?.customer_unread_count ?? 0;
-  const needsRouting = mode === 'live'
-    ? !!conversation && (conversation.routed_to === 'pending' || !conversation.routed_to)
-    : mode === 'ephemeral' && ephemeral?.route === 'pending';
-  const pickingShop = mode === 'live'
-    ? needsRouting && pickingShopLive
-    : mode === 'ephemeral' && ephemeral?.route === 'pick_shop';
-  const shopName = mode === 'live'
-    ? conversation?.shop_name
-    : ephemeral?.shop?.name;
+  const needsRouting = !!conversation && (conversation.routed_to === 'pending' || !conversation.routed_to);
+  const shopName = conversation?.shop_name;
+  const needsGuestForm = !isLoggedIn && !guestProfile?.name;
+  const showBootLoading = !needsGuestForm && !conversation && (starting || isLoading || isFetching) && !startFailed;
 
-  const { data: shopResults = [], isFetching: shopsLoading } = useSearchSupportShops(
-    shopQuery,
-    open && pickingShop
-  );
-
-  const messages = mode === 'ephemeral' ? (ephemeral?.messages ?? []) : liveMessages;
-
-  // Sync mode when login/logout changes. Do not thrash while chatting.
   useEffect(() => {
-    if (getToken()) {
-      setMode('live');
-      clearEphemeralChat();
-      setEphemeral(null);
-      return;
+    if (isLoggedIn) {
+      clearSupportGuestProfile();
     }
-    setMode((prev) => (prev === 'ephemeral' || getEphemeralChat() ? 'ephemeral' : 'gate'));
-  }, [user?.id, token]);
+  }, [isLoggedIn]);
 
-  const startLiveChat = async () => {
-    if (!getToken() || mode !== 'live' || starting || startedForOpenRef.current) return;
+  const startLiveChat = async (guestPayload = null) => {
+    if (starting || startedForOpenRef.current) return;
     startedForOpenRef.current = true;
     setStarting(true);
     setStartFailed(false);
     setError('');
-    const attempt = ++startAttemptRef.current;
     try {
-      const res = await startChat.mutateAsync({});
-      if (attempt !== startAttemptRef.current) return;
+      if (!isLoggedIn) getSupportGuestToken();
+      const res = await startChat.mutateAsync(guestPayload || {});
       const conv = res?.conversation;
       if (conv) {
         qc.setQueryData(['support-chat-thread'], (old) => ({
           success: true,
           ...(old || {}),
           conversation: conv,
-          messages: Array.isArray(old?.messages) ? old.messages : [],
+          messages: old?.messages || [],
+          is_guest: !!res.is_guest,
           needs_routing: (conv.routed_to || 'pending') === 'pending',
         }));
       }
-      const thread = await refetch();
-      if (!thread?.data?.conversation && conv) {
-        qc.setQueryData(['support-chat-thread'], (old) => ({
-          success: true,
-          ...(old || {}),
-          conversation: conv,
-          messages: old?.messages || [],
-        }));
-      }
+      await refetch();
     } catch (err) {
-      if (attempt !== startAttemptRef.current) return;
       startedForOpenRef.current = false;
-      const code = err.response?.data?.code;
-      if (code === 'account_required' || err.response?.status === 403) {
-        setMode('gate');
-        setError('Please sign in to use live chat.');
-        return;
-      }
       setStartFailed(true);
       setError(err.response?.data?.message || 'Could not start chat.');
     } finally {
-      if (attempt === startAttemptRef.current) setStarting(false);
+      setStarting(false);
     }
   };
 
   useEffect(() => {
-    if (!open || !getToken() || mode !== 'live') return;
-    if (conversation || starting || startFailed || startedForOpenRef.current) return;
-    startLiveChat();
+    if (!open || needsGuestForm || conversation || starting || startFailed || startedForOpenRef.current) return;
+    if (isLoggedIn) {
+      startLiveChat();
+      return;
+    }
+    if (guestProfile?.name) {
+      startLiveChat({ name: guestProfile.name, email: guestProfile.email });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, mode, conversation, startFailed, token]);
+  }, [open, needsGuestForm, conversation, startFailed, isLoggedIn]);
 
   useEffect(() => {
     if (!open) {
       setStartFailed(false);
       startedForOpenRef.current = false;
-      startAttemptRef.current += 1;
+      setPickingShop(false);
     }
   }, [open]);
 
@@ -223,117 +177,46 @@ export default function SupportChatWidget() {
   }, [messages.length, open, needsRouting, pickingShop]);
 
   useEffect(() => {
-    if (mode === 'ephemeral' && ephemeral) saveEphemeralChat(ephemeral);
-  }, [mode, ephemeral]);
-
-  useEffect(() => {
     if (conversation?.routed_to && conversation.routed_to !== 'pending') {
-      setPickingShopLive(false);
+      setPickingShop(false);
     }
   }, [conversation?.routed_to]);
 
-  const continueWithoutAccount = () => {
-    if (hasSession) return;
-    const next = emptyEphemeral('Guest');
-    setEphemeral(next);
-    saveEphemeralChat(next);
-    setMode('ephemeral');
+  const handleGuestStart = async (e) => {
+    e.preventDefault();
     setError('');
-    setShopQuery('');
-  };
-
-  const persistEphemeral = (updater) => {
-    setEphemeral((prev) => {
-      const base = prev || emptyEphemeral();
-      const next = typeof updater === 'function' ? updater(base) : updater;
-      saveEphemeralChat(next);
-      return next;
-    });
+    const name = guestForm.name.trim();
+    const email = guestForm.email.trim();
+    if (!name || !email) return;
+    getSupportGuestToken();
+    saveSupportGuestProfile({ name, email });
+    startedForOpenRef.current = false;
+    await startLiveChat({ name, email });
   };
 
   const handleRouteDpm = async () => {
-    setError('');
-    if (mode === 'ephemeral') {
-      persistEphemeral((prev) => ({
-        ...prev,
-        route: 'dpm',
-        messages: [
-          ...prev.messages,
-          {
-            id: `sys-${Date.now()}`,
-            sender_type: 'system',
-            body: "You're chatting with Danypath Mart support. This preview chat is not saved — sign in so our team can reply.",
-            created_at: new Date().toISOString(),
-          },
-        ],
-      }));
-      return;
-    }
     if (!conversation?.id) return;
+    setError('');
     try {
-      const res = await routeChat.mutateAsync({ conversation_id: conversation.id, route: 'dpm' });
-      if (res?.conversation) {
-        qc.setQueryData(['support-chat-thread'], (old) => ({
-          ...(old || {}),
-          conversation: res.conversation,
-          messages: [...(old?.messages || []), ...(res.message ? [res.message] : [])],
-          needs_routing: false,
-        }));
-      }
+      await routeChat.mutateAsync({ conversation_id: conversation.id, route: 'dpm' });
       await refetch();
-      setPickingShopLive(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect chat.');
     }
   };
 
-  const handlePickShopMode = () => {
-    setError('');
-    setShopQuery('');
-    if (mode === 'ephemeral') {
-      persistEphemeral((prev) => ({ ...prev, route: 'pick_shop' }));
-      return;
-    }
-    setPickingShopLive(true);
-  };
-
   const handleSelectShop = async (shop) => {
+    if (!conversation?.id) return;
     setError('');
     setShopQuery('');
-    if (mode === 'ephemeral') {
-      persistEphemeral((prev) => ({
-        ...prev,
-        route: 'shop',
-        shop: { id: shop.id, name: shop.name },
-        messages: [
-          ...prev.messages,
-          {
-            id: `sys-${Date.now()}`,
-            sender_type: 'system',
-            body: `You're chatting with ${shop.name}. This preview chat is not saved — sign in so the shop can reply.`,
-            created_at: new Date().toISOString(),
-          },
-        ],
-      }));
-      return;
-    }
-    if (!conversation?.id) return;
     try {
-      const res = await routeChat.mutateAsync({
+      await routeChat.mutateAsync({
         conversation_id: conversation.id,
         route: 'shop',
         shop_id: shop.id,
       });
-      if (res?.conversation) {
-        qc.setQueryData(['support-chat-thread'], (old) => ({
-          ...(old || {}),
-          conversation: res.conversation,
-          messages: [...(old?.messages || []), ...(res.message ? [res.message] : [])],
-          needs_routing: false,
-        }));
-      }
       await refetch();
-      setPickingShopLive(false);
+      setPickingShop(false);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not connect to that shop.');
     }
@@ -342,33 +225,9 @@ export default function SupportChatWidget() {
   const handleSend = async (e) => {
     e.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text || !conversation || sendMessage.isPending) return;
     setError('');
     setDraft('');
-
-    if (mode === 'ephemeral') {
-      persistEphemeral((prev) => ({
-        ...prev,
-        messages: [
-          ...prev.messages,
-          {
-            id: `c-${Date.now()}`,
-            sender_type: 'customer',
-            body: text,
-            created_at: new Date().toISOString(),
-          },
-          {
-            id: `sys-${Date.now() + 1}`,
-            sender_type: 'system',
-            body: 'This chat is not saved. Sign in to send it to support.',
-            created_at: new Date().toISOString(),
-          },
-        ],
-      }));
-      return;
-    }
-
-    if (sendMessage.isPending || !conversation) return;
     try {
       await sendMessage.mutateAsync({ body: text });
       await refetch();
@@ -381,14 +240,8 @@ export default function SupportChatWidget() {
   const handleImagePick = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
+    if (!file || !conversation) return;
     setError('');
-
-    if (mode === 'ephemeral') {
-      setError('Sign in to send photos — preview chats are not saved.');
-      return;
-    }
-
     try {
       const uploaded = await uploadImage.mutateAsync(file);
       await sendMessage.mutateAsync({ image_url: uploaded.url });
@@ -399,31 +252,33 @@ export default function SupportChatWidget() {
   };
 
   const panelTitle = useMemo(() => {
-    if (hasSession) return `Hi ${user?.name?.split(' ')[0] || 'there'}`;
-    if (mode === 'ephemeral') return 'Preview chat';
+    if (isLoggedIn) return `Hi ${user?.name?.split(' ')[0] || 'there'}`;
+    if (guestProfile?.name) return `Hi ${guestProfile.name.split(' ')[0]}`;
     return 'Chat with us';
-  }, [hasSession, user, mode]);
+  }, [isLoggedIn, user, guestProfile]);
 
   const subtitle = useMemo(() => {
-    if (mode === 'ephemeral') return 'Not saved · Sign in for real replies';
+    if (!isLoggedIn && (isGuest || needsGuestForm)) return 'Guest chat · Support can see your messages';
     if (conversation?.routed_to === 'shop') return shopName ? `Connected with ${shopName}` : 'Connected with a shop';
     if (conversation?.routed_to === 'dpm') return 'Connected with DPM Support';
     return 'We typically reply as soon as we can.';
-  }, [mode, conversation, shopName]);
+  }, [isLoggedIn, isGuest, needsGuestForm, conversation, shopName]);
 
-  const canCompose = mode === 'ephemeral'
-    ? ephemeral?.route === 'dpm' || ephemeral?.route === 'shop'
-    : !!conversation && conversation.routed_to !== 'pending';
-
-  const showBootLoading = mode === 'live' && hasSession && !conversation && (starting || isLoading || isFetching) && !startFailed;
+  const canCompose = !!conversation && conversation.routed_to !== 'pending';
+  const headerClass = isLoggedIn
+    ? 'border-b border-black/8 bg-brand-green px-4 py-3 text-white dark:border-white/10'
+    : 'border-b border-black/8 bg-[#c45c26] px-4 py-3 text-white dark:border-white/10';
 
   return (
     <>
       <button
         type="button"
-        aria-label="Open live chat"
+        aria-label="Open customer live chat"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full bg-brand-green text-2xl text-white shadow-lg ring-4 ring-brand-green/20 transition hover:scale-105 md:bottom-6"
+        className={[
+          'fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full text-2xl text-white shadow-lg transition hover:scale-105 md:bottom-6',
+          isLoggedIn ? 'bg-brand-green ring-4 ring-brand-green/20' : 'bg-[#c45c26] ring-4 ring-[#c45c26]/25',
+        ].join(' ')}
       >
         💬
         {!open && unread > 0 && (
@@ -437,12 +292,15 @@ export default function SupportChatWidget() {
         <div className="fixed inset-0 z-[70] flex items-end justify-end p-0 md:inset-auto md:bottom-24 md:right-4 md:p-0">
           <button type="button" className="absolute inset-0 bg-black/40 md:hidden" aria-label="Close chat" onClick={() => setOpen(false)} />
           <div className="relative flex h-[min(85vh,560px)] w-full flex-col overflow-hidden rounded-t-3xl border border-black/10 bg-[#FFF9F3] shadow-2xl dark:border-white/10 dark:bg-[#121212] md:h-[520px] md:w-[380px] md:rounded-3xl">
-            <div className="flex items-center justify-between border-b border-black/8 bg-brand-green px-4 py-3 text-white dark:border-white/10">
+            <div className={`flex items-center justify-between ${headerClass}`}>
               <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-white/80">
+                  {isLoggedIn ? 'Customer chat' : 'Guest chat'}
+                </p>
                 <p className="text-sm font-extrabold">{panelTitle}</p>
                 <p className="text-xs text-white/80">{subtitle}</p>
               </div>
-              <button type="button" className="rounded-lg px-2 py-1 text-lg leading-none hover:bg-white/10" onClick={() => setOpen(false)} aria-label="Close">
+              <button type="button" className="rounded-lg px-2 py-1 text-lg leading-none hover:bg-white/10" onClick={() => setOpen(false)}>
                 ×
               </button>
             </div>
@@ -450,13 +308,14 @@ export default function SupportChatWidget() {
             {error && (
               <div className="mx-3 mt-3 rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
                 <p>{error}</p>
-                {startFailed && mode === 'live' && (
+                {startFailed && (
                   <button
                     type="button"
                     className="mt-2 font-bold underline"
                     onClick={() => {
                       setStartFailed(false);
                       setError('');
+                      startedForOpenRef.current = false;
                     }}
                   >
                     Try again
@@ -465,51 +324,52 @@ export default function SupportChatWidget() {
               </div>
             )}
 
-            {mode === 'gate' ? (
-              <div className="flex flex-1 flex-col justify-center gap-3 p-5">
-                <p className="text-base font-extrabold text-[#111] dark:text-white">Let’s get you help</p>
+            {needsGuestForm ? (
+              <form onSubmit={handleGuestStart} className="flex flex-1 flex-col gap-3 p-4">
+                <p className="text-sm font-bold text-[#111] dark:text-white">Continue as guest</p>
                 <p className="text-sm text-muted">
-                  Sign in so we can save your chat and reply. Or preview without an account — that chat won’t be saved.
+                  Tell us your name and email so support can reply. Or{' '}
+                  <Link to="/login" className="font-bold text-brand-green underline" onClick={() => setOpen(false)}>
+                    sign in
+                  </Link>{' '}
+                  for a full account chat.
                 </p>
-                <Link
-                  to="/login"
-                  state={{ from: typeof window !== 'undefined' ? window.location.pathname : '/' }}
-                  className="btn-primary py-3 text-center"
-                  onClick={() => setOpen(false)}
-                >
-                  Sign in to chat
-                </Link>
-                <Link
-                  to="/register"
-                  state={{ from: typeof window !== 'undefined' ? window.location.pathname : '/' }}
-                  className="btn-ghost py-3 text-center"
-                  onClick={() => setOpen(false)}
-                >
-                  Create an account
-                </Link>
-                <button type="button" className="text-sm font-semibold text-brand-green hover:underline" onClick={continueWithoutAccount}>
-                  Continue without account
+                <input
+                  className="input-field"
+                  placeholder="Your name"
+                  value={guestForm.name}
+                  onChange={(e) => setGuestForm((f) => ({ ...f, name: e.target.value }))}
+                  required
+                />
+                <input
+                  type="email"
+                  className="input-field"
+                  placeholder="Email"
+                  value={guestForm.email}
+                  onChange={(e) => setGuestForm((f) => ({ ...f, email: e.target.value }))}
+                  required
+                />
+                <button type="submit" className="btn-primary py-3" disabled={startChat.isPending || starting}>
+                  {startChat.isPending || starting ? 'Starting…' : 'Start guest chat'}
                 </button>
-              </div>
+              </form>
             ) : (
               <>
-                {mode === 'ephemeral' && (
-                  <div className="mx-3 mt-3 rounded-xl border border-brand-gold/40 bg-brand-gold/10 px-3 py-2 text-xs">
-                    Preview only — not saved.{' '}
+                {!isLoggedIn && (
+                  <div className="mx-3 mt-3 rounded-xl border border-[#c45c26]/35 bg-[#c45c26]/10 px-3 py-2 text-xs">
+                    You’re chatting as a <strong>guest</strong>. Messages are saved for DPM support.{' '}
                     <Link to="/login" className="font-bold text-brand-green underline" onClick={() => setOpen(false)}>
                       Sign in
                     </Link>{' '}
-                    for real support.
+                    for an account chat.
                   </div>
                 )}
 
                 <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
-                  {showBootLoading && (
-                    <p className="text-center text-sm text-muted">Loading chat…</p>
-                  )}
+                  {showBootLoading && <p className="text-center text-sm text-muted">Loading chat…</p>}
 
                   {messages.map((m) => (
-                    <ChatBubble key={m.id} message={m} shopName={shopName} />
+                    <ChatBubble key={m.id} message={m} shopName={shopName} isGuestThread={!isLoggedIn} />
                   ))}
 
                   {needsRouting && !pickingShop && (
@@ -525,8 +385,11 @@ export default function SupportChatWidget() {
                       <button
                         type="button"
                         disabled={routeChat.isPending}
-                        onClick={handlePickShopMode}
-                        className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-left text-sm font-bold shadow-sm hover:bg-black/5 dark:border-white/15 dark:bg-[#1E1E1E] dark:hover:bg-white/5"
+                        onClick={() => {
+                          setPickingShop(true);
+                          setShopQuery('');
+                        }}
+                        className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-left text-sm font-bold shadow-sm hover:bg-black/5 dark:border-white/15 dark:bg-[#1E1E1E]"
                       >
                         A shop (product or seller)
                       </button>
@@ -561,17 +424,7 @@ export default function SupportChatWidget() {
                           </li>
                         ))}
                       </ul>
-                      <button
-                        type="button"
-                        className="text-xs font-semibold text-muted hover:underline"
-                        onClick={() => {
-                          setPickingShopLive(false);
-                          setShopQuery('');
-                          if (mode === 'ephemeral') {
-                            persistEphemeral((prev) => ({ ...prev, route: 'pending' }));
-                          }
-                        }}
-                      >
+                      <button type="button" className="text-xs font-semibold text-muted hover:underline" onClick={() => setPickingShop(false)}>
                         ← Back
                       </button>
                     </div>

@@ -198,6 +198,11 @@ export function hasAnyPermission(user, keys) {
   return keys.some((k) => !!user.permissions?.[k]);
 }
 
+/** Staff who handle live chat / contact inbox — they get the staff inbox UI, not buyer chat. */
+export function canManageSupportChat(user) {
+  return hasAnyPermission(user, ['manage_contact_inbox', 'view_company_settings', 'manage_support_bot']);
+}
+
 function isAdminUser(user) {
   return !!user && (user.role === 'super_admin' || user.role === 'staff');
 }

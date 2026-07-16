@@ -26,6 +26,11 @@ function routeBadge(c) {
   return 'New';
 }
 
+function visitorKind(c) {
+  if (c?.is_guest || !c?.user_id) return 'Guest';
+  return 'Account';
+}
+
 function MessageBubble({ message, shopName }) {
   const isAdmin = message.sender_type === 'admin';
   const isSystem = message.sender_type === 'system' || message.sender_type === 'bot';
@@ -43,7 +48,7 @@ function MessageBubble({ message, shopName }) {
 
   const label =
     message.sender_type === 'customer'
-      ? 'Customer'
+      ? 'Visitor'
       : message.sender_type === 'shop'
         ? shopName || 'Shop'
         : message.sender_type === 'admin'
@@ -143,9 +148,9 @@ export default function AdminSupportChatPage() {
   };
 
   const headerSubtitle = useMemo(() => {
-    if (!active) return 'Watch every chat. Join shop chats when you need to help.';
+    if (!active) return 'Staff inbox — guests and account customers. Join shop chats when you need to help.';
     const route = routeBadge(active);
-    return `${active.guest_name || 'Customer'} · ${active.guest_email || '—'} · ${route}`;
+    return `${visitorKind(active)} · ${active.guest_name || 'Visitor'} · ${active.guest_email || '—'} · ${route}`;
   }, [active]);
 
   return (
@@ -210,7 +215,7 @@ export default function AdminSupportChatPage() {
                     ].join(' ')}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="font-bold">{c.guest_name || 'Customer'}</span>
+                      <span className="font-bold">{c.guest_name || 'Visitor'}</span>
                       {c.admin_unread_count > 0 && (
                         <span className="rounded-full bg-brand-red px-2 py-0.5 text-[10px] font-bold text-white">
                           {c.admin_unread_count}
@@ -218,10 +223,15 @@ export default function AdminSupportChatPage() {
                       )}
                     </div>
                     <p className="truncate text-xs text-muted">{c.guest_email}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-green/80">
-                      {routeBadge(c)}
-                      {c.routed_to === 'shop' && !c.dpm_joined ? ' · watching' : ''}
-                      {c.dpm_joined && c.routed_to === 'shop' ? ' · joined' : ''}
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] font-bold uppercase tracking-wide">
+                      <span className={(c.is_guest || !c.user_id) ? 'rounded bg-amber-500/15 px-1.5 py-0.5 text-amber-800 dark:text-amber-200' : 'rounded bg-brand-green/15 px-1.5 py-0.5 text-brand-green'}>
+                        {visitorKind(c)}
+                      </span>
+                      <span className="text-brand-green/80">
+                        {routeBadge(c)}
+                        {c.routed_to === 'shop' && !c.dpm_joined ? ' · watching' : ''}
+                        {c.dpm_joined && c.routed_to === 'shop' ? ' · joined' : ''}
+                      </span>
                     </p>
                     <p className="mt-1 truncate text-xs">{c.last_preview || '—'}</p>
                   </button>

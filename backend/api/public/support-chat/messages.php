@@ -8,8 +8,13 @@ use App\Helpers\SupportChatService;
 use App\Middleware\AuthMiddleware;
 
 $pdo = Database::pdo();
-$user = AuthMiddleware::authenticate();
+$user = AuthMiddleware::optional();
+$guestToken = SupportChatService::guestTokenFromRequest();
 $body = Response::body();
+
+if ($user === null && $guestToken === null) {
+    Response::error('Sign in or continue as guest to send a message.', 403, ['code' => 'account_required']);
+}
 
 $text = isset($body['body']) ? trim((string) $body['body']) : null;
 $imageUrl = isset($body['image_url']) ? trim((string) $body['image_url']) : null;
@@ -21,7 +26,7 @@ if ($imageUrl === '') {
 }
 
 try {
-    $message = SupportChatService::sendCustomerMessage($pdo, $user, null, $text, $imageUrl);
+    $message = SupportChatService::sendCustomerMessage($pdo, $user, $guestToken, $text, $imageUrl);
 } catch (RuntimeException $e) {
     Response::error($e->getMessage(), 422);
 } catch (Throwable $e) {

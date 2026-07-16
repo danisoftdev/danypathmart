@@ -6,7 +6,11 @@ use App\Helpers\Response;
 use App\Helpers\SupportChatService;
 use App\Middleware\AuthMiddleware;
 
-AuthMiddleware::authenticate();
+$user = AuthMiddleware::optional();
+$guestToken = SupportChatService::guestTokenFromRequest();
+if ($user === null && $guestToken === null) {
+    Response::error('Sign in or continue as guest to upload.', 403, ['code' => 'account_required']);
+}
 
 $file = $_FILES['image'] ?? null;
 if (!is_array($file)) {

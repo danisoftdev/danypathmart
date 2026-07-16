@@ -1,37 +1,54 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { getToken } from '../lib/api';
 
-const EPHEMERAL_KEY = 'dpm_support_ephemeral';
+const GUEST_TOKEN_KEY = 'dpm_support_guest_token';
+const GUEST_PROFILE_KEY = 'dpm_support_guest_profile';
 
-export function getEphemeralChat() {
+export function getSupportGuestToken() {
+  let token = localStorage.getItem(GUEST_TOKEN_KEY);
+  if (!token) {
+    token = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID().replace(/-/g, '')
+      : `guest${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem(GUEST_TOKEN_KEY, token);
+  }
+  return token;
+}
+
+export function getSupportGuestProfile() {
   try {
-    const raw = sessionStorage.getItem(EPHEMERAL_KEY);
+    const raw = localStorage.getItem(GUEST_PROFILE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 }
 
-export function saveEphemeralChat(state) {
-  sessionStorage.setItem(EPHEMERAL_KEY, JSON.stringify(state));
+export function saveSupportGuestProfile(profile) {
+  localStorage.setItem(GUEST_PROFILE_KEY, JSON.stringify(profile));
 }
 
-export function clearEphemeralChat() {
-  sessionStorage.removeItem(EPHEMERAL_KEY);
+export function clearSupportGuestProfile() {
+  localStorage.removeItem(GUEST_PROFILE_KEY);
+}
+
+function guestHeaders() {
+  if (getToken()) return {};
+  return { 'X-Support-Guest-Token': getSupportGuestToken() };
 }
 
 export function useSupportChatThread(enabled = true) {
+  const canLoad = enabled && (!!getToken() || !!getSupportGuestProfile()?.name);
   return useQuery({
     queryKey: ['support-chat-thread'],
     queryFn: async () => {
-      const res = await api.get('/public/support-chat');
+      const res = await api.get('/public/support-chat', { headers: guestHeaders() });
       return res.data;
     },
-    enabled: enabled && !!getToken(),
-    refetchInterval: enabled && getToken() ? 4000 : false,
+    enabled: canLoad,
+    refetchInterval: canLoad ? 4000 : false,
     staleTime: 2000,
     placeholderData: (prev) => prev,
-    // Keep the open thread if a poll fails (auth blip / network).
     retry: (count, err) => {
       const status = err?.response?.status;
       if (status === 403 || status === 401) return false;
@@ -44,7 +61,10 @@ export function useStartSupportChat() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload) => {
-      const res = await api.post('/public/support-chat/start', payload || {});
+      const isLoggedIn = !!getToken();
+      const res = await api.post('/public/support-chat/start', payload || {}, {
+        headers: isLoggedIn ? {} : guestHeaders(),
+      });
       return res.data;
     },
     onSuccess: (data) => {
@@ -54,6 +74,7 @@ export function useStartSupportChat() {
           ...(old || {}),
           conversation: data.conversation,
           messages: old?.messages || [],
+          is_guest: !!data.is_guest,
           needs_routing: (data.conversation.routed_to || 'pending') === 'pending',
         }));
       }
@@ -65,7 +86,8 @@ export function useStartSupportChat() {
 export function useRouteSupportChat() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload) => (await api.post('/public/support-chat/route', payload)).data,
+    mutationFn: async (payload) =>
+      (await api.post('/public/support-chat/route', payload, { headers: guestHeaders() })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
   });
 }
@@ -73,7 +95,8 @@ export function useRouteSupportChat() {
 export function useSendSupportChatMessage() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload) => (await api.post('/public/support-chat/messages', payload)).data,
+    mutationFn: async (payload) =>
+      (await api.post('/public/support-chat/messages', payload, { headers: guestHeaders() })).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['support-chat-thread'] }),
   });
 }
@@ -84,7 +107,10 @@ export function useUploadSupportChatImage() {
       const form = new FormData();
       form.append('image', file);
       const res = await api.post('/public/support-chat/upload', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          ...guestHeaders(),
+          'Content-Type': 'multipart/form-data',
+        },
       });
       return res.data;
     },

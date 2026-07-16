@@ -8,8 +8,13 @@ use App\Helpers\SupportChatService;
 use App\Middleware\AuthMiddleware;
 
 $pdo = Database::pdo();
-$user = AuthMiddleware::authenticate();
+$user = AuthMiddleware::optional();
+$guestToken = SupportChatService::guestTokenFromRequest();
 $body = Response::body();
+
+if ($user === null && $guestToken === null) {
+    Response::error('Sign in or continue as guest to connect chat.', 403, ['code' => 'account_required']);
+}
 
 $conversationId = (int) ($body['conversation_id'] ?? 0);
 $route = strtolower(trim((string) ($body['route'] ?? '')));
@@ -23,7 +28,7 @@ if (!in_array($route, ['dpm', 'shop'], true)) {
 }
 
 $conv = SupportChatService::requireConversationPublic($pdo, $conversationId);
-SupportChatService::assertCustomerAccess($user, null, $conv);
+SupportChatService::assertCustomerAccess($user, $guestToken, $conv);
 
 try {
     $result = SupportChatService::routeCustomerChat($pdo, $conversationId, $route, $shopId);

@@ -773,6 +773,7 @@ final class SupportChatService
             'dpm_joined_at'           => $row['dpm_joined_at'] ?? null,
             'dpm_joined'              => !empty($row['dpm_joined_at']) || (string) ($row['routed_to'] ?? '') === 'dpm',
             'shop_name'               => isset($row['shop_name']) && $row['shop_name'] !== null ? (string) $row['shop_name'] : null,
+            'is_guest'                => $row['user_id'] === null || $row['user_id'] === '',
             'status'                  => (string) $row['status'],
             'admin_unread_count'      => (int) ($row['admin_unread_count'] ?? 0),
             'shop_unread_count'       => (int) ($row['shop_unread_count'] ?? 0),
