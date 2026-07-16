@@ -209,11 +209,16 @@ final class SupportChatService
             } catch (\Throwable) {
                 // Column may be absent until migration 072 finishes.
             }
-            $msg = self::insertSystemMessage(
-                $pdo,
-                $conversationId,
-                "You're chatting with Danypath Mart support. Send a message or photo — we'll reply here."
-            );
+            $msg = null;
+            try {
+                $msg = self::insertSystemMessage(
+                    $pdo,
+                    $conversationId,
+                    "You're chatting with Danypath Mart support. Send a message or photo — we'll reply here."
+                );
+            } catch (\Throwable $e) {
+                error_log('support route dpm message: ' . $e->getMessage());
+            }
 
             return [
                 'conversation' => self::requireConversation($pdo, $conversationId),
@@ -239,11 +244,16 @@ final class SupportChatService
 
         self::routeConversation($pdo, $conversationId, 'shop', (int) $shop['id']);
         $shopName = (string) $shop['name'];
-        $msg = self::insertSystemMessage(
-            $pdo,
-            $conversationId,
-            "You're chatting with {$shopName}. Send a message or photo — they'll reply here. Danypath Mart can step in if needed."
-        );
+        $msg = null;
+        try {
+            $msg = self::insertSystemMessage(
+                $pdo,
+                $conversationId,
+                "You're chatting with {$shopName}. Send a message or photo — they'll reply here. Danypath Mart can step in if needed."
+            );
+        } catch (\Throwable $e) {
+            error_log('support route shop message: ' . $e->getMessage());
+        }
 
         return [
             'conversation' => self::requireConversation($pdo, $conversationId),
@@ -298,27 +308,32 @@ final class SupportChatService
     /** @return array<string,mixed> */
     public static function insertBotMessage(PDO $pdo, int $conversationId, string $body): array
     {
-        self::insertMessage($pdo, $conversationId, 'bot', null, $body, null);
+        $id = self::insertMessage($pdo, $conversationId, 'bot', null, $body, null);
         $pdo->prepare(
             'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
         )->execute([$conversationId]);
 
-        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+        return self::mapMessage(self::fetchMessage($pdo, $id));
     }
 
     /** @return array<string,mixed> */
     public static function insertSystemMessage(PDO $pdo, int $conversationId, string $body): array
     {
-        try {
-            self::insertMessage($pdo, $conversationId, 'system', null, $body, null);
-        } catch (\Throwable) {
-            return self::insertBotMessage($pdo, $conversationId, $body);
-        }
-        $pdo->prepare(
-            'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
-        )->execute([$conversationId]);
+        // Prefer system → bot → admin label fallbacks for older ENUM values.
+        foreach (['system', 'bot', 'admin'] as $senderType) {
+            try {
+                $id = self::insertMessage($pdo, $conversationId, $senderType, null, $body, null);
+                $pdo->prepare(
+                    'UPDATE support_conversations SET last_message_at = NOW(), customer_unread_count = customer_unread_count + 1, updated_at = NOW() WHERE id = ?'
+                )->execute([$conversationId]);
 
-        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+                return self::mapMessage(self::fetchMessage($pdo, $id));
+            } catch (\Throwable) {
+                // Try next sender_type compatible with this DB.
+            }
+        }
+
+        throw new RuntimeException('Could not post chat system message.');
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -349,13 +364,13 @@ final class SupportChatService
         if (($conv['routed_to'] ?? '') !== 'shop') {
             throw new RuntimeException('This chat is not assigned to a shop.');
         }
-        self::insertMessage($pdo, $conversationId, 'shop', $shopUserId, $body, $imageUrl);
+        $id = self::insertMessage($pdo, $conversationId, 'shop', $shopUserId, $body, $imageUrl);
         $pdo->prepare(
             'UPDATE support_conversations SET customer_unread_count = customer_unread_count + 1,
                 shop_unread_count = 0, last_message_at = NOW(), updated_at = NOW() WHERE id = ?'
         )->execute([$conversationId]);
 
-        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+        return self::mapMessage(self::fetchMessage($pdo, $id));
     }
 
     public static function markShopRead(PDO $pdo, int $conversationId): void
@@ -483,7 +498,14 @@ final class SupportChatService
         $conversation = self::resolveCustomerConversation($pdo, $user, $guestToken);
         $conversationId = (int) $conversation['id'];
 
-        self::insertMessage($pdo, $conversationId, 'customer', $user !== null ? (int) $user['id'] : null, $body, $imageUrl);
+        $id = self::insertMessage(
+            $pdo,
+            $conversationId,
+            'customer',
+            $user !== null ? (int) $user['id'] : null,
+            $body,
+            $imageUrl
+        );
 
         $routedTo = (string) ($conversation['routed_to'] ?? 'pending');
         if ($routedTo === 'shop') {
@@ -515,7 +537,7 @@ final class SupportChatService
             );
         }
 
-        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+        return self::mapMessage(self::fetchMessage($pdo, $id));
     }
 
     /** @return array<string,mixed> */
@@ -530,7 +552,7 @@ final class SupportChatService
         if (!self::adminCanReply($conv)) {
             throw new RuntimeException('Join this chat before replying. You can watch silently until then.');
         }
-        self::insertMessage($pdo, $conversationId, 'admin', $adminUserId, $body, $imageUrl);
+        $id = self::insertMessage($pdo, $conversationId, 'admin', $adminUserId, $body, $imageUrl);
 
         try {
             $pdo->prepare(
@@ -553,7 +575,7 @@ final class SupportChatService
             )->execute([$conversationId]);
         }
 
-        return self::mapMessage(self::fetchMessage($pdo, (int) $pdo->lastInsertId()));
+        return self::mapMessage(self::fetchMessage($pdo, $id));
     }
 
     /** @return array<int,array<string,mixed>> */
@@ -683,6 +705,7 @@ final class SupportChatService
         return $conversation;
     }
 
+    /** @return int Newly inserted message id */
     private static function insertMessage(
         PDO $pdo,
         int $conversationId,
@@ -690,7 +713,7 @@ final class SupportChatService
         ?int $senderUserId,
         ?string $body,
         ?string $imageUrl
-    ): void {
+    ): int {
         $body = $body !== null ? trim($body) : null;
         $imageUrl = $imageUrl !== null ? trim($imageUrl) : null;
         if (($body === null || $body === '') && ($imageUrl === null || $imageUrl === '')) {
@@ -710,6 +733,13 @@ final class SupportChatService
             $body !== '' ? $body : null,
             $imageUrl !== '' ? $imageUrl : null,
         ]);
+
+        $id = (int) $pdo->lastInsertId();
+        if ($id <= 0) {
+            throw new RuntimeException('Message not found.');
+        }
+
+        return $id;
     }
 
     /** @return array<string,mixed> */
