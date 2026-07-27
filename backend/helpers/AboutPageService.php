@@ -11,8 +11,8 @@ final class AboutPageService
 {
     public const TEAM_NAME_MAX = 60;
     public const TEAM_ROLE_MAX = 40;
-    public const TEAM_BIO_MIN = 140;
-    public const TEAM_BIO_MAX = 260;
+    public const TEAM_BIO_MIN = 120;
+    public const TEAM_BIO_MAX = 360;
 
     /** @return array<string,mixed> */
     public static function getAdmin(PDO $pdo): array

@@ -76,7 +76,7 @@ function TeamMemberCard({ member }) {
           <p className="mt-1 line-clamp-1 min-h-[1.25rem] text-sm font-bold tracking-wide text-brand-gold sm:text-base">
             {member.role_title || '\u00A0'}
           </p>
-          <p className="mt-4 min-h-[7.5rem] text-[15px] leading-relaxed text-[#555] line-clamp-5 dark:text-[#ccc]">
+          <p className="mt-4 min-h-[8.5rem] text-[15px] leading-relaxed text-[#555] line-clamp-6 dark:text-[#ccc]">
             {member.bio || '\u00A0'}
           </p>
           <div className="mt-auto flex min-h-[2.25rem] flex-wrap items-center justify-center gap-2 pt-5 sm:justify-start">

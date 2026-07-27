@@ -106,8 +106,8 @@ function canRemove(disabled) {
 
 const TEAM_NAME_MAX = 60;
 const TEAM_ROLE_MAX = 40;
-const TEAM_BIO_MIN = 140;
-const TEAM_BIO_MAX = 260;
+const TEAM_BIO_MIN = 120;
+const TEAM_BIO_MAX = 360;
 
 function emptyMember() {
   return { name: '', role_title: '', bio: '', photo_url: '', linkedin_url: '', website_url: '', sort_order: 0, is_visible: true };
@@ -158,12 +158,25 @@ function TeamPhotoField({ value, onChange, disabled }) {
   );
 }
 
-function TeamModal({ member, onClose, onSave, loading, canManage }) {
-  const [form, setForm] = useState(member?.id ? { ...member } : emptyMember());
-  const [localError, setLocalError] = useState('');
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+function TeamModal({ member, onClose, onSave, loading, canManage, apiError }) {
+  const [form, setForm] = useState(() => (member?.id ? { ...emptyMember(), ...member } : emptyMember()));
+  const [localError, setLocalError] = useState(() => {
+    const len = String(member?.bio || '').trim().length;
+    if (member?.is_visible !== false && len > TEAM_BIO_MAX) {
+      return `This bio is ${len} characters. Shorten it to ${TEAM_BIO_MAX} or fewer, then save.`;
+    }
+    return '';
+  });
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    setLocalError('');
+  };
   const bioLen = (form.bio || '').trim().length;
-  const bioOk = bioLen === 0 ? !form.is_visible : bioLen >= TEAM_BIO_MIN && bioLen <= TEAM_BIO_MAX;
+  const overLimit = bioLen > TEAM_BIO_MAX;
+  const underMin = form.is_visible && bioLen > 0 && bioLen < TEAM_BIO_MIN;
+  const bioOk = form.is_visible
+    ? bioLen >= TEAM_BIO_MIN && bioLen <= TEAM_BIO_MAX
+    : bioLen === 0 || (bioLen >= TEAM_BIO_MIN && bioLen <= TEAM_BIO_MAX);
 
   return (
     <Modal open onClose={loading ? undefined : onClose} title={member?.id ? 'Edit team member' : 'Add team member'} maxWidth="max-w-lg">
@@ -171,7 +184,10 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (!form.name?.trim()) return;
+          if (!form.name?.trim()) {
+            setLocalError('Name is required.');
+            return;
+          }
           const bio = form.bio?.trim() || '';
           if (form.is_visible && (bio.length < TEAM_BIO_MIN || bio.length > TEAM_BIO_MAX)) {
             setLocalError(`Visible cards need a bio of ${TEAM_BIO_MIN}–${TEAM_BIO_MAX} characters (now ${bio.length}).`);
@@ -216,18 +232,20 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
         </Field>
         <Field
           label={`Bio (${TEAM_BIO_MIN}–${TEAM_BIO_MAX} characters)`}
-          hint="Keep bios similar in length so every card looks the same height."
+          hint="Keep bios in this range so every card looks the same height."
         >
           <textarea
-            className="input-field w-full min-h-[120px]"
-            maxLength={TEAM_BIO_MAX}
+            className={`input-field w-full min-h-[140px] ${overLimit || underMin ? 'border-brand-red' : ''}`}
+            maxLength={overLimit ? undefined : TEAM_BIO_MAX}
             value={form.bio}
             onChange={(e) => set('bio', e.target.value)}
             disabled={!canManage}
           />
           <p className={`mt-1 text-xs font-semibold ${bioOk ? 'text-muted' : 'text-brand-red'}`}>
             {bioLen} / {TEAM_BIO_MAX}
-            {form.is_visible ? ` · need at least ${TEAM_BIO_MIN}` : ' · optional while hidden'}
+            {form.is_visible ? ` · need ${TEAM_BIO_MIN}–${TEAM_BIO_MAX}` : ' · optional while hidden'}
+            {overLimit ? ' — too long, delete some text' : ''}
+            {underMin ? ' — too short' : ''}
           </p>
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -247,11 +265,15 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
             Visible on About page
           </label>
         </div>
-        {localError && <p className="text-sm font-semibold text-brand-red">{localError}</p>}
+        {(localError || apiError) && (
+          <p className="rounded-xl bg-brand-red/10 px-3 py-2 text-sm font-semibold text-brand-red">
+            {localError || apiError}
+          </p>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
           {canManage && (
-            <button type="submit" className="btn-primary" disabled={loading || (form.is_visible && !bioOk)}>
+            <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Saving…' : 'Save'}
             </button>
           )}
@@ -274,6 +296,7 @@ export default function AdminAboutPage() {
   const [form, setForm] = useState(null);
   const [alert, setAlert] = useState(null);
   const [teamModal, setTeamModal] = useState(null);
+  const [teamSaveError, setTeamSaveError] = useState('');
   const [deleteId, setDeleteId] = useState(null);
 
   useEffect(() => {
@@ -301,6 +324,7 @@ export default function AdminAboutPage() {
   };
 
   const saveMember = async (payload) => {
+    setTeamSaveError('');
     try {
       if (teamModal?.id) {
         await updateMember.mutateAsync({ id: teamModal.id, ...payload });
@@ -310,7 +334,9 @@ export default function AdminAboutPage() {
       setTeamModal(null);
       setAlert({ type: 'success', message: 'Team member saved.' });
     } catch (err) {
-      setAlert({ type: 'error', message: err.response?.data?.message || 'Could not save team member.' });
+      const msg = err.response?.data?.message || 'Could not save team member.';
+      setTeamSaveError(msg);
+      setAlert({ type: 'error', message: msg });
     }
   };
 
@@ -419,7 +445,7 @@ export default function AdminAboutPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" className="text-xs font-bold text-brand-green" onClick={() => setTeamModal(m)}>Edit</button>
+                <button type="button" className="text-xs font-bold text-brand-green" onClick={() => { setTeamSaveError(''); setTeamModal(m); }}>Edit</button>
                     {canManage && (
                       <button type="button" className="text-xs font-bold text-brand-red" onClick={() => setDeleteId(m.id)}>Delete</button>
                     )}
@@ -427,7 +453,7 @@ export default function AdminAboutPage() {
                 </div>
               ))}
               {canManage && (
-                <button type="button" className="text-sm font-bold text-brand-green" onClick={() => setTeamModal(emptyMember())}>
+                <button type="button" className="text-sm font-bold text-brand-green" onClick={() => { setTeamSaveError(''); setTeamModal(emptyMember()); }}>
                   + Add team member
                 </button>
               )}
@@ -472,10 +498,11 @@ export default function AdminAboutPage() {
       {teamModal && (
         <TeamModal
           member={teamModal}
-          onClose={() => setTeamModal(null)}
+          onClose={() => { setTeamModal(null); setTeamSaveError(''); }}
           onSave={saveMember}
           loading={createMember.isPending || updateMember.isPending}
           canManage={canManage}
+          apiError={teamSaveError}
         />
       )}
       <ConfirmDialog
