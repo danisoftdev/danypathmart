@@ -837,11 +837,32 @@ if ($handlerFile === null && $method === 'DELETE'
     $handlerFile = 'admin/products/delete.php';
 }
 
+// Dynamic route: GET public/legal-policies/{slug}/download
+if ($handlerFile === null && $method === 'GET'
+    && preg_match('#^public/legal-policies/([a-z0-9-]+)/download$#', $route, $m) === 1) {
+    $_GET['slug'] = $m[1];
+    $handlerFile = 'public/legal-policies/download.php';
+}
+
 // Dynamic route: GET public/legal-policies/{slug}
 if ($handlerFile === null && $method === 'GET'
     && preg_match('#^public/legal-policies/([a-z0-9-]+)$#', $route, $m) === 1) {
     $_GET['slug'] = $m[1];
     $handlerFile = 'public/legal-policies/show.php';
+}
+
+// Dynamic route: POST admin/legal-policies/{id}/attachment
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/legal-policies/([0-9]+)/attachment$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/legal-policies/upload-attachment.php';
+}
+
+// Dynamic route: DELETE admin/legal-policies/{id}/attachment
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/legal-policies/([0-9]+)/attachment$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/legal-policies/delete-attachment.php';
 }
 
 // Dynamic route: PUT/DELETE admin/hero-banners/{id}

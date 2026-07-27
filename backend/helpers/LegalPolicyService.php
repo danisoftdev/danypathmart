@@ -26,10 +26,11 @@ final class LegalPolicyService
     /** @return list<array<string,mixed>> */
     public static function listAll(PDO $pdo): array
     {
+        $cols = self::selectColumns($pdo);
         $stmt = $pdo->query(
-            'SELECT id, slug, title, body, is_published, show_in_footer, sort_order, created_at, updated_at
+            "SELECT {$cols}
              FROM legal_policies
-             ORDER BY sort_order ASC, id ASC'
+             ORDER BY sort_order ASC, id ASC"
         );
 
         return array_map([self::class, 'format'], $stmt->fetchAll());
@@ -39,9 +40,10 @@ final class LegalPolicyService
     public static function findPublishedBySlug(PDO $pdo, string $slug): ?array
     {
         $slug = self::normalizeSlug($slug);
+        $cols = self::selectColumns($pdo);
         $stmt = $pdo->prepare(
-            'SELECT id, slug, title, body, is_published, show_in_footer, sort_order, updated_at
-             FROM legal_policies WHERE slug = ? AND is_published = 1 LIMIT 1'
+            "SELECT {$cols}
+             FROM legal_policies WHERE slug = ? AND is_published = 1 LIMIT 1"
         );
         $stmt->execute([$slug]);
         $row = $stmt->fetch();
@@ -104,14 +106,126 @@ final class LegalPolicyService
     /** @return array<string,mixed>|null */
     public static function findById(PDO $pdo, int $id): ?array
     {
+        $cols = self::selectColumns($pdo);
         $stmt = $pdo->prepare(
-            'SELECT id, slug, title, body, is_published, show_in_footer, sort_order, created_at, updated_at
-             FROM legal_policies WHERE id = ?'
+            "SELECT {$cols} FROM legal_policies WHERE id = ?"
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch();
 
         return $row !== false ? self::format($row) : null;
+    }
+
+    public static function hasAttachmentColumns(PDO $pdo): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $pdo->query('SELECT attachment_path FROM legal_policies LIMIT 1');
+            $cached = true;
+        } catch (\Throwable) {
+            $cached = false;
+        }
+
+        return $cached;
+    }
+
+    /**
+     * Store a downloadable file (Word/PDF) for a policy. Requires manage_legal_policies at API layer.
+     *
+     * @param array<string,mixed> $file $_FILES entry
+     * @return array<string,mixed>
+     */
+    public static function setAttachment(PDO $pdo, int $id, array $file): array
+    {
+        if (!self::hasAttachmentColumns($pdo)) {
+            throw new \RuntimeException('Run migration 074_legal_policy_attachments.sql first.');
+        }
+
+        $existing = self::findById($pdo, $id);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('Policy not found.');
+        }
+
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            throw new \InvalidArgumentException('No file uploaded.');
+        }
+
+        $origName = (string) ($file['name'] ?? 'handbook');
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $allowed = ['pdf', 'doc', 'docx'];
+        if (!in_array($ext, $allowed, true)) {
+            throw new \InvalidArgumentException('Upload a PDF or Word file (.pdf, .doc, .docx).');
+        }
+
+        $size = (int) ($file['size'] ?? 0);
+        if ($size <= 0 || $size > 15 * 1024 * 1024) {
+            throw new \InvalidArgumentException('File must be under 15 MB.');
+        }
+
+        $dir = dirname(__DIR__) . '/uploads/legal';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Could not create uploads/legal directory.');
+        }
+
+        $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '-', pathinfo($origName, PATHINFO_FILENAME)) ?: 'policy';
+        $filename = $id . '-' . substr(bin2hex(random_bytes(6)), 0, 12) . '-' . $safeBase . '.' . $ext;
+        $abs = $dir . '/' . $filename;
+        if (!move_uploaded_file((string) $file['tmp_name'], $abs)) {
+            throw new \RuntimeException('Could not store uploaded file.');
+        }
+
+        self::deleteAttachmentFile($existing['attachment_path'] ?? null);
+
+        $rel = '/uploads/legal/' . $filename;
+        $displayName = trim($origName) !== '' ? $origName : ('policy.' . $ext);
+        $pdo->prepare(
+            'UPDATE legal_policies SET attachment_path = ?, attachment_name = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([$rel, $displayName, $id]);
+
+        return self::findById($pdo, $id) ?? [];
+    }
+
+    public static function clearAttachment(PDO $pdo, int $id): array
+    {
+        if (!self::hasAttachmentColumns($pdo)) {
+            throw new \RuntimeException('Run migration 074_legal_policy_attachments.sql first.');
+        }
+
+        $existing = self::findById($pdo, $id);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('Policy not found.');
+        }
+
+        self::deleteAttachmentFile($existing['attachment_path'] ?? null);
+        $pdo->prepare(
+            'UPDATE legal_policies SET attachment_path = NULL, attachment_name = NULL, updated_at = NOW() WHERE id = ?'
+        )->execute([$id]);
+
+        return self::findById($pdo, $id) ?? [];
+    }
+
+    private static function deleteAttachmentFile(?string $relPath): void
+    {
+        if ($relPath === null || $relPath === '') {
+            return;
+        }
+        $abs = dirname(__DIR__) . $relPath;
+        if (is_file($abs)) {
+            @unlink($abs);
+        }
+    }
+
+    private static function selectColumns(PDO $pdo): string
+    {
+        $base = 'id, slug, title, body, is_published, show_in_footer, sort_order, created_at, updated_at';
+        if (self::hasAttachmentColumns($pdo)) {
+            return $base . ', attachment_path, attachment_name';
+        }
+
+        return $base;
     }
 
     public static function countPublished(PDO $pdo): int
@@ -218,7 +332,7 @@ final class LegalPolicyService
     /** @param array<string,mixed> $row */
     private static function format(array $row): array
     {
-        return [
+        $out = [
             'id'              => (int) $row['id'],
             'slug'            => (string) $row['slug'],
             'title'           => (string) $row['title'],
@@ -228,6 +342,19 @@ final class LegalPolicyService
             'sort_order'      => (int) ($row['sort_order'] ?? 0),
             'created_at'      => $row['created_at'] ?? null,
             'updated_at'      => $row['updated_at'] ?? null,
+            'has_download'    => false,
+            'attachment_name' => null,
+            'download_path'   => null,
         ];
+
+        $path = trim((string) ($row['attachment_path'] ?? ''));
+        $name = trim((string) ($row['attachment_name'] ?? ''));
+        if ($path !== '') {
+            $out['has_download'] = true;
+            $out['attachment_name'] = $name !== '' ? $name : basename($path);
+            $out['download_path'] = '/public/legal-policies/' . $out['slug'] . '/download';
+        }
+
+        return $out;
     }
 }

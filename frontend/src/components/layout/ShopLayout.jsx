@@ -6,6 +6,7 @@ import UserAvatar from '../brand/UserAvatar';
 import { resolveProductImageUrl } from '../../lib/productImages';
 import { formatPrice } from '../../lib/currency';
 import ShopSupportInboxWidget from '../support/ShopSupportInboxWidget';
+import { policyDownloadUrl, usePublicLegalPolicy } from '../../hooks/storefront';
 
 const NAV = [
   { to: '/seller', end: true, label: 'Overview', icon: '📊' },
@@ -24,6 +25,7 @@ export default function ShopLayout() {
   const user = useAuthStore((s) => s.user);
   const loadMe = useAuthStore((s) => s.loadMe);
   const { data, isLoading, isError, error, refetch } = useShopDashboard(!!user);
+  const { data: handbook } = usePublicLegalPolicy('seller-handbook');
   const initRenewal = useInitializeShopRenewalPayment();
   const confirmDev = useConfirmShopBillingDevPayment();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -142,9 +144,19 @@ export default function ShopLayout() {
           <Link to={`/stores/${shop.slug}`} className="text-xs font-bold text-muted hover:text-brand-green">
             View public store →
           </Link>
-          <Link to="/policies/seller-handbook" className="mt-1 block text-xs font-bold text-brand-green hover:underline">
-            Seller handbook
-          </Link>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+            <Link to="/policies/seller-handbook" className="text-xs font-bold text-brand-green hover:underline">
+              Seller handbook
+            </Link>
+            {handbook?.has_download && (
+              <a
+                href={policyDownloadUrl('seller-handbook')}
+                className="text-xs font-bold text-brand-green hover:underline"
+              >
+                Download handbook
+              </a>
+            )}
+          </div>
         </div>
         <UserAvatar user={user} className="h-12 w-12 shrink-0" />
       </div>

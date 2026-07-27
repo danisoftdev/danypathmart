@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { usePublicLegalPolicy } from '../hooks/storefront';
+import { usePublicLegalPolicy, policyDownloadUrl } from '../hooks/storefront';
 import { useCompanyStore } from '../store/companyStore';
 import { looksLikeHtml, plainTextToHtml, sanitizePolicyHtml } from '../lib/policyHtml';
 
@@ -34,6 +34,7 @@ export default function LegalPolicyPage() {
   const legacyReturns = slug === 'returns' ? company?.return_policy?.trim() : '';
   const title = policy?.title || (slug === 'returns' ? 'Returns & refunds' : slug?.replace(/-/g, ' ') || 'Policy');
   const body = policy?.body || legacyReturns || '';
+  const canDownload = !!policy?.has_download;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 md:py-12">
@@ -45,10 +46,22 @@ export default function LegalPolicyPage() {
         <span>{title}</span>
       </nav>
 
-      <h1 className="text-2xl font-extrabold sm:text-3xl">{title}</h1>
-      <p className="mt-2 text-sm text-muted">
-        Policy for orders placed on {company?.company_name || 'DanyPathMart'}.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold sm:text-3xl">{title}</h1>
+          <p className="mt-2 text-sm text-muted">
+            Policy for orders placed on {company?.company_name || 'DanyPathMart'}.
+          </p>
+        </div>
+        {canDownload && (
+          <a
+            href={policyDownloadUrl(policy.slug)}
+            className="btn-primary shrink-0 px-4 py-2 text-sm"
+          >
+            Download{policy.attachment_name ? ` · ${policy.attachment_name}` : ''}
+          </a>
+        )}
+      </div>
 
       {isLoading ? (
         <p className="mt-8 text-sm text-muted">Loading…</p>

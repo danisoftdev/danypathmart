@@ -84,7 +84,7 @@ export const PERMISSION_LABELS = {
   view_hero_banners: 'View homepage hero banners',
   manage_hero_banners: 'Manage homepage hero banners',
   view_legal_policies: 'View legal policies',
-  manage_legal_policies: 'Manage legal policies',
+  manage_legal_policies: 'Update all legal policies (text + downloads)',
   view_users: 'View customers',
   edit_users: 'Edit customers',
   delete_accounts: 'Delete customer, promoter, driver, station staff & related accounts',

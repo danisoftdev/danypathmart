@@ -137,3 +137,41 @@ export function useDeleteLegalPolicy() {
     },
   });
 }
+
+export function useUploadLegalPolicyAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, file }) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await api.post(`/admin/legal-policies/${id}/attachment`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-legal-policies'] });
+      qc.invalidateQueries({ queryKey: ['public-legal-policies'] });
+      qc.invalidateQueries({ queryKey: ['public-legal-policy'] });
+      invalidatePolicyCaches(qc);
+    },
+  });
+}
+
+export function useDeleteLegalPolicyAttachment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.delete(`/admin/legal-policies/${id}/attachment`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-legal-policies'] });
+      qc.invalidateQueries({ queryKey: ['public-legal-policies'] });
+      qc.invalidateQueries({ queryKey: ['public-legal-policy'] });
+      invalidatePolicyCaches(qc);
+    },
+  });
+}
+
+export function policyDownloadUrl(slug) {
+  const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+  return `${base}/public/legal-policies/${slug}/download`;
+}
