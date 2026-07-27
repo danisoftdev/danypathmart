@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useCompanyStore } from '../../store/companyStore';
+import { COOKIE_CONSENT_KEY, getCookieConsent, hasAnalyticsConsent } from '../../lib/cookieConsent';
 
 function ensureGtag(measurementId) {
   if (typeof window.gtag === 'function') {
@@ -21,23 +22,39 @@ function ensureGtag(measurementId) {
 export default function AnalyticsLoader() {
   const location = useLocation();
   const analytics = useCompanyStore((s) => s.company?.analytics);
+  const [consent, setConsent] = useState(() => getCookieConsent());
 
   useEffect(() => {
-    if (!analytics?.enabled || !analytics?.measurement_id) {
+    const onConsent = () => setConsent(getCookieConsent());
+    window.addEventListener('dpm:cookie-consent', onConsent);
+    const onStorage = (e) => {
+      if (e.key === COOKIE_CONSENT_KEY) onConsent();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('dpm:cookie-consent', onConsent);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
+  const allowed = hasAnalyticsConsent(consent);
+
+  useEffect(() => {
+    if (!allowed || !analytics?.enabled || !analytics?.measurement_id) {
       return;
     }
     ensureGtag(analytics.measurement_id);
-  }, [analytics?.enabled, analytics?.measurement_id]);
+  }, [allowed, analytics?.enabled, analytics?.measurement_id]);
 
   useEffect(() => {
-    if (!analytics?.enabled || !analytics?.measurement_id || typeof window.gtag !== 'function') {
+    if (!allowed || !analytics?.enabled || !analytics?.measurement_id || typeof window.gtag !== 'function') {
       return;
     }
     window.gtag('event', 'page_view', {
       page_path: location.pathname + location.search,
       page_title: document.title,
     });
-  }, [location.pathname, location.search, analytics?.enabled, analytics?.measurement_id]);
+  }, [allowed, location.pathname, location.search, analytics?.enabled, analytics?.measurement_id]);
 
   return null;
 }

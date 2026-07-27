@@ -103,6 +103,7 @@ import { useAuthStore } from './store/authStore';
 import { useCompanyStore } from './store/companyStore';
 import AnalyticsLoader from './components/analytics/AnalyticsLoader';
 import CautionAcknowledgeGate from './components/trust/CautionAcknowledgeGate';
+import CookieConsentBanner from './components/legal/CookieConsentBanner';
 
 function Boot({ children }) {
   const [ready, setReady] = useState(false);
@@ -132,6 +133,7 @@ function Boot({ children }) {
     <>
       <AnalyticsLoader />
       <CautionAcknowledgeGate />
+      <CookieConsentBanner />
       {children}
     </>
   );
