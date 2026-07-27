@@ -52,4 +52,4 @@ Output: `docs/legal/word/` (always). Files are also copied to `docs/legal/*.docx
 | 08_Complaints_and_Disputes.docx | complaints-disputes.md |
 | 09_Seller_Handbook.docx | seller-handbook.md |
 
-Older drafts may also exist in `docs/legal/*.docx`. The markdown files above are the live CMS source for the storefront v2 model.
+On deploy, `seed-legal-policies.php` also copies `09_Seller_Handbook.docx` into the seller handbook downloadable attachment automatically.

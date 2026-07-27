@@ -188,6 +188,66 @@ final class LegalPolicyService
         return self::findById($pdo, $id) ?? [];
     }
 
+    /**
+     * Copy a local file into uploads/legal and attach it (used by seed / deploy).
+     *
+     * @return array<string,mixed>
+     */
+    public static function setAttachmentFromLocalFile(
+        PDO $pdo,
+        int $id,
+        string $absolutePath,
+        ?string $displayName = null
+    ): array {
+        if (!self::hasAttachmentColumns($pdo)) {
+            throw new \RuntimeException('Run migration 074_legal_policy_attachments.sql first.');
+        }
+
+        $existing = self::findById($pdo, $id);
+        if ($existing === null) {
+            throw new \InvalidArgumentException('Policy not found.');
+        }
+
+        if (!is_file($absolutePath)) {
+            throw new \InvalidArgumentException('Attachment source file not found.');
+        }
+
+        $origName = $displayName !== null && trim($displayName) !== ''
+            ? trim($displayName)
+            : basename($absolutePath);
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $allowed = ['pdf', 'doc', 'docx'];
+        if (!in_array($ext, $allowed, true)) {
+            throw new \InvalidArgumentException('Attachment must be a PDF or Word file (.pdf, .doc, .docx).');
+        }
+
+        $size = (int) filesize($absolutePath);
+        if ($size <= 0 || $size > 15 * 1024 * 1024) {
+            throw new \InvalidArgumentException('Attachment file must be under 15 MB.');
+        }
+
+        $dir = dirname(__DIR__) . '/uploads/legal';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new \RuntimeException('Could not create uploads/legal directory.');
+        }
+
+        $safeBase = preg_replace('/[^a-zA-Z0-9._-]+/', '-', pathinfo($origName, PATHINFO_FILENAME)) ?: 'policy';
+        $filename = $id . '-' . substr(bin2hex(random_bytes(6)), 0, 12) . '-' . $safeBase . '.' . $ext;
+        $abs = $dir . '/' . $filename;
+        if (!copy($absolutePath, $abs)) {
+            throw new \RuntimeException('Could not store attachment file.');
+        }
+
+        self::deleteAttachmentFile($existing['attachment_path'] ?? null);
+
+        $rel = '/uploads/legal/' . $filename;
+        $pdo->prepare(
+            'UPDATE legal_policies SET attachment_path = ?, attachment_name = ?, updated_at = NOW() WHERE id = ?'
+        )->execute([$rel, $origName, $id]);
+
+        return self::findById($pdo, $id) ?? [];
+    }
+
     public static function clearAttachment(PDO $pdo, int $id): array
     {
         if (!self::hasAttachmentColumns($pdo)) {
