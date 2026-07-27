@@ -107,6 +107,59 @@ final class AboutPageSeeder
             'Learn about DanyPathMart — a DSD Groups marketplace for Ghana shops, parents, and schools.',
         ]);
 
+        self::seedFounderIfEmpty($pdo);
+
+        return true;
+    }
+
+    /** Seed founder card once when the team table is empty. */
+    public static function seedFounderIfEmpty(PDO $pdo): bool
+    {
+        try {
+            $pdo->query('SELECT id FROM about_team_members LIMIT 1');
+        } catch (\Throwable) {
+            return false;
+        }
+
+        $count = (int) $pdo->query('SELECT COUNT(*) FROM about_team_members')->fetchColumn();
+        if ($count > 0) {
+            return false;
+        }
+
+        $bio = 'Highly motivated Software Engineer and Technology Entrepreneur passionate about building innovative digital solutions that solve real-world challenges. Experienced in full-stack software development, system architecture, and IT support, with a strong ability to design, develop, and deploy scalable web applications, digital platforms, and business solutions. Skilled in integrating databases, APIs, and modern technologies to create impactful products that empower individuals and organizations. Founder of DSD Groups, with a vision of building a portfolio of technology-driven products that power everyday life for the people traditional tech leaves behind.';
+
+        $hasSocial = false;
+        try {
+            $pdo->query('SELECT linkedin_url FROM about_team_members LIMIT 1');
+            $hasSocial = true;
+        } catch (\Throwable) {
+            $hasSocial = false;
+        }
+
+        if ($hasSocial) {
+            $pdo->prepare(
+                'INSERT INTO about_team_members (name, role_title, bio, photo_url, linkedin_url, website_url, sort_order, is_visible)
+                 VALUES (?, ?, ?, ?, ?, ?, 0, 1)'
+            )->execute([
+                'Daniel Awuah Appiah',
+                'Founder & Lead Developer',
+                $bio,
+                '/images/team/daniel-awuah-appiah.png',
+                '',
+                'https://danysoftdev.com',
+            ]);
+        } else {
+            $pdo->prepare(
+                'INSERT INTO about_team_members (name, role_title, bio, photo_url, sort_order, is_visible)
+                 VALUES (?, ?, ?, ?, 0, 1)'
+            )->execute([
+                'Daniel Awuah Appiah',
+                'Founder & Lead Developer',
+                $bio,
+                '/images/team/daniel-awuah-appiah.png',
+            ]);
+        }
+
         return true;
     }
 }

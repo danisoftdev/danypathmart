@@ -38,6 +38,81 @@ function CtaLink({ to, children, primary }) {
   );
 }
 
+function teamPhotoUrl(url) {
+  if (!url) return null;
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith('/images/') || url.startsWith('/assets/')) return url;
+  return resolveImageUrl(url);
+}
+
+function TeamMemberCard({ member }) {
+  const photo = teamPhotoUrl(member.photo_url);
+  const linkedin = String(member.linkedin_url || '').trim();
+  const website = String(member.website_url || '').trim();
+  const hasLinks = !!(linkedin || website);
+
+  return (
+    <article className="group relative overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-8">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green opacity-90" />
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+        <div className="relative mx-auto shrink-0 sm:mx-0">
+          <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-gold/50 via-brand-green/30 to-transparent blur-[2px] transition group-hover:blur-[3px]" />
+          {photo ? (
+            <img
+              src={photo}
+              alt={member.name}
+              className="relative h-24 w-24 rounded-full object-cover ring-4 ring-white dark:ring-[#1A1A1A] sm:h-28 sm:w-28"
+            />
+          ) : (
+            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-brand-green text-2xl font-extrabold text-white ring-4 ring-white dark:ring-[#1A1A1A] sm:h-28 sm:w-28">
+              {(member.name || '?').slice(0, 1)}
+            </div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 text-center sm:text-left">
+          <h3 className="text-xl font-extrabold tracking-tight text-[#111] dark:text-white sm:text-2xl">
+            {member.name}
+          </h3>
+          {member.role_title && (
+            <p className="mt-1 text-sm font-bold tracking-wide text-brand-gold sm:text-base">
+              {member.role_title}
+            </p>
+          )}
+          {member.bio && (
+            <p className="mt-4 text-[15px] leading-relaxed text-[#555] dark:text-[#ccc]">
+              {member.bio}
+            </p>
+          )}
+          {hasLinks && (
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center rounded-full border border-brand-green/25 px-3 py-1.5 text-xs font-bold text-brand-green transition hover:bg-brand-green hover:text-white"
+                >
+                  LinkedIn
+                </a>
+              )}
+              {website && (
+                <a
+                  href={website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
+                >
+                  Website
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function ItemGrid({ items }) {
   const list = Array.isArray(items) ? items.filter((i) => (i.title || i.label || i.body || i.value)) : [];
   if (list.length === 0) return null;
@@ -168,30 +243,13 @@ export default function AboutPage() {
 
       {/* Team */}
       {team.length > 0 && (
-        <section className="border-y border-brand-green/10 bg-brand-green/[0.04] py-14 dark:bg-brand-green/10 md:py-16">
+        <section className="border-y border-brand-green/10 bg-[linear-gradient(180deg,rgba(44,122,75,0.06),rgba(255,255,255,0))] py-14 dark:bg-brand-green/10 md:py-16">
           <div className="mx-auto max-w-5xl px-4">
             <h2 className="text-2xl font-extrabold text-brand-green md:text-3xl">{page.team_heading}</h2>
             {page.team_intro && <p className="mt-3 max-w-2xl text-muted">{page.team_intro}</p>}
-            <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+            <div className={`mt-10 grid gap-6 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
               {team.map((m) => (
-                <article key={m.id} className="flex gap-4">
-                  {m.photo_url ? (
-                    <img
-                      src={resolveImageUrl(m.photo_url)}
-                      alt=""
-                      className="h-16 w-16 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-green text-lg font-extrabold text-white">
-                      {(m.name || '?').slice(0, 1)}
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-extrabold">{m.name}</h3>
-                    {m.role_title && <p className="text-sm font-semibold text-brand-gold">{m.role_title}</p>}
-                    {m.bio && <p className="mt-2 text-sm leading-relaxed text-muted">{m.bio}</p>}
-                  </div>
-                </article>
+                <TeamMemberCard key={m.id} member={m} />
               ))}
             </div>
           </div>

@@ -105,7 +105,7 @@ function canRemove(disabled) {
 }
 
 function emptyMember() {
-  return { name: '', role_title: '', bio: '', photo_url: '', sort_order: 0, is_visible: true };
+  return { name: '', role_title: '', bio: '', photo_url: '', linkedin_url: '', website_url: '', sort_order: 0, is_visible: true };
 }
 
 function TeamPhotoField({ value, onChange, disabled }) {
@@ -169,6 +169,8 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
             role_title: form.role_title?.trim() || '',
             bio: form.bio?.trim() || '',
             photo_url: form.photo_url?.trim() || '',
+            linkedin_url: form.linkedin_url?.trim() || '',
+            website_url: form.website_url?.trim() || '',
             sort_order: Number(form.sort_order) || 0,
             is_visible: !!form.is_visible,
           });
@@ -184,6 +186,14 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
         <Field label="Short bio">
           <textarea className="input-field w-full min-h-[80px]" value={form.bio} onChange={(e) => set('bio', e.target.value)} disabled={!canManage} />
         </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="LinkedIn URL">
+            <input className="input-field w-full" value={form.linkedin_url || ''} onChange={(e) => set('linkedin_url', e.target.value)} disabled={!canManage} placeholder="https://linkedin.com/in/…" />
+          </Field>
+          <Field label="Website URL">
+            <input className="input-field w-full" value={form.website_url || ''} onChange={(e) => set('website_url', e.target.value)} disabled={!canManage} placeholder="https://…" />
+          </Field>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Sort order">
             <input type="number" className="input-field w-full" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)} disabled={!canManage} />

@@ -104,13 +104,22 @@ final class AboutPageService
         $role = self::str($input['role_title'] ?? '', 160);
         $bio = self::text($input['bio'] ?? '');
         $photo = self::str($input['photo_url'] ?? '', 500);
+        $linkedin = self::str($input['linkedin_url'] ?? '', 500);
+        $website = self::str($input['website_url'] ?? '', 500);
         $sort = (int) ($input['sort_order'] ?? 0);
         $visible = self::boolInt($input['is_visible'] ?? true);
 
-        $pdo->prepare(
-            'INSERT INTO about_team_members (name, role_title, bio, photo_url, sort_order, is_visible)
-             VALUES (?, ?, ?, ?, ?, ?)'
-        )->execute([$name, $role, $bio, $photo, $sort, $visible]);
+        if (self::hasSocialColumns($pdo)) {
+            $pdo->prepare(
+                'INSERT INTO about_team_members (name, role_title, bio, photo_url, linkedin_url, website_url, sort_order, is_visible)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([$name, $role, $bio, $photo, $linkedin, $website, $sort, $visible]);
+        } else {
+            $pdo->prepare(
+                'INSERT INTO about_team_members (name, role_title, bio, photo_url, sort_order, is_visible)
+                 VALUES (?, ?, ?, ?, ?, ?)'
+            )->execute([$name, $role, $bio, $photo, $sort, $visible]);
+        }
 
         return self::findTeamMember($pdo, (int) $pdo->lastInsertId()) ?? [];
     }
@@ -127,14 +136,25 @@ final class AboutPageService
         $role = array_key_exists('role_title', $input) ? self::str($input['role_title'], 160) : $existing['role_title'];
         $bio = array_key_exists('bio', $input) ? self::text($input['bio']) : ($existing['bio'] ?? '');
         $photo = array_key_exists('photo_url', $input) ? self::str($input['photo_url'], 500) : ($existing['photo_url'] ?? '');
+        $linkedin = array_key_exists('linkedin_url', $input) ? self::str($input['linkedin_url'], 500) : ($existing['linkedin_url'] ?? '');
+        $website = array_key_exists('website_url', $input) ? self::str($input['website_url'], 500) : ($existing['website_url'] ?? '');
         $sort = array_key_exists('sort_order', $input) ? (int) $input['sort_order'] : (int) $existing['sort_order'];
         $visible = array_key_exists('is_visible', $input) ? self::boolInt($input['is_visible']) : (int) $existing['is_visible'];
 
-        $pdo->prepare(
-            'UPDATE about_team_members
-             SET name = ?, role_title = ?, bio = ?, photo_url = ?, sort_order = ?, is_visible = ?, updated_at = NOW()
-             WHERE id = ?'
-        )->execute([$name, $role, $bio, $photo, $sort, $visible, $id]);
+        if (self::hasSocialColumns($pdo)) {
+            $pdo->prepare(
+                'UPDATE about_team_members
+                 SET name = ?, role_title = ?, bio = ?, photo_url = ?, linkedin_url = ?, website_url = ?,
+                     sort_order = ?, is_visible = ?, updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$name, $role, $bio, $photo, $linkedin, $website, $sort, $visible, $id]);
+        } else {
+            $pdo->prepare(
+                'UPDATE about_team_members
+                 SET name = ?, role_title = ?, bio = ?, photo_url = ?, sort_order = ?, is_visible = ?, updated_at = NOW()
+                 WHERE id = ?'
+            )->execute([$name, $role, $bio, $photo, $sort, $visible, $id]);
+        }
 
         return self::findTeamMember($pdo, $id) ?? [];
     }
@@ -151,8 +171,8 @@ final class AboutPageService
     /** @return list<array<string,mixed>> */
     public static function listTeam(PDO $pdo, bool $visibleOnly): array
     {
-        $sql = 'SELECT id, name, role_title, bio, photo_url, sort_order, is_visible, created_at, updated_at
-                FROM about_team_members';
+        $cols = self::teamSelectColumns($pdo);
+        $sql = "SELECT {$cols} FROM about_team_members";
         if ($visibleOnly) {
             $sql .= ' WHERE is_visible = 1';
         }
@@ -165,14 +185,38 @@ final class AboutPageService
     /** @return array<string,mixed>|null */
     public static function findTeamMember(PDO $pdo, int $id): ?array
     {
-        $stmt = $pdo->prepare(
-            'SELECT id, name, role_title, bio, photo_url, sort_order, is_visible, created_at, updated_at
-             FROM about_team_members WHERE id = ? LIMIT 1'
-        );
+        $cols = self::teamSelectColumns($pdo);
+        $stmt = $pdo->prepare("SELECT {$cols} FROM about_team_members WHERE id = ? LIMIT 1");
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         return $row !== false ? self::formatTeam($row) : null;
+    }
+
+    private static function teamSelectColumns(PDO $pdo): string
+    {
+        $base = 'id, name, role_title, bio, photo_url, sort_order, is_visible, created_at, updated_at';
+        if (self::hasSocialColumns($pdo)) {
+            return $base . ', linkedin_url, website_url';
+        }
+
+        return $base;
+    }
+
+    private static function hasSocialColumns(PDO $pdo): bool
+    {
+        static $cached = null;
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $pdo->query('SELECT linkedin_url FROM about_team_members LIMIT 1');
+            $cached = true;
+        } catch (\Throwable) {
+            $cached = false;
+        }
+
+        return $cached;
     }
 
     private static function ensureRow(PDO $pdo): void
@@ -236,6 +280,8 @@ final class AboutPageService
             'role_title' => (string) ($row['role_title'] ?? ''),
             'bio' => (string) ($row['bio'] ?? ''),
             'photo_url' => (string) ($row['photo_url'] ?? ''),
+            'linkedin_url' => (string) ($row['linkedin_url'] ?? ''),
+            'website_url' => (string) ($row['website_url'] ?? ''),
             'sort_order' => (int) ($row['sort_order'] ?? 0),
             'is_visible' => (bool) (int) ($row['is_visible'] ?? 0),
             'created_at' => $row['created_at'] ?? null,

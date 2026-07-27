@@ -204,6 +204,8 @@ function postMigrateAboutPage(PDO $pdo): void
     try {
         $seeded = AboutPageSeeder::seedDefaults($pdo);
         echo $seeded ? "  OK: seeded default About Us content\n" : "  OK: About Us row already present\n";
+        $founder = AboutPageSeeder::seedFounderIfEmpty($pdo);
+        echo $founder ? "  OK: seeded founder team card\n" : "  OK: team members already present\n";
     } catch (Throwable $e) {
         echo '  SKIP: ' . $e->getMessage() . "\n";
     }
