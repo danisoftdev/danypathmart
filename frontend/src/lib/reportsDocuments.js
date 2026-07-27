@@ -2,7 +2,14 @@ import { esc, fmtDate, fmtMoney, printHtml } from './orderDocuments';
 import { formatPrice } from './currency';
 
 /** One-page financial summary for meetings / records. */
-export function printFinancialReport(summary, financial, company) {
+export function printFinancialReport(summary, financial, company, sections = {}) {
+  const include = {
+    overview: sections.overview !== false,
+    revenue: sections.revenue !== false,
+    inventory: sections.inventory !== false,
+    recent: sections.recent !== false,
+  };
+
   const name = esc(company?.company_name || 'DanyPathMart');
   const { revenue, deductions, interest, inventory, recent_sales: recentSales, paid_orders: paidOrders, units_sold: unitsSold } =
     financial;
@@ -19,11 +26,14 @@ export function printFinancialReport(summary, financial, company) {
     )
     .join('');
 
-  const html = `
-    <div class="brand">${name}</div>
-    <h1>Financial report</h1>
-    <p class="meta">Generated ${fmtDate(new Date().toISOString())}</p>
+  const parts = [
+    `<div class="brand">${name}</div>`,
+    `<h1>Financial report</h1>`,
+    `<p class="meta">Generated ${fmtDate(new Date().toISOString())}</p>`,
+  ];
 
+  if (include.overview) {
+    parts.push(`
     <h2>Overview</h2>
     <table>
       <tbody>
@@ -33,8 +43,11 @@ export function printFinancialReport(summary, financial, company) {
         <tr><td>Active customers</td><td style="text-align:right">${summary.customers_total}</td></tr>
         <tr><td>Active products</td><td style="text-align:right">${summary.products_active}</td></tr>
       </tbody>
-    </table>
+    </table>`);
+  }
 
+  if (include.revenue) {
+    parts.push(`
     <h2>Revenue &amp; interest</h2>
     <table>
       <tbody>
@@ -46,8 +59,11 @@ export function printFinancialReport(summary, financial, company) {
         <tr><td><strong>Net interest</strong></td><td style="text-align:right;font-weight:bold">${fmtMoney(interest.net_interest)}</td></tr>
       </tbody>
     </table>
-    <p class="meta">${paidOrders} paid order(s) · ${unitsSold} unit(s) sold</p>
+    <p class="meta">${paidOrders} paid order(s) · ${unitsSold} unit(s) sold</p>`);
+  }
 
+  if (include.inventory && inventory) {
+    parts.push(`
     <h2>Inventory</h2>
     <table>
       <tbody>
@@ -58,18 +74,74 @@ export function printFinancialReport(summary, financial, company) {
         <tr><td>Retail value</td><td style="text-align:right">${fmtMoney(inventory.retail_value)}</td></tr>
         <tr><td>Cost value</td><td style="text-align:right">${fmtMoney(inventory.cost_value)}</td></tr>
       </tbody>
-    </table>
+    </table>`);
+  }
 
-    ${recentRows ? `<h2>Recent paid orders</h2>
+  if (include.recent && recentRows) {
+    parts.push(`<h2>Recent paid orders</h2>
     <table>
       <thead><tr><th>Order</th><th>Date</th><th style="text-align:right">Subtotal</th><th style="text-align:right">Total</th></tr></thead>
       <tbody>${recentRows}</tbody>
-    </table>` : ''}
+    </table>`);
+  }
 
-    <div class="footer">Internal report · ${name}</div>
+  parts.push(`<div class="footer">Internal report · ${name}</div>`);
+
+  printHtml('Financial report', parts.join('\n'));
+}
+
+/** Print a filtered inventory count sheet (DPM catalogue). */
+export function printInventoryList(products, company, meta = {}) {
+  const name = esc(company?.company_name || 'DanyPathMart');
+  const label = esc(meta.label || 'Inventory list');
+  const rows = (products || [])
+    .map((p) => {
+      const stock = Number(p.stock_qty) || 0;
+      const cost = Number(p.cost_price) || 0;
+      const price = Number(p.price) || 0;
+      return `
+    <tr>
+      <td>${esc(p.name)}</td>
+      <td>${esc(p.barcode || '')}</td>
+      <td>${esc(p.category_name || '')}</td>
+      <td style="text-align:right">${stock}</td>
+      <td style="text-align:right">${fmtMoney(cost)}</td>
+      <td style="text-align:right">${fmtMoney(price)}</td>
+      <td style="text-align:right">${fmtMoney(stock * cost)}</td>
+      <td>${esc(p.status || '')}</td>
+    </tr>`;
+    })
+    .join('');
+
+  const totalUnits = (products || []).reduce((n, p) => n + (Number(p.stock_qty) || 0), 0);
+  const totalCost = (products || []).reduce(
+    (n, p) => n + (Number(p.stock_qty) || 0) * (Number(p.cost_price) || 0),
+    0
+  );
+
+  const html = `
+    <div class="brand">${name}</div>
+    <h1>${label}</h1>
+    <p class="meta">Generated ${fmtDate(new Date().toISOString())} · ${(products || []).length} SKU(s) · ${totalUnits} unit(s) · cost ${fmtMoney(totalCost)}</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>Barcode</th>
+          <th>Category</th>
+          <th style="text-align:right">Qty</th>
+          <th style="text-align:right">Cost</th>
+          <th style="text-align:right">Retail</th>
+          <th style="text-align:right">Ext. cost</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>${rows || '<tr><td colspan="8">No products match the filters.</td></tr>'}</tbody>
+    </table>
+    <div class="footer">Inventory count sheet · ${name}</div>
   `;
 
-  printHtml('Financial report', html);
+  printHtml(label, html);
 }
 
 /** Build CSV sections from loaded report data (client-side fallback). */

@@ -41,6 +41,7 @@ export const EXPORT_COLUMN_SETS = {
     { key: 'id', label: 'ID', default: false },
     { key: 'name', label: 'Name', default: true },
     { key: 'slug', label: 'Slug', default: true },
+    { key: 'barcode', label: 'Barcode', default: true },
     { key: 'category', label: 'Category', default: true },
     { key: 'price', label: 'Price', default: true },
     { key: 'cost_price', label: 'Cost price', default: true },

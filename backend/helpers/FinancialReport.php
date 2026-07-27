@@ -88,7 +88,8 @@ final class FinancialReport
                 COUNT(CASE WHEN status = 'active' THEN 1 END) AS active_skus,
                 COUNT(CASE WHEN status = 'active' AND stock_qty <= 5 AND stock_qty > 0 THEN 1 END) AS low_stock_skus,
                 COUNT(CASE WHEN status = 'active' AND stock_qty = 0 THEN 1 END) AS out_of_stock_skus
-             FROM products"
+             FROM products
+             WHERE shop_id IS NULL OR shop_id = 0"
         )->fetch();
 
         $inventoryCost = round((float) $inv['inventory_cost_value'], 2);

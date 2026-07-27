@@ -10,10 +10,14 @@ export function useShopDashboard(enabled = true) {
   });
 }
 
-export function useShopProducts(enabled = true) {
+export function useShopProducts(paramsOrEnabled = {}, enabledArg = true) {
+  const legacyBool = typeof paramsOrEnabled === 'boolean';
+  const params = legacyBool ? {} : (paramsOrEnabled || {});
+  const enabled = legacyBool ? paramsOrEnabled : enabledArg;
+
   return useQuery({
-    queryKey: ['shop-products'],
-    queryFn: async () => (await api.get('/shop/products')).data.data,
+    queryKey: ['shop-products', params],
+    queryFn: async () => (await api.get('/shop/products', { params })).data.data,
     enabled,
   });
 }
@@ -31,6 +35,17 @@ export function useUpdateShopProduct() {
   return useMutation({
     mutationFn: async ({ id, ...payload }) => (await api.put(`/shop/products/${id}`, payload)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['shop-products'] }),
+  });
+}
+
+export function useResetShopStock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/shop/products/reset-stock', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['shop-products'] });
+      qc.invalidateQueries({ queryKey: ['shop-dashboard'] });
+    },
   });
 }
 

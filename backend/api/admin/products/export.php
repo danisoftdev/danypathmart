@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\AdminProductFilters;
 use App\Helpers\CsvExportHelper;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
@@ -12,17 +13,13 @@ PermissionMiddleware::require('view_products');
 
 $pdo = Database::pdo();
 
-$search = trim((string) ($_GET['search'] ?? ''));
-$status = trim((string) ($_GET['status'] ?? ''));
-$categoryId = isset($_GET['category_id']) && $_GET['category_id'] !== ''
-    ? (int) $_GET['category_id']
-    : 0;
 $columnsParam = trim((string) ($_GET['columns'] ?? ''));
 
 $allColumns = [
     'id',
     'name',
     'slug',
+    'barcode',
     'category',
     'price',
     'cost_price',
@@ -41,32 +38,23 @@ $allColumns = [
     'created_at',
 ];
 
-$sql = 'SELECT p.id, p.name, p.slug, p.price, p.cost_price, p.compare_at_price, p.stock_qty,
+$sql = 'SELECT p.id, p.name, p.slug, p.barcode, p.price, p.cost_price, p.compare_at_price, p.stock_qty,
                p.status, p.is_preorder, p.is_featured, p.is_flash_deal, p.origin_country,
                p.estimated_arrival_days, p.rating_avg, p.rating_count, p.badge_label, p.tags,
                p.created_at, c.name AS category_name
         FROM products p
         LEFT JOIN categories c ON c.id = p.category_id
         WHERE 1=1';
-$params = [];
 
-if ($status !== '' && in_array($status, ['active', 'inactive', 'draft'], true)) {
-    $sql .= ' AND p.status = ?';
-    $params[] = $status;
-}
+$filters = AdminProductFilters::apply('p', [
+    'search'       => $_GET['search'] ?? '',
+    'status'       => $_GET['status'] ?? '',
+    'category_id'  => $_GET['category_id'] ?? '',
+    'stock_status' => $_GET['stock_status'] ?? '',
+], true);
 
-if ($categoryId > 0) {
-    $sql .= ' AND p.category_id = ?';
-    $params[] = $categoryId;
-}
-
-if ($search !== '') {
-    $sql .= ' AND (p.name LIKE ? OR p.slug LIKE ?)';
-    $like = '%' . $search . '%';
-    $params[] = $like;
-    $params[] = $like;
-}
-
+$sql .= $filters['sql'];
+$params = $filters['params'];
 $sql .= ' ORDER BY p.name ASC LIMIT 10000';
 
 $stmt = $pdo->prepare($sql);
@@ -81,6 +69,7 @@ foreach ($stmt->fetchAll() as $row) {
         'id'                     => (int) $row['id'],
         'name'                   => $row['name'],
         'slug'                   => $row['slug'],
+        'barcode'                => $row['barcode'] ?? '',
         'category'               => $row['category_name'] ?? '',
         'price'                  => number_format((float) $row['price'], 2, '.', ''),
         'cost_price'             => number_format((float) $row['cost_price'], 2, '.', ''),

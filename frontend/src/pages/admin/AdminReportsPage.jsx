@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAdminFinancialReports, useAdminReports, useCompanySettings, useUpdateCompanySettings } from '../../hooks/admin';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminStatCard from '../../components/admin/AdminStatCard';
@@ -7,11 +8,22 @@ import { AdminPageError } from '../../components/admin/AdminFetchState';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
 import { formatPrice } from '../../lib/currency';
 import { DashboardStatsSkeleton } from '../../components/ui/Skeleton';
-import { printFinancialReport } from '../../lib/reportsDocuments';
+import { printFinancialReport, printInventoryList } from '../../lib/reportsDocuments';
 import { downloadAdminReportsExport, emailAdminOrdersExport } from '../../lib/ordersExport';
 import { useCompanyStore } from '../../store/companyStore';
 import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../lib/permissions';
+import Modal from '../../components/dashboard/Modal';
+import { useCategories } from '../../hooks/catalog';
+import { flattenCategories } from '../../lib/categories';
+import api from '../../lib/api';
+
+const DEFAULT_SECTIONS = {
+  overview: true,
+  revenue: true,
+  inventory: true,
+  recent: true,
+};
 
 export default function AdminReportsPage() {
   const company = useCompanyStore((s) => s.company);
@@ -19,6 +31,8 @@ export default function AdminReportsPage() {
   const canEditSettings = hasPermission(user, 'edit_company_settings');
   const { data: settings } = useCompanySettings();
   const updateSettings = useUpdateCompanySettings();
+  const { data: catData } = useCategories();
+  const categories = useMemo(() => flattenCategories(catData?.data || []), [catData]);
 
   const [exporting, setExporting] = useState(false);
   const [emailing, setEmailing] = useState(false);
@@ -26,6 +40,12 @@ export default function AdminReportsPage() {
   const [scheduleErr, setScheduleErr] = useState('');
   const [weeklyEnabled, setWeeklyEnabled] = useState(false);
   const [weeklyEmail, setWeeklyEmail] = useState('');
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printSections, setPrintSections] = useState(DEFAULT_SECTIONS);
+  const [invStock, setInvStock] = useState('');
+  const [invStatus, setInvStatus] = useState('active');
+  const [invCategory, setInvCategory] = useState('');
+  const [printingInv, setPrintingInv] = useState(false);
 
   const summaryQuery = useAdminReports();
   const financialQuery = useAdminFinancialReports();
@@ -52,9 +72,34 @@ export default function AdminReportsPage() {
     }
   };
 
-  const printReport = () => {
+  const runPrintReport = () => {
     if (!summary || !financial) return;
-    printFinancialReport(summary, financial, company);
+    printFinancialReport(summary, financial, company, printSections);
+    setPrintOpen(false);
+  };
+
+  const printInventory = async () => {
+    setPrintingInv(true);
+    try {
+      const { data } = await api.get('/admin/products', {
+        params: {
+          inventory: '1',
+          stock_status: invStock || undefined,
+          status: invStatus || undefined,
+          category_id: invCategory || undefined,
+        },
+      });
+      const labelParts = ['DPM inventory'];
+      if (invStock === 'in_stock') labelParts.push('in stock');
+      if (invStock === 'low') labelParts.push('low stock');
+      if (invStock === 'out') labelParts.push('out of stock');
+      if (invStatus) labelParts.push(invStatus);
+      printInventoryList(data.data || [], company, { label: labelParts.join(' · ') });
+    } catch {
+      window.alert('Could not load inventory for printing.');
+    } finally {
+      setPrintingInv(false);
+    }
   };
 
   const saveSchedule = async () => {
@@ -89,6 +134,10 @@ export default function AdminReportsPage() {
     }
   };
 
+  const toggleSection = (key) => {
+    setPrintSections((s) => ({ ...s, [key]: !s[key] }));
+  };
+
   return (
     <div>
       <AdminPageHeader
@@ -99,7 +148,7 @@ export default function AdminReportsPage() {
             <>
               <button
                 type="button"
-                onClick={printReport}
+                onClick={() => setPrintOpen(true)}
                 className="rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-bold hover:bg-black/[0.03] dark:border-white/15 dark:bg-[#1E1E1E]"
               >
                 Print report
@@ -136,6 +185,47 @@ export default function AdminReportsPage() {
           </div>
 
           <FinancialBreakdown data={financial} />
+
+          <section className="admin-panel mt-8 space-y-4">
+            <div>
+              <h2 className="text-lg font-extrabold">Print inventory list</h2>
+              <p className="mt-1 text-sm text-muted">
+                Choose stock filters, then print a count sheet. For reset inventory and product search filters, use{' '}
+                <Link to="/admin/products" className="font-bold text-brand-green hover:underline">
+                  Products
+                </Link>
+                .
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <select className="admin-filter-select" value={invStock} onChange={(e) => setInvStock(e.target.value)} aria-label="Stock filter">
+                <option value="">All stock</option>
+                <option value="in_stock">In stock</option>
+                <option value="low">Low stock (≤5)</option>
+                <option value="out">Out of stock</option>
+              </select>
+              <select className="admin-filter-select" value={invStatus} onChange={(e) => setInvStatus(e.target.value)} aria-label="Status filter">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="draft">Draft</option>
+              </select>
+              <select className="admin-filter-select" value={invCategory} onChange={(e) => setInvCategory(e.target.value)} aria-label="Category filter">
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{'—'.repeat(c.depth)}{c.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={printInventory}
+                disabled={printingInv}
+                className="btn-primary px-4 py-2 text-sm"
+              >
+                {printingInv ? 'Preparing…' : 'Print inventory'}
+              </button>
+            </div>
+          </section>
 
           <section className="admin-panel mt-8 space-y-4">
             <div>
@@ -205,6 +295,41 @@ export default function AdminReportsPage() {
             </p>
           </section>
         </>
+      )}
+
+      {printOpen && (
+        <Modal open onClose={() => setPrintOpen(false)} title="Print report — choose sections" maxWidth="max-w-md">
+          <p className="mb-4 text-sm text-muted">Tick only what you want on the printed page.</p>
+          <div className="space-y-3">
+            {[
+              ['overview', 'Overview (orders, revenue, customers)'],
+              ['revenue', 'Revenue & interest'],
+              ['inventory', 'Inventory summary'],
+              ['recent', 'Recent paid orders'],
+            ].map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={!!printSections[key]}
+                  onChange={() => toggleSection(key)}
+                  className="h-4 w-4 accent-brand-green"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" className="btn-ghost" onClick={() => setPrintOpen(false)}>Cancel</button>
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={!Object.values(printSections).some(Boolean)}
+              onClick={runPrintReport}
+            >
+              Print selected
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

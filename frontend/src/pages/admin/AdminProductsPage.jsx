@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useAdminProducts, useCreateAdminProduct, useDeleteAdminProduct, useFlashSaleSettings, useUpdateAdminProduct, useUpdateFlashSaleSettings } from '../../hooks/admin';
+import { useAdminProducts, useCreateAdminProduct, useDeleteAdminProduct, useFlashSaleSettings, useResetAdminStock, useUpdateAdminProduct, useUpdateFlashSaleSettings } from '../../hooks/admin';
 import { useCategories } from '../../hooks/catalog';
 import { flattenCategories } from '../../lib/categories';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
@@ -14,6 +14,12 @@ import { ProductGridSkeleton } from '../../components/ui/Skeleton';
 import { downloadAdminProductsExport, downloadAdminProductsImportTemplate, uploadAdminProductsImport } from '../../lib/ordersExport';
 import ExportColumnModal from '../../components/admin/ExportColumnModal';
 import { useQueryClient } from '@tanstack/react-query';
+import { printInventoryList } from '../../lib/reportsDocuments';
+import { useCompanyStore } from '../../store/companyStore';
+import { useAuthStore } from '../../store/authStore';
+import { hasPermission } from '../../lib/permissions';
+import api from '../../lib/api';
+import Modal from '../../components/dashboard/Modal';
 
 const EMPTY_DRAFT = {
   name: '',
@@ -441,9 +447,14 @@ function MerchFields({ values, onChange, prefix = '' }) {
 }
 
 export default function AdminProductsPage() {
+  const company = useCompanyStore((s) => s.company);
+  const user = useAuthStore((s) => s.user);
+  const canEdit = hasPermission(user, 'add_edit_products');
+
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [stockStatus, setStockStatus] = useState('');
   const [editing, setEditing] = useState(null);
   const [deactivateId, setDeactivateId] = useState(null);
   const [pageError, setPageError] = useState('');
@@ -451,6 +462,9 @@ export default function AdminProductsPage() {
   const [exporting, setExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState('');
   const qc = useQueryClient();
 
   const params = useMemo(
@@ -458,8 +472,9 @@ export default function AdminProductsPage() {
       search: search.trim() || undefined,
       status: status || undefined,
       category_id: categoryFilter || undefined,
+      stock_status: stockStatus || undefined,
     }),
-    [search, status, categoryFilter]
+    [search, status, categoryFilter, stockStatus]
   );
   const { data: products, isLoading, isError } = useAdminProducts(params);
   const { data: catData } = useCategories();
@@ -468,7 +483,22 @@ export default function AdminProductsPage() {
   const createProduct = useCreateAdminProduct();
   const updateProduct = useUpdateAdminProduct();
   const deleteProduct = useDeleteAdminProduct();
+  const resetStock = useResetAdminStock();
   const [draft, setDraft] = useState(EMPTY_DRAFT);
+
+  const filterLabel = useMemo(() => {
+    const bits = ['DPM inventory'];
+    if (stockStatus === 'in_stock') bits.push('in stock');
+    if (stockStatus === 'low') bits.push('low stock (≤5)');
+    if (stockStatus === 'out') bits.push('out of stock');
+    if (status) bits.push(status);
+    if (categoryFilter) {
+      const cat = categories.find((c) => String(c.id) === String(categoryFilter));
+      if (cat) bits.push(cat.name);
+    }
+    if (search.trim()) bits.push(`“${search.trim()}”`);
+    return bits.join(' · ');
+  }, [stockStatus, status, categoryFilter, search, categories]);
 
   const categoryOptions = (
     <>
@@ -602,9 +632,41 @@ export default function AdminProductsPage() {
     }
   };
 
+  const printInventory = async () => {
+    setPrinting(true);
+    setPageError('');
+    try {
+      const { data } = await api.get('/admin/products', {
+        params: { ...params, inventory: '1' },
+      });
+      printInventoryList(data.data || [], company, { label: filterLabel });
+    } catch {
+      setPageError('Could not load inventory for printing.');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  const confirmReset = async () => {
+    if (resetConfirm.trim().toUpperCase() !== 'RESET') return;
+    setPageError('');
+    try {
+      const res = await resetStock.mutateAsync({
+        ...params,
+        confirm: 'RESET',
+      });
+      setResetOpen(false);
+      setResetConfirm('');
+      setPageSuccess(res.message || `Reset ${res.updated || 0} product(s).`);
+      setTimeout(() => setPageSuccess(''), 5000);
+    } catch (err) {
+      setPageError(err.response?.data?.message || 'Could not reset inventory.');
+    }
+  };
+
   return (
     <div>
-      <AdminPageHeader title="Products" subtitle="Manage catalogue, pricing, categories, and how products appear on cards.">
+      <AdminPageHeader title="Products" subtitle="Manage catalogue, pricing, stock, and how products appear on cards. Inventory tools apply to DPM warehouse stock only (not marketplace shops).">
         <div className="flex flex-wrap gap-3">
           <AdminSearchBar value={search} onChange={setSearch} placeholder="Search products…" className="flex-1 sm:max-w-sm" />
           <AdminFilterBar>
@@ -620,7 +682,21 @@ export default function AdminProductsPage() {
               <option value="inactive">Inactive</option>
               <option value="draft">Draft</option>
             </AdminFilterSelect>
+            <AdminFilterSelect value={stockStatus} onChange={setStockStatus} label="Stock">
+              <option value="">All stock</option>
+              <option value="in_stock">In stock</option>
+              <option value="low">Low stock (≤5)</option>
+              <option value="out">Out of stock</option>
+            </AdminFilterSelect>
           </AdminFilterBar>
+          <button
+            type="button"
+            onClick={printInventory}
+            disabled={printing}
+            className="rounded-lg border border-black/15 bg-white px-4 py-2 text-sm font-bold hover:bg-black/[0.03] disabled:opacity-50 dark:border-white/15 dark:bg-[#1E1E1E]"
+          >
+            {printing ? 'Preparing…' : 'Print inventory'}
+          </button>
           <button
             type="button"
             onClick={() => setExportModalOpen(true)}
@@ -640,6 +716,18 @@ export default function AdminProductsPage() {
             {importing ? 'Importing…' : 'Import CSV'}
             <input type="file" accept=".csv,text/csv" className="hidden" disabled={importing} onChange={importCsv} />
           </label>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                setResetConfirm('');
+                setResetOpen(true);
+              }}
+              className="rounded-lg border border-brand-red/40 bg-brand-red/10 px-4 py-2 text-sm font-bold text-brand-red hover:bg-brand-red/15"
+            >
+              Reset inventory
+            </button>
+          )}
         </div>
       </AdminPageHeader>
 
@@ -657,6 +745,10 @@ export default function AdminProductsPage() {
           {pageSuccess}
         </p>
       )}
+
+      <p className="mb-4 text-xs text-muted">
+        Showing {(products || []).length} product(s) · filters: {filterLabel}. Print / export / reset use these filters.
+      </p>
 
       <FlashSalePanel
         categoryOptions={categoryOptions}
@@ -783,6 +875,38 @@ export default function AdminProductsPage() {
         confirmLabel="Deactivate"
         loading={deleteProduct.isPending}
       />
+
+      {resetOpen && (
+        <Modal open onClose={resetStock.isPending ? undefined : () => setResetOpen(false)} title="Reset inventory?" maxWidth="max-w-md">
+          <p className="text-sm text-muted">
+            This sets <strong>stock to 0</strong> for DPM products matching your current filters
+            ({filterLabel}). Marketplace shop stock is not changed.
+          </p>
+          <p className="mt-3 text-sm text-muted">
+            Type <strong>RESET</strong> to confirm.
+          </p>
+          <input
+            className="input-field mt-3 w-full font-mono uppercase"
+            value={resetConfirm}
+            onChange={(e) => setResetConfirm(e.target.value)}
+            placeholder="RESET"
+            autoFocus
+          />
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" className="btn-ghost" disabled={resetStock.isPending} onClick={() => setResetOpen(false)}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="btn-danger"
+              disabled={resetStock.isPending || resetConfirm.trim().toUpperCase() !== 'RESET'}
+              onClick={confirmReset}
+            >
+              {resetStock.isPending ? 'Resetting…' : 'Reset to zero'}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

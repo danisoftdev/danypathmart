@@ -610,6 +610,19 @@ export function useCreateAdminProduct() {
   });
 }
 
+export function useResetAdminStock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/products/reset-stock', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      qc.invalidateQueries({ queryKey: ['admin-reports'] });
+      qc.invalidateQueries({ queryKey: ['admin-financial-reports'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
 export function useUpdateAdminProduct() {
   const qc = useQueryClient();
   return useMutation({
