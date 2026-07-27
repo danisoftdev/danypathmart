@@ -53,10 +53,10 @@ function TeamMemberCard({ member }) {
   const hasLinks = !!(linkedin || website);
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-black/8 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#1A1A1A] sm:p-5">
+    <article className="group relative flex h-full overflow-hidden rounded-lg border border-black/10 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#1A1A1A] sm:p-5">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green" />
-      <div className="flex gap-3 sm:gap-4">
-        <div className="relative shrink-0">
+      <div className="flex w-full gap-3 sm:gap-4">
+        <div className="flex w-[4.5rem] shrink-0 flex-col items-center gap-2 sm:w-20">
           {photo ? (
             <img
               src={photo}
@@ -68,8 +68,40 @@ function TeamMemberCard({ member }) {
               {(member.name || '?').slice(0, 1)}
             </div>
           )}
+          <div className="flex min-h-[3.25rem] w-full flex-col items-center justify-start gap-1.5">
+            {hasLinks ? (
+              <>
+                {linkedin && (
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="LinkedIn"
+                    aria-label={`${member.name} on LinkedIn`}
+                    className="inline-flex w-full items-center justify-center gap-1 rounded border border-[#0A66C2]/25 bg-[#0A66C2]/5 px-1.5 py-1 text-[10px] font-bold text-[#0A66C2] transition hover:bg-[#0A66C2] hover:text-white"
+                  >
+                    <LinkedInIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">LinkedIn</span>
+                  </a>
+                )}
+                {website && (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Website"
+                    aria-label={`${member.name} website`}
+                    className="inline-flex w-full items-center justify-center gap-1 rounded border border-black/10 px-1.5 py-1 text-[10px] font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
+                  >
+                    <GlobeIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Website</span>
+                  </a>
+                )}
+              </>
+            ) : null}
+          </div>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
           <h3 className="text-[15px] font-extrabold leading-tight text-[#111] dark:text-white sm:text-base">
             {member.name}
           </h3>
@@ -79,36 +111,12 @@ function TeamMemberCard({ member }) {
             </p>
           ) : null}
           {member.bio ? (
-            <p className="mt-2 text-[11.5px] leading-snug text-[#555] dark:text-[#ccc] sm:text-xs sm:leading-relaxed">
+            <p className="mt-2 flex-1 text-[11.5px] leading-snug text-[#555] dark:text-[#ccc] sm:text-xs sm:leading-relaxed">
               {member.bio}
             </p>
-          ) : null}
-          {hasLinks ? (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {linkedin && (
-                <a
-                  href={linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-[#0A66C2]/25 bg-[#0A66C2]/5 px-2.5 py-1 text-[11px] font-bold text-[#0A66C2] transition hover:bg-[#0A66C2] hover:text-white"
-                >
-                  <LinkedInIcon className="h-3 w-3" />
-                  LinkedIn
-                </a>
-              )}
-              {website && (
-                <a
-                  href={website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full border border-black/10 px-2.5 py-1 text-[11px] font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
-                >
-                  <GlobeIcon className="h-3 w-3" />
-                  Website
-                </a>
-              )}
-            </div>
-          ) : null}
+          ) : (
+            <div className="flex-1" />
+          )}
         </div>
       </div>
     </article>
@@ -249,7 +257,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-5xl px-4">
             <h2 className="text-2xl font-extrabold text-brand-green md:text-3xl">{page.team_heading}</h2>
             {page.team_intro && <p className="mt-2 max-w-2xl text-sm text-muted">{page.team_intro}</p>}
-            <div className={`mt-6 grid items-start gap-4 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+            <div className={`mt-6 grid auto-rows-fr items-stretch gap-4 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
               {team.map((m) => (
                 <TeamMemberCard key={m.id} member={m} />
               ))}
