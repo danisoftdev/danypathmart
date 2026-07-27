@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { usePublicAboutPage } from '../hooks/storefront';
 import { resolveImageUrl } from '../lib/currency';
+import { GlobeIcon, LinkedInIcon } from '../components/icons';
 
 function Paragraphs({ text }) {
   const parts = String(text || '')
@@ -52,34 +53,34 @@ function TeamMemberCard({ member }) {
   const hasLinks = !!(linkedin || website);
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-8">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-7">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green opacity-90" />
-      <div className="flex flex-1 flex-col gap-5 sm:flex-row sm:items-start">
+      <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start">
         <div className="relative mx-auto shrink-0 sm:mx-0">
           <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-gold/50 via-brand-green/30 to-transparent blur-[2px] transition group-hover:blur-[3px]" />
           {photo ? (
             <img
               src={photo}
               alt={member.name}
-              className="relative h-24 w-24 rounded-full object-cover ring-4 ring-white dark:ring-[#1A1A1A] sm:h-28 sm:w-28"
+              className="relative h-20 w-20 rounded-full object-cover ring-4 ring-white dark:ring-[#1A1A1A] sm:h-24 sm:w-24"
             />
           ) : (
-            <div className="relative flex h-24 w-24 items-center justify-center rounded-full bg-brand-green text-2xl font-extrabold text-white ring-4 ring-white dark:ring-[#1A1A1A] sm:h-28 sm:w-28">
+            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-brand-green text-2xl font-extrabold text-white ring-4 ring-white dark:ring-[#1A1A1A] sm:h-24 sm:w-24">
               {(member.name || '?').slice(0, 1)}
             </div>
           )}
         </div>
         <div className="flex min-w-0 flex-1 flex-col text-center sm:text-left">
-          <h3 className="line-clamp-1 text-xl font-extrabold tracking-tight text-[#111] dark:text-white sm:text-2xl">
+          <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-[#111] dark:text-white sm:text-xl">
             {member.name}
           </h3>
-          <p className="mt-1 line-clamp-1 min-h-[1.25rem] text-sm font-bold tracking-wide text-brand-gold sm:text-base">
+          <p className="mt-0.5 line-clamp-1 min-h-[1.1rem] text-xs font-bold tracking-wide text-brand-gold sm:text-sm">
             {member.role_title || '\u00A0'}
           </p>
-          <p className="mt-4 min-h-[8.5rem] text-[15px] leading-relaxed text-[#555] line-clamp-6 dark:text-[#ccc]">
+          <p className="mt-3 flex-1 text-[12px] leading-[1.45] text-[#555] dark:text-[#ccc] sm:text-[12.5px]">
             {member.bio || '\u00A0'}
           </p>
-          <div className="mt-auto flex min-h-[2.25rem] flex-wrap items-center justify-center gap-2 pt-5 sm:justify-start">
+          <div className="mt-4 flex min-h-[2.25rem] flex-wrap items-center justify-center gap-2 sm:justify-start">
             {hasLinks ? (
               <>
                 {linkedin && (
@@ -87,8 +88,9 @@ function TeamMemberCard({ member }) {
                     href={linkedin}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center rounded-full border border-brand-green/25 px-3 py-1.5 text-xs font-bold text-brand-green transition hover:bg-brand-green hover:text-white"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#0A66C2]/30 bg-[#0A66C2]/5 px-3 py-1.5 text-xs font-bold text-[#0A66C2] transition hover:bg-[#0A66C2] hover:text-white dark:border-[#0A66C2]/50 dark:text-[#6EB3F7]"
                   >
+                    <LinkedInIcon className="h-3.5 w-3.5" />
                     LinkedIn
                   </a>
                 )}
@@ -97,8 +99,9 @@ function TeamMemberCard({ member }) {
                     href={website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
                   >
+                    <GlobeIcon className="h-3.5 w-3.5" />
                     Website
                   </a>
                 )}
