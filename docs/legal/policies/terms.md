@@ -2,7 +2,7 @@ Last updated: July 2026
 
 1. About DanyPathMart and operating status
 
-DanyPathMart ("DPM", "we", "us") operates an online marketplace and shopping platform at https://danypathmart.store, focused on school supplies and related goods in Ghana. We sell products directly as DPM and host independent shops on their own storefront links.
+DanyPathMart ("DPM", "we", "us") is a product company under DSD Groups. DPM operates an online marketplace and shopping platform at https://danypathmart.store, focused on school supplies and related goods in Ghana. We sell products directly as DPM and host independent shops on their own storefront links.
 
 Operating status: DPM is currently run as an online business. We are not yet formally registered with Ghanaian authorities (for example, the Registrar General's Department). As our audience and operations grow, we plan to complete formal registration and update these policies when that happens. By using the site you acknowledge this status.
 

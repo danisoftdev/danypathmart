@@ -2,38 +2,43 @@ Last updated: July 2026
 
 Welcome to the DanyPathMart Seller Handbook.
 
-This guide explains, in plain language, who DanyPathMart is, what we stand for, and how selling works day to day. It is written for shop owners who use the seller dashboard at https://danypathmart.store/seller.
+This guide explains, in plain language, who DanyPathMart is, what DSD Groups stands for, and how selling works day to day. It is written for shop owners who use the seller dashboard at https://danypathmart.store/seller.
 
-The legal rules you agreed to when you applied are in the Shop Seller Policy at /policies/shop-seller-policy. This handbook is the practical “how to” guide, plus our mission, vision, and values.
+The legal rules you agreed to when you applied are in the Shop Seller Policy at /policies/shop-seller-policy. This handbook is the practical “how to” guide, plus the group mission, vision, and values.
 
 Tagline: Your shop. Your sales. Our platform.
 
 Platform note: DanyPathMart is currently operated as an online marketplace at https://danypathmart.store and is not yet formally registered in Ghana. We plan to complete formal registration as the platform grows. You remain responsible for your own shop’s business registration, tax, and any licences that apply to you in Ghana.
 
 
-1. Mission, vision, and core values
+1. DSD Groups — vision, mission, and core values
 
-Mission
-DanyPathMart helps Ghanaian shops sell online with their own storefront link, while sellers keep 100% of product sales.
+DanyPathMart (DPM) is a product company under DSD Groups. The vision, mission, and values below belong to DSD Groups and guide every product we build, including DPM.
 
 Vision
-A Ghana where local shops sell online as easily as they sell in person — fairly, clearly, and on their own terms.
+To build a family of software products that power everyday life — commerce, services, and opportunity — for the people traditional tech leaves behind.
+
+Mission
+We find the problems ordinary people face and solve them with sharp, affordable software — expanding access wherever technology underserves them.
 
 Core values
 
-• Honesty — True prices, stock, photos, and delivery promises.
-• Reliability — Confirm payment, pack carefully, deliver or hand over as agreed, and keep order status up to date.
-• Ownership — Your shop, your sales money, and your reputation are yours.
-• Clarity — Plain rules and clear fees. Subscription keeps your link live; it is not a commission on sales.
-• Partnership — DPM hosts the platform and tools; you run the business and serve your customers.
-• Safety — No fake, illegal, counterfeit, or banned listings.
+• Problem-solving — we build for real problems, not trends
+• Ownership — we take full responsibility for what we build
+• Speed — we move fast and iterate faster than the problem changes
+• Trust — every product carries the DSD name
+• Growth — for our users, our team, and the company
 
 
-2. Who we are
+2. Who we are — DanyPathMart under DSD Groups
 
-DanyPathMart (DPM) is an online marketplace in Ghana focused on school supplies and related goods. We sell products directly as DPM on the main shop (/shop), and we also host independent shops on their own storefront links (/stores/your-shop-slug).
+DSD Groups builds software products for everyday life. DanyPathMart is one of those products: an online marketplace in Ghana focused on school supplies and related goods, built so local shops and customers are not left behind by traditional tech.
+
+On DPM we sell products directly as DanyPathMart on the main shop (/shop), and we also host independent shops on their own storefront links (/stores/your-shop-slug).
 
 Customers find your products through your shop link. You manage products, orders, chat, payments, and renewals from the seller dashboard.
+
+In short: DSD Groups is the parent; DanyPathMart is the commerce product you sell on.
 
 
 3. What we believe about money
