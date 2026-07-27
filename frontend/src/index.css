@@ -269,3 +269,80 @@ body {
     @apply rounded-2xl border border-dashed border-brand-green/30 bg-brand-green/5 p-8 text-center;
   }
 }
+
+/* Legal policies — always Times New Roman; formatting via bold/italic/lists only */
+.policy-rich-editor,
+.prose-policy {
+  font-family: 'Times New Roman', Times, serif;
+}
+
+.policy-rich-editor p,
+.prose-policy p {
+  margin: 0 0 0.85em;
+}
+
+.policy-rich-editor p:last-child,
+.prose-policy p:last-child {
+  margin-bottom: 0;
+}
+
+.policy-rich-editor h2,
+.prose-policy h2 {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.15em;
+  font-weight: 700;
+  margin: 1.25em 0 0.5em;
+}
+
+.policy-rich-editor h2:first-child,
+.prose-policy h2:first-child {
+  margin-top: 0;
+}
+
+.policy-rich-editor h3,
+.prose-policy h3,
+.policy-rich-editor h4,
+.prose-policy h4 {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 1.05em;
+  font-weight: 700;
+  margin: 1em 0 0.4em;
+}
+
+.policy-rich-editor ul,
+.prose-policy ul {
+  list-style: disc;
+  margin: 0 0 0.85em;
+  padding-left: 1.5em;
+}
+
+.policy-rich-editor ol,
+.prose-policy ol {
+  list-style: decimal;
+  margin: 0 0 0.85em;
+  padding-left: 1.5em;
+}
+
+.policy-rich-editor li,
+.prose-policy li {
+  margin: 0.25em 0;
+}
+
+.policy-rich-editor strong,
+.policy-rich-editor b,
+.prose-policy strong,
+.prose-policy b {
+  font-weight: 700;
+}
+
+.policy-rich-editor em,
+.policy-rich-editor i,
+.prose-policy em,
+.prose-policy i {
+  font-style: italic;
+}
+
+.policy-rich-editor u,
+.prose-policy u {
+  text-decoration: underline;
+}

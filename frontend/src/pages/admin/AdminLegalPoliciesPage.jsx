@@ -14,6 +14,8 @@ import AdminTable, { AdminTableCell, AdminTableRow } from '../../components/admi
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import Modal from '../../components/dashboard/Modal';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
+import PolicyRichTextEditor from '../../components/legal/PolicyRichTextEditor';
+import { normalizePolicyBody } from '../../lib/policyHtml';
 
 function slugify(title) {
   return title
@@ -50,10 +52,12 @@ function PolicyModal({ policy, onClose, onSave, loading, canManage }) {
   const submit = (e) => {
     e.preventDefault();
     if (!form.title?.trim() || !form.slug?.trim()) return;
+    const body = normalizePolicyBody(form.body || '');
+    if (!body.replace(/<[^>]+>/g, '').trim()) return;
     onSave({
       slug: form.slug.trim(),
       title: form.title.trim(),
-      body: form.body?.trim() || '',
+      body,
       is_published: !!form.is_published,
       show_in_footer: !!form.show_in_footer,
       sort_order: Number(form.sort_order) || 0,
@@ -61,7 +65,7 @@ function PolicyModal({ policy, onClose, onSave, loading, canManage }) {
   };
 
   return (
-    <Modal open onClose={loading ? undefined : onClose} title={policy?.id ? 'Edit policy' : 'New policy'} maxWidth="max-w-2xl">
+    <Modal open onClose={loading ? undefined : onClose} title={policy?.id ? 'Edit policy' : 'New policy'} maxWidth="max-w-3xl">
       <form onSubmit={submit} className="space-y-4">
         <label className="block text-sm">
           <span className="mb-1 block font-bold">Title</span>
@@ -81,15 +85,14 @@ function PolicyModal({ policy, onClose, onSave, loading, canManage }) {
           />
           <p className="mt-1 text-xs text-muted">Storefront URL: /policies/{form.slug || '…'}</p>
         </label>
-        <label className="block text-sm">
+        <div className="block text-sm">
           <span className="mb-1 block font-bold">Body</span>
-          <textarea
-            className="input-field w-full min-h-[200px] font-mono text-sm"
+          <PolicyRichTextEditor
             value={form.body}
-            onChange={(e) => set('body', e.target.value)}
-            placeholder="Use blank lines between paragraphs."
+            onChange={(html) => set('body', html)}
+            disabled={!canManage}
           />
-        </label>
+        </div>
         <label className="block text-sm">
           <span className="mb-1 block font-bold">Sort order</span>
           <input type="number" className="input-field w-24" value={form.sort_order} onChange={(e) => set('sort_order', e.target.value)} />

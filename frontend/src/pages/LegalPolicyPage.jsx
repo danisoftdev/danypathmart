@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { usePublicLegalPolicy } from '../hooks/storefront';
 import { useCompanyStore } from '../store/companyStore';
+import { looksLikeHtml, plainTextToHtml, sanitizePolicyHtml } from '../lib/policyHtml';
 
 function PolicyBody({ text }) {
   if (!text?.trim()) {
@@ -15,27 +16,13 @@ function PolicyBody({ text }) {
     );
   }
 
-  const blocks = text.split(/\n\n+/);
+  const html = sanitizePolicyHtml(looksLikeHtml(text) ? text : plainTextToHtml(text));
 
   return (
-    <div className="prose-policy mt-8 rounded-2xl border border-black/8 bg-white p-6 text-sm leading-relaxed dark:border-white/10 dark:bg-[#1E1E1E]">
-      {blocks.map((para) => {
-        const key = para.slice(0, 48);
-        const isHeading = /^\d+\.\s/.test(para.trim()) && para.length < 120;
-        if (isHeading) {
-          return (
-            <h2 key={key} className="mb-2 mt-6 text-base font-extrabold first:mt-0 text-[#111111] dark:text-white">
-              {para.trim()}
-            </h2>
-          );
-        }
-        return (
-          <p key={key} className="mb-4 last:mb-0 whitespace-pre-wrap text-muted">
-            {para}
-          </p>
-        );
-      })}
-    </div>
+    <div
+      className="prose-policy mt-8 rounded-2xl border border-black/8 bg-white p-6 text-[15px] leading-relaxed text-[#333] dark:border-white/10 dark:bg-[#1E1E1E] dark:text-[#ddd]"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 

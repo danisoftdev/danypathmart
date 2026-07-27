@@ -147,8 +147,9 @@ final class LegalPolicyService
             throw new \InvalidArgumentException('Title is required.');
         }
 
-        $body = trim((string) ($input['body'] ?? ''));
-        if (strlen($body) < 20) {
+        $body = self::sanitizeBody((string) ($input['body'] ?? ''));
+        $plainLen = strlen(trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')));
+        if ($plainLen < 20) {
             throw new \InvalidArgumentException('Policy body must be at least 20 characters.');
         }
 
@@ -186,6 +187,32 @@ final class LegalPolicyService
         }
 
         return $slug;
+    }
+
+    /**
+     * Allow rich-text formatting (bold/italic/lists/headings) while stripping scripts and attributes.
+     * Font is enforced in the frontend CSS (Times New Roman).
+     */
+    public static function sanitizeBody(string $body): string
+    {
+        $body = trim($body);
+        if ($body === '') {
+            return '';
+        }
+
+        // Legacy plain text — keep as-is (frontend renders paragraphs).
+        if (!preg_match('/<\/?(?:p|br|strong|b|em|i|u|ol|ul|li|h[2-4])\b/i', $body)) {
+            return $body;
+        }
+
+        $allowed = '<p><br><strong><b><em><i><u><ol><ul><li><h2><h3><h4>';
+        $clean = strip_tags($body, $allowed);
+
+        // Drop any leftover attributes (onclick, style, class, href, etc.).
+        $clean = preg_replace('/<(p|br|strong|b|em|i|u|ol|ul|li|h2|h3|h4)(\s[^>]*)?>/i', '<$1>', $clean) ?? $clean;
+        $clean = preg_replace('/<\/?(script|iframe|object|embed|link|meta|style)\b[^>]*>/i', '', $clean) ?? $clean;
+
+        return trim($clean);
     }
 
     /** @param array<string,mixed> $row */
