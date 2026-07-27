@@ -44,14 +44,13 @@ if ($row === false) {
     Response::error('Your session expired. Please log in again.', 401, ['code' => 'temp_token_invalid']);
 }
 
-// 5 wrong codes -> 15-minute lockout.
-$limit = RateLimiter::hit('2fa:' . (int) $row['id'], 5, 900);
-if (!$limit['allowed']) {
-    header('Retry-After: ' . $limit['retry_after']);
-    Response::error('Too many incorrect codes. Try again later.', 429, ['retry_after' => $limit['retry_after']]);
-}
-
+// Success: only count failed codes toward the lockout.
 if (empty($row['totp_secret']) || !TOTPService::verify((string) $row['totp_secret'], $code)) {
+    $limit = RateLimiter::hit('2fa:' . (int) $row['id'], 5, 900);
+    if (!$limit['allowed']) {
+        header('Retry-After: ' . $limit['retry_after']);
+        Response::error('Too many incorrect codes. Try again later.', 429, ['retry_after' => $limit['retry_after']]);
+    }
     Response::error('Incorrect authenticator code', 401, ['code' => 'totp_invalid']);
 }
 

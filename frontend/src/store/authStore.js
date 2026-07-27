@@ -2,11 +2,21 @@ import { create } from 'zustand';
 import api, { setToken, clearToken, getToken } from '../lib/api';
 import { isDevAdminBypassEnabled } from '../lib/devAdmin';
 
+function readStored2faTemp() {
+  try {
+    return sessionStorage.getItem('dpm_2fa_temp') || null;
+  } catch {
+    return null;
+  }
+}
+
+const stored2faTemp = readStored2faTemp();
+
 export const useAuthStore = create((set, get) => ({
   user: null,
   isAuthenticated: !!getToken(),
-  requires2FA: false,
-  tempToken: null,
+  requires2FA: !!stored2faTemp,
+  tempToken: stored2faTemp,
   loading: false,
 
   /**
@@ -16,8 +26,25 @@ export const useAuthStore = create((set, get) => ({
   async login(email, password) {
     const { data } = await api.post('/auth/login', { email, password });
     if (data.requires_2fa) {
-      set({ requires2FA: true, tempToken: data.temp_token });
+      // Drop any leftover JWT so the 2FA step is not treated as an active session.
+      clearToken();
+      try {
+        sessionStorage.setItem('dpm_2fa_temp', data.temp_token);
+      } catch {
+        /* ignore */
+      }
+      set({
+        user: null,
+        isAuthenticated: false,
+        requires2FA: true,
+        tempToken: data.temp_token,
+      });
       return { requires2FA: true };
+    }
+    try {
+      sessionStorage.removeItem('dpm_2fa_temp');
+    } catch {
+      /* ignore */
     }
     get().setSession(data);
     if (data.user?.role === 'customer') {
@@ -41,6 +68,11 @@ export const useAuthStore = create((set, get) => ({
   /** Persist a successful auth response (JWT + user). */
   setSession(data) {
     setToken(data.access_token);
+    try {
+      sessionStorage.removeItem('dpm_2fa_temp');
+    } catch {
+      /* ignore */
+    }
     set({
       user: data.user,
       isAuthenticated: true,
@@ -99,6 +131,11 @@ export const useAuthStore = create((set, get) => ({
 
   reset() {
     clearToken();
+    try {
+      sessionStorage.removeItem('dpm_2fa_temp');
+    } catch {
+      /* ignore */
+    }
     set({ user: null, isAuthenticated: false, requires2FA: false, tempToken: null });
   },
 }));

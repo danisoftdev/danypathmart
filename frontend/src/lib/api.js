@@ -53,16 +53,19 @@ api.interceptors.response.use(
     const original = error.config;
     const status = error.response?.status;
     const code = error.response?.data?.code;
-    const isAuthRoute =
-      original?.url?.includes('/auth/login') ||
-      original?.url?.includes('/auth/refresh');
-    // Business "please sign in" responses — not an expired JWT session.
+    const url = typeof original?.url === 'string' ? original.url : '';
+    // Credential / challenge endpoints return 401 for bad input — not an expired JWT.
+    // Treating those as session expiry was kicking users off /2fa back to /login.
+    const isAuthChallenge =
+      /\/auth\/(login|refresh|register|logout|forgot|reset|verify-email|2fa|webauthn|oauth|dev-admin)/.test(
+        url
+      );
     const isSoftAuth =
       code === 'account_required' ||
       code === 'forbidden' ||
-      (typeof original?.url === 'string' && original.url.includes('/public/support-chat/start'));
+      url.includes('/public/support-chat/start');
 
-    if (status === 401 && !original?._retry && !isAuthRoute && !isSoftAuth) {
+    if (status === 401 && !original?._retry && !isAuthChallenge && !isSoftAuth) {
       original._retry = true;
       try {
         const token = await refreshAccessToken();

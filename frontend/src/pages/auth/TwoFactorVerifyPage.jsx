@@ -16,6 +16,7 @@ export default function TwoFactorVerifyPage() {
   const [backupCode, setBackupCode] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [otpKey, setOtpKey] = useState(0);
   const submittedRef = useRef(false);
 
   // After a successful verify, setSession clears tempToken before navigate
@@ -32,6 +33,7 @@ export default function TwoFactorVerifyPage() {
     if (!data?.access_token || !data?.user) {
       setError('Login response was incomplete. Please try again.');
       submittedRef.current = false;
+      setOtpKey((k) => k + 1);
       return;
     }
     setSession(data);
@@ -49,6 +51,7 @@ export default function TwoFactorVerifyPage() {
     } catch (err) {
       setError(err.response?.data?.message || 'Incorrect code. Try again.');
       submittedRef.current = false;
+      setOtpKey((k) => k + 1);
     } finally {
       setSubmitting(false);
     }
@@ -95,7 +98,7 @@ export default function TwoFactorVerifyPage() {
           </button>
         </form>
       ) : (
-        <OTPInput onComplete={verifyTotp} disabled={submitting} />
+        <OTPInput key={otpKey} onComplete={verifyTotp} disabled={submitting} />
       )}
 
       <button

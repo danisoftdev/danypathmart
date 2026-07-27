@@ -80,14 +80,18 @@ if ((int) $user['totp_enabled'] === 1) {
 $tokens = AuthTokens::issueFor($user);
 
 if (($user['role'] ?? '') === 'customer') {
-    NotificationService::notifyAdmins(
-        $pdo,
-        'Customer sign-in — ' . (string) $user['name'],
-        (string) $user['email'] . ' signed in.'
-        . "\nIP: " . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
-        '/admin/users',
-        'admin_auth'
-    );
+    try {
+        NotificationService::notifyAdmins(
+            $pdo,
+            'Customer sign-in — ' . (string) $user['name'],
+            (string) $user['email'] . ' signed in.'
+            . "\nIP: " . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+            '/admin/users',
+            'admin_auth'
+        );
+    } catch (\Throwable) {
+        // Never block login because of notification/email failures.
+    }
 }
 
 $payload = ['message' => 'Logged in successfully.'] + $tokens;
