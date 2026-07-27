@@ -2,23 +2,101 @@ Last updated: July 2026
 
 Welcome to the DanyPathMart Seller Handbook.
 
-This guide explains, in plain language, how selling on DanyPathMart works day to day. It is written for shop owners who use the seller dashboard at https://danypathmart.store/seller.
+This guide explains, in plain language, who DanyPathMart is, what we stand for, and how selling works day to day. It is written for shop owners who use the seller dashboard at https://danypathmart.store/seller.
 
-The legal rules you agreed to when you applied are in the Shop Seller Policy at /policies/shop-seller-policy. This handbook is the practical “how to” guide.
+The legal rules you agreed to when you applied are in the Shop Seller Policy at /policies/shop-seller-policy. This handbook is the practical “how to” guide, plus our mission, vision, and values.
+
+Tagline: Your shop. Your sales. Our platform.
 
 Platform note: DanyPathMart is currently operated as an online marketplace at https://danypathmart.store and is not yet formally registered in Ghana. We plan to complete formal registration as the platform grows. You remain responsible for your own shop’s business registration, tax, and any licences that apply to you in Ghana.
 
 
-1. What selling on DanyPathMart means
+1. Mission, vision, and core values
 
-DanyPathMart (DPM) hosts your shop on our website. Customers find and buy your products through your own shop link.
+Mission
+DanyPathMart helps Ghanaian shops sell online with their own storefront link, while sellers keep 100% of product sales.
 
-You keep 100% of the money from your product sales. DPM does not take a commission on those orders. What you pay DPM for is your shop subscription (registration and renewal), which keeps your public shop link open and visible.
+Vision
+A Ghana where local shops sell online as easily as they sell in person — fairly, clearly, and on their own terms.
+
+Core values
+
+• Honesty — True prices, stock, photos, and delivery promises.
+• Reliability — Confirm payment, pack carefully, deliver or hand over as agreed, and keep order status up to date.
+• Ownership — Your shop, your sales money, and your reputation are yours.
+• Clarity — Plain rules and clear fees. Subscription keeps your link live; it is not a commission on sales.
+• Partnership — DPM hosts the platform and tools; you run the business and serve your customers.
+• Safety — No fake, illegal, counterfeit, or banned listings.
+
+
+2. Who we are
+
+DanyPathMart (DPM) is an online marketplace in Ghana focused on school supplies and related goods. We sell products directly as DPM on the main shop (/shop), and we also host independent shops on their own storefront links (/stores/your-shop-slug).
+
+Customers find your products through your shop link. You manage products, orders, chat, payments, and renewals from the seller dashboard.
+
+
+3. What we believe about money
+
+Customer buys your product → money goes to you (Paystack, MoMo, or cash).
+You pay DPM → only for shop registration or renewal subscription.
+DPM does not take a commission on shop product sales.
 
 Think of it this way: subscription is the fee to have your storefront on DPM. Sales money goes to you, not through a DPM “sales wallet.”
 
 
-2. Getting started — apply, invite, or approval
+4. What DPM does — and does not do
+
+DPM does:
+• Host your public shop link and seller dashboard
+• Provide tools for products, orders, live chat, billing, and payment settings
+• Collect subscription / registration fees for the platform
+• Support platform issues (login, subscription payment to DPM, site bugs)
+• Enforce platform rules for trust and safety
+
+DPM does not:
+• Take a cut of your normal shop product sales
+• Hold your sales proceeds in a DPM wallet for ordinary shop checkout
+• Run courier delivery for your shop orders (you arrange delivery or pickup)
+• Replace your duty to register your own business, pay tax, or hold licences that apply to you
+
+
+5. Our seller promise
+
+When you sell on DanyPathMart, you commit to:
+
+• Use your own shop link for your products (not the main DPM /shop cart for your items)
+• Keep prices, stock, and descriptions honest
+• Turn on at least one way for customers to pay
+• Mark MoMo and cash orders as paid only after you have received the money
+• Update order status from Preparing → Out for delivery → Delivered
+• Keep a reachable customer service phone or WhatsApp number on your profile
+• Reply to customers promptly and professionally
+• Renew your subscription so your public link stays open
+• Follow the Shop Seller Policy and Acceptable Use Policy
+
+
+6. What customers should expect from DPM shops
+
+Buyers shopping on a DPM shop link should be able to expect:
+
+• Clear product photos, prices in GHS, and honest stock
+• A way to reach the shop (phone / WhatsApp and/or live chat)
+• Payment options the shop has enabled (Paystack, MoMo, and/or pay in person)
+• Order status updates after payment is confirmed
+• Delivery or pickup arranged clearly with the shop
+
+If something goes wrong on a shop order, the shop handles it first with the customer. Escalate to DPM under the Complaints & Disputes Policy when needed.
+
+
+7. What selling on DanyPathMart means
+
+DanyPathMart hosts your shop on our website. Customers find and buy your products through your own shop link.
+
+You keep 100% of the money from your product sales. What you pay DPM for is your shop subscription (registration and renewal), which keeps your public shop link open and visible.
+
+
+8. Getting started — apply, invite, or approval
 
 To sell, you need a customer account on DanyPathMart, then a shop attached to that account.
 
@@ -31,7 +109,7 @@ Sometimes a registration fee is required when you apply (if billing is turned on
 Until you have a shop, opening /seller will simply guide you to apply.
 
 
-3. Your shop link (this is the most important link)
+9. Your shop link (this is the most important link)
 
 Your public shop address looks like:
 
@@ -44,7 +122,7 @@ Do not tell customers to buy your items from the main DPM shop at /shop. Your it
 If your subscription has expired, customers who open your link will usually see that the store is not available. You can still log into the seller dashboard to renew and bring the link back.
 
 
-4. Seller dashboard — where everything lives
+10. Seller dashboard — where everything lives
 
 After approval, go to https://danypathmart.store/seller.
 
@@ -61,7 +139,7 @@ From the seller menu you can:
 You can also open your personal customer account pages (for example security settings) from the seller area when linked in the menu.
 
 
-5. Subscription and renewals
+11. Subscription and renewals
 
 Your subscription is what keeps your public shop link alive.
 
@@ -72,7 +150,7 @@ If the subscription lapses, customers lose access to your public link until you 
 Subscription fees are separate from customer orders. Paying a customer for a product is not the same as paying DPM for your shop subscription.
 
 
-6. How customers pay you (Seller → Payments / Payouts)
+12. How customers pay you (Seller → Payments / Payouts)
 
 You must turn on at least one way for customers to pay. You can enable more than one.
 
@@ -85,7 +163,7 @@ Paystack (online): The customer pays online (card or MoMo through Paystack). Mon
 DPM does not hold your sales proceeds for normal shop checkout. Paystack settles to you; MoMo and cash stay with you directly.
 
 
-7. Adding and managing products
+13. Adding and managing products
 
 Open Seller → Products.
 
@@ -98,7 +176,7 @@ There is no special “pre-order” or air-freight mode for marketplace shops �
 When stock hits zero, customers should not be able to buy that item until you restock.
 
 
-8. When an order arrives — step by step
+14. When an order arrives — step by step
 
 Orders from your shop link appear under Seller → Orders.
 
@@ -117,21 +195,21 @@ You can add a short note for the customer when you update status. Do not skip ah
 You can export order lists as CSV from the orders area if you need records for your own bookkeeping.
 
 
-9. Delivery and shop pickup
+15. Delivery and shop pickup
 
 You are responsible for getting the order to the customer when they choose delivery. DPM does not run a courier for your shop orders. Delivery fees are usually arranged between you and the customer (they are not automatically added inside checkout the way DPM’s own catalog shipping works). Be clear about cost and timing in your chat or phone call.
 
 If you offer pickup, turn it on in Seller → Settings / Profile and set your map pin so customers know where to come. At checkout on your shop link, they can choose pickup when that option is available. Still update the order statuses so both you and the customer can see progress.
 
 
-10. Unpaid orders and stock
+16. Unpaid orders and stock
 
 When someone places an order with MoMo or pay in person, that stock is reserved for a limited time so two people cannot buy the same last item. If they never pay, the order is cancelled automatically after the reservation period (often about 48 hours, depending on platform settings) and the stock goes back.
 
 Follow up politely with customers who said they would pay by MoMo or in person. Mark paid quickly once money arrives so you do not leave orders stuck.
 
 
-11. Talking to customers — phone and live chat
+17. Talking to customers — phone and live chat
 
 Put a clear customer service phone or WhatsApp number on your shop profile. It appears on your public store page so buyers can reach you.
 
@@ -140,33 +218,26 @@ Customers can also message through DPM’s live chat when their conversation is 
 If the problem is about the DPM platform itself (login, subscription payment to DPM, a site bug), use Contact on the main website. If the problem is about a shop order payment or delivery you arranged, you handle it first with the customer. Escalate to DPM only when needed under the Complaints & Disputes Policy.
 
 
-12. Sharing your shop and referring other sellers
+18. Sharing your shop and referring other sellers
 
 On your Overview page you can copy your public store link to share with buyers.
 
 If DPM’s referral program is enabled, you may also see a link to invite someone else to apply as a shop (often /sell?ref=…). Rewards, if any, are set by DPM (for example a discount or share related to registration fees). Promoters are a separate program with their own /promoter dashboard — that is not the same as your seller tools.
 
 
-13. Storefront privacy modes
+19. Storefront privacy modes
 
 In shop settings you may see options that control how “open” your store feels on the marketplace (for example whether browse-all-shops style links are shown). Use the mode that matches how you want customers to shop with you. Your own /stores/your-slug link still works when your subscription is active.
 
 
-14. Trust, reports, and staying in good standing
+20. Trust, reports, and staying in good standing
 
 Customers can report a problem only from an order they actually placed with you. Respond calmly and professionally. Repeated or serious issues can lead to warnings, restrictions, or suspension under the Shop Seller Policy and Acceptable Use Policy.
 
 Sell only products you are allowed to sell. No illegal goods, counterfeits, or anything banned in the Acceptable Use Policy. Keep prices and stock accurate.
 
 
-15. Money summary (easy version)
-
-Customer buys your product → money goes to you (Paystack / MoMo / cash).
-You pay DPM → only for shop registration or renewal subscription.
-DPM does not take a cut of your product sales on the shop storefront model.
-
-
-16. Quick checklist before you go live
+21. Quick checklist before you go live
 
 ☐ Your subscription is active (or you have an approved waiver / free period)
 ☐ At least one payment method is turned on in Seller → Payments
@@ -177,9 +248,10 @@ DPM does not take a cut of your product sales on the shop storefront model.
 ☐ You know how to move an order from Preparing to Delivered
 ☐ You understand that delivery or pickup is your responsibility
 ☐ You understand your own business registration and tax duties in Ghana
+☐ You have read the seller promise and core values above
 
 
-17. Where to read more
+22. Where to read more
 
 Shop Seller Policy — /policies/shop-seller-policy
 Payment Policy — /policies/payments
