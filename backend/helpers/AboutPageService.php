@@ -9,6 +9,11 @@ use PDO;
 /** Single-row About Us CMS + team members. */
 final class AboutPageService
 {
+    public const TEAM_NAME_MAX = 60;
+    public const TEAM_ROLE_MAX = 40;
+    public const TEAM_BIO_MIN = 140;
+    public const TEAM_BIO_MAX = 260;
+
     /** @return array<string,mixed> */
     public static function getAdmin(PDO $pdo): array
     {
@@ -100,9 +105,9 @@ final class AboutPageService
     /** @param array<string,mixed> $input @return array<string,mixed> */
     public static function createTeamMember(PDO $pdo, array $input): array
     {
-        $name = self::str($input['name'] ?? '', 120, true);
-        $role = self::str($input['role_title'] ?? '', 160);
-        $bio = self::text($input['bio'] ?? '');
+        $name = self::str($input['name'] ?? '', self::TEAM_NAME_MAX, true);
+        $role = self::str($input['role_title'] ?? '', self::TEAM_ROLE_MAX);
+        $bio = self::teamBio($input['bio'] ?? '', (bool) ($input['is_visible'] ?? true));
         $photo = self::str($input['photo_url'] ?? '', 500);
         $linkedin = self::str($input['linkedin_url'] ?? '', 500);
         $website = self::str($input['website_url'] ?? '', 500);
@@ -132,14 +137,16 @@ final class AboutPageService
             throw new \InvalidArgumentException('Team member not found.');
         }
 
-        $name = array_key_exists('name', $input) ? self::str($input['name'], 120, true) : $existing['name'];
-        $role = array_key_exists('role_title', $input) ? self::str($input['role_title'], 160) : $existing['role_title'];
-        $bio = array_key_exists('bio', $input) ? self::text($input['bio']) : ($existing['bio'] ?? '');
+        $name = array_key_exists('name', $input) ? self::str($input['name'], self::TEAM_NAME_MAX, true) : $existing['name'];
+        $role = array_key_exists('role_title', $input) ? self::str($input['role_title'], self::TEAM_ROLE_MAX) : $existing['role_title'];
+        $visible = array_key_exists('is_visible', $input) ? self::boolInt($input['is_visible']) : (int) $existing['is_visible'];
+        $bio = array_key_exists('bio', $input)
+            ? self::teamBio($input['bio'], (bool) $visible)
+            : self::teamBio($existing['bio'] ?? '', (bool) $visible);
         $photo = array_key_exists('photo_url', $input) ? self::str($input['photo_url'], 500) : ($existing['photo_url'] ?? '');
         $linkedin = array_key_exists('linkedin_url', $input) ? self::str($input['linkedin_url'], 500) : ($existing['linkedin_url'] ?? '');
         $website = array_key_exists('website_url', $input) ? self::str($input['website_url'], 500) : ($existing['website_url'] ?? '');
         $sort = array_key_exists('sort_order', $input) ? (int) $input['sort_order'] : (int) $existing['sort_order'];
-        $visible = array_key_exists('is_visible', $input) ? self::boolInt($input['is_visible']) : (int) $existing['is_visible'];
 
         if (self::hasSocialColumns($pdo)) {
             $pdo->prepare(
@@ -359,6 +366,33 @@ final class AboutPageService
         }
         if (strlen($s) > $max) {
             $s = substr($s, 0, $max);
+        }
+
+        return $s;
+    }
+
+    private static function teamBio(mixed $v, bool $requireLength): string
+    {
+        $s = trim((string) $v);
+        $len = mb_strlen($s);
+        if ($s === '') {
+            if ($requireLength) {
+                throw new \InvalidArgumentException(
+                    'Bio is required for visible team cards (' . self::TEAM_BIO_MIN . '–' . self::TEAM_BIO_MAX . ' characters).'
+                );
+            }
+
+            return '';
+        }
+        if ($len < self::TEAM_BIO_MIN) {
+            throw new \InvalidArgumentException(
+                'Bio must be at least ' . self::TEAM_BIO_MIN . ' characters (now ' . $len . ') so cards stay even.'
+            );
+        }
+        if ($len > self::TEAM_BIO_MAX) {
+            throw new \InvalidArgumentException(
+                'Bio must be at most ' . self::TEAM_BIO_MAX . ' characters (now ' . $len . ') so cards stay even.'
+            );
         }
 
         return $s;

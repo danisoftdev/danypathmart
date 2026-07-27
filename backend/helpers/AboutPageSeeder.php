@@ -126,7 +126,7 @@ final class AboutPageSeeder
             return false;
         }
 
-        $bio = 'Highly motivated Software Engineer and Technology Entrepreneur passionate about building innovative digital solutions that solve real-world challenges. Experienced in full-stack software development, system architecture, and IT support, with a strong ability to design, develop, and deploy scalable web applications, digital platforms, and business solutions. Skilled in integrating databases, APIs, and modern technologies to create impactful products that empower individuals and organizations. Founder of DSD Groups, with a vision of building a portfolio of technology-driven products that power everyday life for the people traditional tech leaves behind.';
+        $bio = 'Software engineer and founder of DSD Groups. Passionate about building innovative digital solutions that solve real-world challenges. Leads DanyPathMart so everyday people and local shops can buy and sell online with clarity and fairness across Ghana.';
 
         $hasSocial = false;
         try {

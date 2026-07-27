@@ -52,9 +52,9 @@ function TeamMemberCard({ member }) {
   const hasLinks = !!(linkedin || website);
 
   return (
-    <article className="group relative overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-8">
+    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-8">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green opacity-90" />
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+      <div className="flex flex-1 flex-col gap-5 sm:flex-row sm:items-start">
         <div className="relative mx-auto shrink-0 sm:mx-0">
           <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-gold/50 via-brand-green/30 to-transparent blur-[2px] transition group-hover:blur-[3px]" />
           {photo ? (
@@ -69,44 +69,42 @@ function TeamMemberCard({ member }) {
             </div>
           )}
         </div>
-        <div className="min-w-0 flex-1 text-center sm:text-left">
-          <h3 className="text-xl font-extrabold tracking-tight text-[#111] dark:text-white sm:text-2xl">
+        <div className="flex min-w-0 flex-1 flex-col text-center sm:text-left">
+          <h3 className="line-clamp-1 text-xl font-extrabold tracking-tight text-[#111] dark:text-white sm:text-2xl">
             {member.name}
           </h3>
-          {member.role_title && (
-            <p className="mt-1 text-sm font-bold tracking-wide text-brand-gold sm:text-base">
-              {member.role_title}
-            </p>
-          )}
-          {member.bio && (
-            <p className="mt-4 text-[15px] leading-relaxed text-[#555] dark:text-[#ccc]">
-              {member.bio}
-            </p>
-          )}
-          {hasLinks && (
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-              {linkedin && (
-                <a
-                  href={linkedin}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-full border border-brand-green/25 px-3 py-1.5 text-xs font-bold text-brand-green transition hover:bg-brand-green hover:text-white"
-                >
-                  LinkedIn
-                </a>
-              )}
-              {website && (
-                <a
-                  href={website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
-                >
-                  Website
-                </a>
-              )}
-            </div>
-          )}
+          <p className="mt-1 line-clamp-1 min-h-[1.25rem] text-sm font-bold tracking-wide text-brand-gold sm:text-base">
+            {member.role_title || '\u00A0'}
+          </p>
+          <p className="mt-4 min-h-[7.5rem] text-[15px] leading-relaxed text-[#555] line-clamp-5 dark:text-[#ccc]">
+            {member.bio || '\u00A0'}
+          </p>
+          <div className="mt-auto flex min-h-[2.25rem] flex-wrap items-center justify-center gap-2 pt-5 sm:justify-start">
+            {hasLinks ? (
+              <>
+                {linkedin && (
+                  <a
+                    href={linkedin}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-full border border-brand-green/25 px-3 py-1.5 text-xs font-bold text-brand-green transition hover:bg-brand-green hover:text-white"
+                  >
+                    LinkedIn
+                  </a>
+                )}
+                {website && (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
+                  >
+                    Website
+                  </a>
+                )}
+              </>
+            ) : null}
+          </div>
         </div>
       </div>
     </article>
@@ -247,7 +245,7 @@ export default function AboutPage() {
           <div className="mx-auto max-w-5xl px-4">
             <h2 className="text-2xl font-extrabold text-brand-green md:text-3xl">{page.team_heading}</h2>
             {page.team_intro && <p className="mt-3 max-w-2xl text-muted">{page.team_intro}</p>}
-            <div className={`mt-10 grid gap-6 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+            <div className={`mt-10 grid items-stretch gap-6 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
               {team.map((m) => (
                 <TeamMemberCard key={m.id} member={m} />
               ))}

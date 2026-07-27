@@ -104,6 +104,11 @@ function canRemove(disabled) {
   return !disabled;
 }
 
+const TEAM_NAME_MAX = 60;
+const TEAM_ROLE_MAX = 40;
+const TEAM_BIO_MIN = 140;
+const TEAM_BIO_MAX = 260;
+
 function emptyMember() {
   return { name: '', role_title: '', bio: '', photo_url: '', linkedin_url: '', website_url: '', sort_order: 0, is_visible: true };
 }
@@ -155,7 +160,10 @@ function TeamPhotoField({ value, onChange, disabled }) {
 
 function TeamModal({ member, onClose, onSave, loading, canManage }) {
   const [form, setForm] = useState(member?.id ? { ...member } : emptyMember());
+  const [localError, setLocalError] = useState('');
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const bioLen = (form.bio || '').trim().length;
+  const bioOk = bioLen === 0 ? !form.is_visible : bioLen >= TEAM_BIO_MIN && bioLen <= TEAM_BIO_MAX;
 
   return (
     <Modal open onClose={loading ? undefined : onClose} title={member?.id ? 'Edit team member' : 'Add team member'} maxWidth="max-w-lg">
@@ -164,10 +172,20 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
         onSubmit={(e) => {
           e.preventDefault();
           if (!form.name?.trim()) return;
+          const bio = form.bio?.trim() || '';
+          if (form.is_visible && (bio.length < TEAM_BIO_MIN || bio.length > TEAM_BIO_MAX)) {
+            setLocalError(`Visible cards need a bio of ${TEAM_BIO_MIN}–${TEAM_BIO_MAX} characters (now ${bio.length}).`);
+            return;
+          }
+          if (!form.is_visible && bio && (bio.length < TEAM_BIO_MIN || bio.length > TEAM_BIO_MAX)) {
+            setLocalError(`Bio must be ${TEAM_BIO_MIN}–${TEAM_BIO_MAX} characters (now ${bio.length}), or leave it blank while hidden.`);
+            return;
+          }
+          setLocalError('');
           onSave({
-            name: form.name.trim(),
-            role_title: form.role_title?.trim() || '',
-            bio: form.bio?.trim() || '',
+            name: form.name.trim().slice(0, TEAM_NAME_MAX),
+            role_title: (form.role_title?.trim() || '').slice(0, TEAM_ROLE_MAX),
+            bio,
             photo_url: form.photo_url?.trim() || '',
             linkedin_url: form.linkedin_url?.trim() || '',
             website_url: form.website_url?.trim() || '',
@@ -177,14 +195,40 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
         }}
       >
         {canManage && <TeamPhotoField value={form.photo_url} onChange={(v) => set('photo_url', v)} disabled={!canManage} />}
-        <Field label="Name">
-          <input className="input-field w-full" required value={form.name} onChange={(e) => set('name', e.target.value)} disabled={!canManage} />
+        <Field label={`Name (max ${TEAM_NAME_MAX})`}>
+          <input
+            className="input-field w-full"
+            required
+            maxLength={TEAM_NAME_MAX}
+            value={form.name}
+            onChange={(e) => set('name', e.target.value)}
+            disabled={!canManage}
+          />
         </Field>
-        <Field label="Role">
-          <input className="input-field w-full" value={form.role_title} onChange={(e) => set('role_title', e.target.value)} disabled={!canManage} />
+        <Field label={`Role (max ${TEAM_ROLE_MAX})`}>
+          <input
+            className="input-field w-full"
+            maxLength={TEAM_ROLE_MAX}
+            value={form.role_title}
+            onChange={(e) => set('role_title', e.target.value)}
+            disabled={!canManage}
+          />
         </Field>
-        <Field label="Short bio">
-          <textarea className="input-field w-full min-h-[80px]" value={form.bio} onChange={(e) => set('bio', e.target.value)} disabled={!canManage} />
+        <Field
+          label={`Bio (${TEAM_BIO_MIN}–${TEAM_BIO_MAX} characters)`}
+          hint="Keep bios similar in length so every card looks the same height."
+        >
+          <textarea
+            className="input-field w-full min-h-[120px]"
+            maxLength={TEAM_BIO_MAX}
+            value={form.bio}
+            onChange={(e) => set('bio', e.target.value)}
+            disabled={!canManage}
+          />
+          <p className={`mt-1 text-xs font-semibold ${bioOk ? 'text-muted' : 'text-brand-red'}`}>
+            {bioLen} / {TEAM_BIO_MAX}
+            {form.is_visible ? ` · need at least ${TEAM_BIO_MIN}` : ' · optional while hidden'}
+          </p>
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="LinkedIn URL">
@@ -203,10 +247,11 @@ function TeamModal({ member, onClose, onSave, loading, canManage }) {
             Visible on About page
           </label>
         </div>
+        {localError && <p className="text-sm font-semibold text-brand-red">{localError}</p>}
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>Cancel</button>
           {canManage && (
-            <button type="submit" className="btn-primary" disabled={loading}>
+            <button type="submit" className="btn-primary" disabled={loading || (form.is_visible && !bioOk)}>
               {loading ? 'Saving…' : 'Save'}
             </button>
           )}
