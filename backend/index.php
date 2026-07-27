@@ -158,6 +158,10 @@ $routes = [
     'POST ' . 'admin/hero-banners/upload-image' => 'admin/hero-banners/upload-image.php',
     'GET '  . 'admin/legal-policies'       => 'admin/legal-policies/index.php',
     'POST ' . 'admin/legal-policies'       => 'admin/legal-policies/create.php',
+    'GET '  . 'admin/about-page'           => 'admin/about-page/index.php',
+    'PUT '  . 'admin/about-page'           => 'admin/about-page/update.php',
+    'POST ' . 'admin/about-page/team'      => 'admin/about-page/team-create.php',
+    'POST ' . 'admin/about-page/upload-photo' => 'admin/about-page/upload-photo.php',
     'GET '  . 'admin/employees'            => 'admin/employees/index.php',
     'GET '  . 'admin/leave-requests'        => 'admin/leave-requests/index.php',
     'POST ' . 'admin/leave-requests'        => 'admin/leave-requests/create.php',
@@ -326,6 +330,7 @@ $routes = [
     'GET '  . 'public/checkout-policies'   => 'public/checkout-policies.php',
     'GET '  . 'public/hero-banners'        => 'public/hero-banners/index.php',
     'GET '  . 'public/legal-policies'      => 'public/legal-policies/index.php',
+    'GET '  . 'public/about-page'          => 'public/about-page.php',
     'GET '  . 'public/referral/validate'   => 'public/referral/validate.php',
     'POST ' . 'size-guides/suggest'        => 'size-guides/suggest.php',
     'GET '  . 'admin/size-guides'          => 'admin/size-guides/index.php',
@@ -887,6 +892,18 @@ if ($handlerFile === null && $method === 'DELETE'
     && preg_match('#^admin/legal-policies/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/legal-policies/delete.php';
+}
+
+// Dynamic route: PUT/DELETE admin/about-page/team/{id}
+if ($handlerFile === null && $method === 'PUT'
+    && preg_match('#^admin/about-page/team/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/about-page/team-update.php';
+}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/about-page/team/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/about-page/team-delete.php';
 }
 
 // Dynamic route: PUT admin/employees/{id}

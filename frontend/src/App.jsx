@@ -86,6 +86,8 @@ import ReturnsPolicyPage from './pages/ReturnsPolicyPage';
 import LegalPolicyPage from './pages/LegalPolicyPage';
 import AdminHeroBannersPage from './pages/admin/AdminHeroBannersPage';
 import AdminLegalPoliciesPage from './pages/admin/AdminLegalPoliciesPage';
+import AdminAboutPage from './pages/admin/AdminAboutPage';
+import AboutPage from './pages/AboutPage';
 import AdminEmployeesPage from './pages/admin/AdminEmployeesPage';
 import AdminLeaveRequestsPage from './pages/admin/AdminLeaveRequestsPage';
 import CareersPage from './pages/CareersPage';
@@ -171,6 +173,7 @@ export default function App() {
           <Route path="/product/:slug" element={<ProductDetailPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
           <Route path="/returns" element={<ReturnsPolicyPage />} />
           <Route path="/policies/:slug" element={<LegalPolicyPage />} />
           <Route path="/careers" element={<CareersPage />} />
@@ -280,6 +283,7 @@ export default function App() {
             <Route path="company-settings" element={<CompanySettings />} />
             <Route path="hero-banners" element={<AdminHeroBannersPage />} />
             <Route path="legal-policies" element={<AdminLegalPoliciesPage />} />
+            <Route path="about-page" element={<AdminAboutPage />} />
             <Route path="employees" element={<AdminEmployeesPage />} />
             <Route path="leave-requests" element={<AdminLeaveRequestsPage />} />
             <Route path="launch-readiness" element={<AdminLaunchReadinessPage />} />

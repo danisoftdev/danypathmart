@@ -87,6 +87,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/admin/hero-banners', label: 'Hero banners', permissions: ['view_hero_banners', 'manage_hero_banners'], icon: '🖼️' },
       { to: '/admin/legal-policies', label: 'Legal policies', permissions: ['view_legal_policies', 'manage_legal_policies'], icon: '📜' },
+      { to: '/admin/about-page', label: 'About Us', permissions: ['view_about_page', 'manage_about_page'], icon: 'ℹ️' },
     ],
   },
   {

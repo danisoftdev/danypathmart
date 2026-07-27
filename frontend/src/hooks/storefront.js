@@ -175,3 +175,76 @@ export function policyDownloadUrl(slug) {
   const base = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
   return `${base}/public/legal-policies/${slug}/download`;
 }
+
+export function usePublicAboutPage() {
+  return useQuery({
+    queryKey: ['public-about-page'],
+    queryFn: async () => (await api.get('/public/about-page')).data,
+    ...publicQuery,
+  });
+}
+
+export function useAdminAboutPage(enabled = true) {
+  return useQuery({
+    queryKey: ['admin-about-page'],
+    queryFn: async () => (await api.get('/admin/about-page')).data.page,
+    enabled,
+    staleTime: 30_000,
+  });
+}
+
+export function useUpdateAboutPage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.put('/admin/about-page', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-about-page'] });
+      qc.invalidateQueries({ queryKey: ['public-about-page'] });
+    },
+  });
+}
+
+export function useCreateAboutTeamMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post('/admin/about-page/team', payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-about-page'] });
+      qc.invalidateQueries({ queryKey: ['public-about-page'] });
+    },
+  });
+}
+
+export function useUpdateAboutTeamMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...payload }) => (await api.put(`/admin/about-page/team/${id}`, payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-about-page'] });
+      qc.invalidateQueries({ queryKey: ['public-about-page'] });
+    },
+  });
+}
+
+export function useDeleteAboutTeamMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.delete(`/admin/about-page/team/${id}`)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-about-page'] });
+      qc.invalidateQueries({ queryKey: ['public-about-page'] });
+    },
+  });
+}
+
+export function useUploadAboutPhoto() {
+  return useMutation({
+    mutationFn: async (file) => {
+      const form = new FormData();
+      form.append('image', file);
+      return (await api.post('/admin/about-page/upload-photo', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })).data;
+    },
+  });
+}

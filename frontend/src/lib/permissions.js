@@ -16,6 +16,8 @@ export const PERMISSION_KEYS = [
   'manage_hero_banners',
   'view_legal_policies',
   'manage_legal_policies',
+  'view_about_page',
+  'manage_about_page',
   'view_users',
   'edit_users',
   'delete_accounts',
@@ -85,6 +87,8 @@ export const PERMISSION_LABELS = {
   manage_hero_banners: 'Manage homepage hero banners',
   view_legal_policies: 'View legal policies',
   manage_legal_policies: 'Update all legal policies (text + downloads)',
+  view_about_page: 'View About Us page settings',
+  manage_about_page: 'Edit About Us page (text, team, toggles)',
   view_users: 'View customers',
   edit_users: 'Edit customers',
   delete_accounts: 'Delete customer, promoter, driver, station staff & related accounts',
@@ -164,7 +168,11 @@ export const PERMISSION_GROUPS = [
   { title: 'Marketplace', keys: ['manage_marketplace', 'approve_shop_applications', 'approve_shop_listings', 'create_shop_manual', 'create_shop_preapproved', 'invite_shop_owner', 'view_shop_policy_acceptances', 'view_shops_map', 'manage_promoters', 'view_shop_billing', 'manage_shop_fees', 'manage_shop_registration_promo', 'manage_referral_registration_discount', 'waive_shop_fees'] },
   {
     title: 'Storefront content',
-    keys: ['view_hero_banners', 'manage_hero_banners', 'view_legal_policies', 'manage_legal_policies'],
+    keys: [
+      'view_hero_banners', 'manage_hero_banners',
+      'view_legal_policies', 'manage_legal_policies',
+      'view_about_page', 'manage_about_page',
+    ],
   },
   {
     title: 'Company & shipping',

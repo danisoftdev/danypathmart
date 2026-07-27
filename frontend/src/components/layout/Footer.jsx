@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { usePlatformFeatures } from '../../hooks/checkout';
-import { usePublicLegalPolicies } from '../../hooks/storefront';
+import { usePublicLegalPolicies, usePublicAboutPage } from '../../hooks/storefront';
 import { useCompanyStore } from '../../store/companyStore';
 import SiteLogo from '../brand/SiteLogo';
 import CopyableText from '../ui/CopyableText';
@@ -34,6 +34,8 @@ export default function Footer() {
   const company = useCompanyStore((s) => s.company);
   const { marketplaceEnabled, shopApplicationsOpen } = usePlatformFeatures();
   const { data: footerPolicies = [] } = usePublicLegalPolicies();
+  const { data: aboutMeta } = usePublicAboutPage();
+  const aboutEnabled = !!aboutMeta?.enabled;
 
   return (
     <footer className="mt-8 border-t-4 border-brand-green bg-[#111111] pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-white md:mt-16 md:pb-0">
@@ -43,6 +45,11 @@ export default function Footer() {
           <p className="mt-3 text-sm text-white/60">
             Supermarket essentials and marketplace shops — delivered across Ghana.
           </p>
+          {aboutEnabled && (
+            <Link to="/about" className="mt-3 inline-block text-sm font-bold text-brand-gold hover:underline">
+              About us →
+            </Link>
+          )}
         </div>
 
         <div className="text-sm">
@@ -99,6 +106,13 @@ export default function Footer() {
         <div className="text-sm">
           <h3 className="mb-3 font-semibold text-brand-gold">Policies</h3>
           <ul className="space-y-2 text-white/80">
+            {aboutEnabled && (
+              <li>
+                <Link to="/about" className="font-bold hover:text-brand-gold hover:underline">
+                  About us
+                </Link>
+              </li>
+            )}
             {footerPolicies.length > 0 ? (
               footerPolicies.map((p) => (
                 <li key={p.slug}>

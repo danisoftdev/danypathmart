@@ -29,6 +29,8 @@ final class StaffPermission
         'manage_hero_banners',
         'view_legal_policies',
         'manage_legal_policies',
+        'view_about_page',
+        'manage_about_page',
         'view_users',
         'edit_users',
         'delete_accounts',
@@ -101,6 +103,8 @@ final class StaffPermission
             'manage_hero_banners'         => 'Manage homepage hero banners',
         'view_legal_policies'         => 'View legal policies',
         'manage_legal_policies'       => 'Update all legal policies (text + downloads)',
+            'view_about_page'             => 'View About Us page settings',
+            'manage_about_page'           => 'Edit About Us page (text, team, toggles)',
             'view_users'                  => 'View customers',
             'edit_users'                  => 'Edit customers',
             'delete_accounts'             => 'Delete customer, promoter, driver, station staff & related accounts',
@@ -205,6 +209,7 @@ final class StaffPermission
                 'keys'  => [
                     'view_hero_banners', 'manage_hero_banners',
                     'view_legal_policies', 'manage_legal_policies',
+                    'view_about_page', 'manage_about_page',
                 ],
             ],
             [

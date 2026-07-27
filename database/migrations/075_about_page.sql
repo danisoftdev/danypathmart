@@ -1,0 +1,53 @@
+-- About Us CMS: page content, toggles, and team members
+
+CREATE TABLE IF NOT EXISTS about_page (
+  id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
+  page_enabled TINYINT(1) NOT NULL DEFAULT 1,
+  trusted_by_enabled TINYINT(1) NOT NULL DEFAULT 0,
+  trusted_by_heading VARCHAR(255) NOT NULL DEFAULT 'Trusted by',
+  trusted_by_items TEXT NULL,
+  hero_kicker VARCHAR(120) NOT NULL DEFAULT '',
+  hero_title VARCHAR(255) NOT NULL DEFAULT 'DanyPathMart',
+  hero_subtitle TEXT NULL,
+  hero_cta_label VARCHAR(80) NOT NULL DEFAULT 'Shop now',
+  hero_cta_link VARCHAR(255) NOT NULL DEFAULT '/shop',
+  hero_secondary_label VARCHAR(80) NOT NULL DEFAULT 'Sell on DPM',
+  hero_secondary_link VARCHAR(255) NOT NULL DEFAULT '/sell',
+  story_heading VARCHAR(255) NOT NULL DEFAULT 'Our story',
+  story_body TEXT NULL,
+  what_we_do_heading VARCHAR(255) NOT NULL DEFAULT 'What we do',
+  what_we_do_intro TEXT NULL,
+  what_we_do_items TEXT NULL,
+  who_we_serve_heading VARCHAR(255) NOT NULL DEFAULT 'Who we serve',
+  who_we_serve_intro TEXT NULL,
+  who_we_serve_items TEXT NULL,
+  team_heading VARCHAR(255) NOT NULL DEFAULT 'Our team',
+  team_intro TEXT NULL,
+  dsd_heading VARCHAR(255) NOT NULL DEFAULT 'Part of DSD Groups',
+  dsd_intro TEXT NULL,
+  dsd_vision TEXT NULL,
+  dsd_mission TEXT NULL,
+  dsd_values TEXT NULL,
+  cta_heading VARCHAR(255) NOT NULL DEFAULT 'Ready to get started?',
+  cta_body TEXT NULL,
+  cta_primary_label VARCHAR(80) NOT NULL DEFAULT 'Shop now',
+  cta_primary_link VARCHAR(255) NOT NULL DEFAULT '/shop',
+  cta_secondary_label VARCHAR(80) NOT NULL DEFAULT 'Contact us',
+  cta_secondary_link VARCHAR(255) NOT NULL DEFAULT '/contact',
+  seo_title VARCHAR(255) NOT NULL DEFAULT 'About us | DanyPathMart',
+  seo_description VARCHAR(500) NOT NULL DEFAULT '',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS about_team_members (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  role_title VARCHAR(160) NOT NULL DEFAULT '',
+  bio TEXT NULL,
+  photo_url VARCHAR(500) NOT NULL DEFAULT '',
+  sort_order INT NOT NULL DEFAULT 0,
+  is_visible TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_about_team_visible_sort (is_visible, sort_order, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

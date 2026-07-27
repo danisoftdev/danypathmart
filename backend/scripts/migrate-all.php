@@ -31,6 +31,7 @@ spl_autoload_register(static function (string $class): void {
 });
 
 use App\Config\Database;
+use App\Helpers\AboutPageSeeder;
 use App\Helpers\CareerService;
 use App\Helpers\EmployeeService;
 use App\Helpers\LegalPolicySeeder;
@@ -192,6 +193,22 @@ function postMigrateLegalPolicies(PDO $pdo): void
     }
 }
 
+function postMigrateAboutPage(PDO $pdo): void
+{
+    echo "\n── post: about page defaults\n";
+    if (!tableExists($pdo, 'about_page')) {
+        echo "  SKIP: about_page table not present\n";
+        return;
+    }
+
+    try {
+        $seeded = AboutPageSeeder::seedDefaults($pdo);
+        echo $seeded ? "  OK: seeded default About Us content\n" : "  OK: About Us row already present\n";
+    } catch (Throwable $e) {
+        echo '  SKIP: ' . $e->getMessage() . "\n";
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 echo "DanyPathMart — migrate-all\n";
@@ -228,6 +245,7 @@ foreach ($files as $file) {
 postMigrateRoleTypes($pdo);
 postMigrateEmployees($pdo);
 postMigrateLegalPolicies($pdo);
+postMigrateAboutPage($pdo);
 postMigratePurgeDeletedAccounts($pdo);
 postMigrateShopAutoRenew($pdo);
 
