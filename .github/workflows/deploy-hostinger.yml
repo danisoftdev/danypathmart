@@ -212,6 +212,10 @@ jobs:
             --exclude 'uploads/' \
             --exclude 'storage/mail/' \
             backend/ "${REMOTE}:${WEB_ROOT}/api/"
+          # Legal policy markdown source for seed-legal-policies / migrate-all
+          rsync -avz \
+            -e "ssh -p ${SSH_PORT} -o StrictHostKeyChecking=accept-new" \
+            docs/legal/policies/ "${REMOTE}:${WEB_ROOT}/api/docs/legal/policies/"
 
       - name: Post-deploy (migrations + env check)
         run: |

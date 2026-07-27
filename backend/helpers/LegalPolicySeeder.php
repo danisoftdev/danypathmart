@@ -136,6 +136,9 @@ final class LegalPolicySeeder
     private static function policiesDir(): ?string
     {
         foreach ([
+            // Deployed with backend on Hostinger (api/docs/legal/policies)
+            __DIR__ . '/../docs/legal/policies',
+            // Repo layout when running from a full checkout
             __DIR__ . '/../../docs/legal/policies',
             __DIR__ . '/../../../docs/legal/policies',
         ] as $dir) {

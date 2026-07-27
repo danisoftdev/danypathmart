@@ -43,4 +43,7 @@ fi
 echo "Running shop storefront cron (reminders + unpaid cleanup)..."
 php scripts/shop-storefront-cron.php || true
 
+echo "Refreshing legal policies from docs..."
+php scripts/seed-legal-policies.php || true
+
 echo "Post-deploy complete."
