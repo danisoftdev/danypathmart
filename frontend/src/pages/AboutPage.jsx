@@ -53,61 +53,62 @@ function TeamMemberCard({ member }) {
   const hasLinks = !!(linkedin || website);
 
   return (
-    <article className="group relative flex h-full flex-col overflow-hidden rounded-3xl border border-black/6 bg-white p-6 shadow-[0_12px_40px_-16px_rgba(15,36,24,0.35)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_50px_-18px_rgba(15,36,24,0.45)] dark:border-white/10 dark:bg-[#1A1A1A] sm:p-7">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green opacity-90" />
-      <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="relative mx-auto shrink-0 sm:mx-0">
-          <div className="absolute -inset-1 rounded-full bg-gradient-to-br from-brand-gold/50 via-brand-green/30 to-transparent blur-[2px] transition group-hover:blur-[3px]" />
+    <article className="group relative overflow-hidden rounded-2xl border border-black/8 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-[#1A1A1A] sm:p-5">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-brand-green via-brand-gold to-brand-green" />
+      <div className="flex gap-3 sm:gap-4">
+        <div className="relative shrink-0">
           {photo ? (
             <img
               src={photo}
               alt={member.name}
-              className="relative h-20 w-20 rounded-full object-cover ring-4 ring-white dark:ring-[#1A1A1A] sm:h-24 sm:w-24"
+              className="h-14 w-14 rounded-full object-cover ring-2 ring-brand-green/15 sm:h-16 sm:w-16"
             />
           ) : (
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-brand-green text-2xl font-extrabold text-white ring-4 ring-white dark:ring-[#1A1A1A] sm:h-24 sm:w-24">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-green text-lg font-extrabold text-white sm:h-16 sm:w-16">
               {(member.name || '?').slice(0, 1)}
             </div>
           )}
         </div>
-        <div className="flex min-w-0 flex-1 flex-col text-center sm:text-left">
-          <h3 className="line-clamp-1 text-lg font-extrabold tracking-tight text-[#111] dark:text-white sm:text-xl">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[15px] font-extrabold leading-tight text-[#111] dark:text-white sm:text-base">
             {member.name}
           </h3>
-          <p className="mt-0.5 line-clamp-1 min-h-[1.1rem] text-xs font-bold tracking-wide text-brand-gold sm:text-sm">
-            {member.role_title || '\u00A0'}
-          </p>
-          <p className="mt-3 flex-1 text-[12px] leading-[1.45] text-[#555] dark:text-[#ccc] sm:text-[12.5px]">
-            {member.bio || '\u00A0'}
-          </p>
-          <div className="mt-4 flex min-h-[2.25rem] flex-wrap items-center justify-center gap-2 sm:justify-start">
-            {hasLinks ? (
-              <>
-                {linkedin && (
-                  <a
-                    href={linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-[#0A66C2]/30 bg-[#0A66C2]/5 px-3 py-1.5 text-xs font-bold text-[#0A66C2] transition hover:bg-[#0A66C2] hover:text-white dark:border-[#0A66C2]/50 dark:text-[#6EB3F7]"
-                  >
-                    <LinkedInIcon className="h-3.5 w-3.5" />
-                    LinkedIn
-                  </a>
-                )}
-                {website && (
-                  <a
-                    href={website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
-                  >
-                    <GlobeIcon className="h-3.5 w-3.5" />
-                    Website
-                  </a>
-                )}
-              </>
-            ) : null}
-          </div>
+          {member.role_title ? (
+            <p className="mt-0.5 text-[11px] font-bold tracking-wide text-brand-gold sm:text-xs">
+              {member.role_title}
+            </p>
+          ) : null}
+          {member.bio ? (
+            <p className="mt-2 text-[11.5px] leading-snug text-[#555] dark:text-[#ccc] sm:text-xs sm:leading-relaxed">
+              {member.bio}
+            </p>
+          ) : null}
+          {hasLinks ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {linkedin && (
+                <a
+                  href={linkedin}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-[#0A66C2]/25 bg-[#0A66C2]/5 px-2.5 py-1 text-[11px] font-bold text-[#0A66C2] transition hover:bg-[#0A66C2] hover:text-white"
+                >
+                  <LinkedInIcon className="h-3 w-3" />
+                  LinkedIn
+                </a>
+              )}
+              {website && (
+                <a
+                  href={website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full border border-black/10 px-2.5 py-1 text-[11px] font-bold text-[#333] transition hover:border-brand-gold hover:text-brand-gold dark:border-white/15 dark:text-white"
+                >
+                  <GlobeIcon className="h-3 w-3" />
+                  Website
+                </a>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </article>
@@ -244,11 +245,11 @@ export default function AboutPage() {
 
       {/* Team */}
       {team.length > 0 && (
-        <section className="border-y border-brand-green/10 bg-[linear-gradient(180deg,rgba(44,122,75,0.06),rgba(255,255,255,0))] py-14 dark:bg-brand-green/10 md:py-16">
+        <section className="border-y border-brand-green/10 bg-[linear-gradient(180deg,rgba(44,122,75,0.04),rgba(255,255,255,0))] py-12 md:py-14">
           <div className="mx-auto max-w-5xl px-4">
             <h2 className="text-2xl font-extrabold text-brand-green md:text-3xl">{page.team_heading}</h2>
-            {page.team_intro && <p className="mt-3 max-w-2xl text-muted">{page.team_intro}</p>}
-            <div className={`mt-10 grid items-stretch gap-6 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+            {page.team_intro && <p className="mt-2 max-w-2xl text-sm text-muted">{page.team_intro}</p>}
+            <div className={`mt-6 grid items-start gap-4 ${team.length === 1 ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
               {team.map((m) => (
                 <TeamMemberCard key={m.id} member={m} />
               ))}
