@@ -34,6 +34,7 @@ POLICY_FILES: list[tuple[str, str, str, str]] = [
 
 SECTION_RE = re.compile(r"^(\d+)\.\s+(.+)$")
 CHECKLIST_RE = re.compile(r"^[☐☑]\s")
+BULLET_RE = re.compile(r"^[•\-]\s+")
 
 
 def set_cell_shading(cell, fill: str) -> None:
@@ -155,6 +156,10 @@ def md_to_docx(md_path: Path, out_path: Path, title: str, slug: str) -> None:
             doc.add_paragraph(line, style="List Bullet")
             continue
 
+        if BULLET_RE.match(line):
+            doc.add_paragraph(BULLET_RE.sub("", line), style="List Bullet")
+            continue
+
         if is_list_intro(line):
             body(doc, line)
             items: list[str] = []
@@ -163,7 +168,7 @@ def md_to_docx(md_path: Path, out_path: Path, title: str, slug: str) -> None:
                 if not nxt:
                     i += 1
                     break
-                if SECTION_RE.match(nxt) or is_note_line(nxt):
+                if SECTION_RE.match(nxt) or is_note_line(nxt) or CHECKLIST_RE.match(nxt) or BULLET_RE.match(nxt):
                     break
                 items.append(nxt)
                 i += 1
@@ -173,7 +178,7 @@ def md_to_docx(md_path: Path, out_path: Path, title: str, slug: str) -> None:
 
         body(doc, line)
 
-    doc.save(out_path)
+    return save_docx(doc, out_path)
 
 
 def build_guide_doc() -> Path:
@@ -218,10 +223,23 @@ def build_guide_doc() -> Path:
     ]:
         doc.add_paragraph(step, style="List Number")
 
-    path = WORD_DIR / "00_DPM_Legal_Where_To_Fill_Your_Details.docx"
     WORD_DIR.mkdir(parents=True, exist_ok=True)
-    doc.save(path)
-    return path
+    return save_docx(doc, WORD_DIR / "00_DPM_Legal_Where_To_Fill_Your_Details.docx")
+
+
+def save_docx(doc: Document, out_path: Path) -> Path:
+    """Save docx; if the file is locked (open in Word), write a sibling *_UPDATED.docx."""
+    try:
+        doc.save(out_path)
+        return out_path
+    except PermissionError:
+        alt = out_path.with_name(out_path.stem + "_UPDATED" + out_path.suffix)
+        doc.save(alt)
+        print(
+            f"  WARNING: {out_path.name} is locked — wrote {alt.name} instead. "
+            "Close Word and re-run to replace."
+        )
+        return alt
 
 
 def main() -> None:
@@ -231,17 +249,15 @@ def main() -> None:
         md_path = POLICIES_DIR / md_name
         if not md_path.is_file():
             raise FileNotFoundError(f"Missing policy source: {md_path}")
-        out_path = WORD_DIR / docx_name
-        md_to_docx(md_path, out_path, title, slug)
-        paths.append(out_path)
+        paths.append(md_to_docx(md_path, WORD_DIR / docx_name, title, slug))
 
     # Also refresh docs/legal/*.docx when not locked (best effort)
     for path in paths[1:]:
-        target = OUT_DIR / path.name
+        canonical = OUT_DIR / path.name.replace("_UPDATED", "")
         try:
-            target.write_bytes(path.read_bytes())
+            canonical.write_bytes(path.read_bytes())
         except OSError as exc:
-            print(f"  (skipped copy to {target.name}: {exc})")
+            print(f"  (skipped copy to {canonical.name}: {exc})")
 
     print("Generated legal policy Word documents:")
     for path in paths:
