@@ -53,6 +53,7 @@ $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $routes = [
     'GET '  . 'health'                     => 'health.php',
     'POST ' . 'auth/register'              => 'auth/register.php',
+    'POST ' . 'auth/set-password'          => 'auth/set-password.php',
     'POST ' . 'auth/verify-email'          => 'auth/verify-email.php',
     'POST ' . 'auth/resend-otp'            => 'auth/resend-otp.php',
     'POST ' . 'auth/login'                 => 'auth/login.php',
@@ -171,6 +172,7 @@ $routes = [
     'GET '  . 'public/company-info'         => 'public/company-info.php',
     'GET '  . 'public/flash-sale'           => 'public/flash-sale.php',
     'POST ' . 'public/contact'             => 'public/contact.php',
+    'POST ' . 'public/promoter-applications' => 'public/promoter-applications.php',
     'GET '  . 'public/support-chat'        => 'public/support-chat/conversation.php',
     'POST ' . 'public/support-chat/start'  => 'public/support-chat/start.php',
     'POST ' . 'public/support-chat/messages' => 'public/support-chat/messages.php',
@@ -240,6 +242,7 @@ $routes = [
 
     'GET '  . 'admin/promoters'                 => 'admin/promoters/index.php',
     'POST ' . 'admin/promoters'                 => 'admin/promoters/create.php',
+    'GET '  . 'admin/promoter-applications'     => 'admin/promoter-applications/index.php',
     'GET '  . 'admin/promoter-withdrawals'      => 'admin/promoter-withdrawals/index.php',
     'GET '  . 'promoter/dashboard'              => 'promoter/dashboard.php',
     'POST ' . 'promoter/wallet/withdraw'        => 'promoter/wallet/withdraw.php',
@@ -501,9 +504,30 @@ if ($handlerFile === null && $method === 'POST'
     $handlerFile = 'admin/promoters/status.php';
 }
 
+// Dynamic route: POST admin/promoter-applications/{id}/approve
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/promoter-applications/([0-9]+)/approve$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoter-applications/approve.php';
+}
+
+// Dynamic route: POST admin/promoter-applications/{id}/reject
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/promoter-applications/([0-9]+)/reject$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoter-applications/reject.php';
+}
+
 // Dynamic route: DELETE admin/promoters/{id}
 if ($handlerFile === null && $method === 'DELETE'
     && preg_match('#^admin/promoters/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/promoters/delete.php';
+}
+
+// Dynamic route: POST admin/promoters/{id}/delete (body-friendly confirm)
+if ($handlerFile === null && $method === 'POST'
+    && preg_match('#^admin/promoters/([0-9]+)/delete$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'admin/promoters/delete.php';
 }

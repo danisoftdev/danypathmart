@@ -182,6 +182,11 @@ final class AccountDeletionService
             'UPDATE shop_applications SET user_id = NULL WHERE user_id = ?',
             'UPDATE shop_invites SET created_by = NULL WHERE created_by = ?',
             'UPDATE promoters SET approved_by = NULL WHERE approved_by = ?',
+            'UPDATE promoter_applications SET created_user_id = NULL WHERE created_user_id = ?',
+            'UPDATE promoter_applications SET reviewed_by = NULL WHERE reviewed_by = ?',
+            'UPDATE leave_requests SET reviewed_by = NULL WHERE reviewed_by = ?',
+            'UPDATE job_applications SET reviewed_by = NULL WHERE reviewed_by = ?',
+            'UPDATE contact_messages SET assigned_to = NULL WHERE assigned_to = ?',
         ];
         foreach ($nulls as $sql) {
             try {
@@ -190,22 +195,50 @@ final class AccountDeletionService
             }
         }
 
-        try {
-            $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$userId]);
-        } catch (\Throwable) {
-        }
-        try {
-            $pdo->prepare('DELETE FROM push_subscriptions WHERE user_id = ?')->execute([$userId]);
-        } catch (\Throwable) {
+        // Child rows that sometimes lack ON DELETE CASCADE on older production DBs.
+        $deletes = [
+            'DELETE FROM user_sessions WHERE user_id = ?',
+            'DELETE FROM push_subscriptions WHERE user_id = ?',
+            'DELETE FROM user_notifications WHERE user_id = ?',
+            'DELETE FROM email_verifications WHERE user_id = ?',
+            'DELETE FROM totp_temp_tokens WHERE user_id = ?',
+            'DELETE FROM oauth_identities WHERE user_id = ?',
+            'DELETE FROM webauthn_credentials WHERE user_id = ?',
+            'DELETE FROM wishlist_items WHERE user_id = ?',
+            'DELETE FROM shop_members WHERE user_id = ?',
+            'DELETE FROM employees WHERE user_id = ?',
+            'DELETE FROM promoter_withdrawals WHERE promoter_id IN (SELECT id FROM promoters WHERE user_id = ?)',
+            'DELETE FROM promoter_wallet_transactions WHERE promoter_id IN (SELECT id FROM promoters WHERE user_id = ?)',
+            'DELETE FROM promoter_wallets WHERE promoter_id IN (SELECT id FROM promoters WHERE user_id = ?)',
+            'UPDATE subscription_referrals SET referrer_promoter_id = NULL WHERE referrer_promoter_id IN (SELECT id FROM promoters WHERE user_id = ?)',
+            'UPDATE promoter_applications SET promoter_id = NULL WHERE promoter_id IN (SELECT id FROM promoters WHERE user_id = ?)',
+            'DELETE FROM promoters WHERE user_id = ?',
+        ];
+        foreach ($deletes as $sql) {
+            try {
+                $pdo->prepare($sql)->execute([$userId]);
+            } catch (\Throwable) {
+            }
         }
 
         try {
             $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
             $stmt->execute([$userId]);
+            if ($stmt->rowCount() > 0) {
+                return true;
+            }
+            // Already gone (or never existed) — treat as success.
+            $check = $pdo->prepare('SELECT id FROM users WHERE id = ? LIMIT 1');
+            $check->execute([$userId]);
 
-            return $stmt->rowCount() > 0;
+            return $check->fetch() === false;
         } catch (\Throwable $e) {
             error_log('hardDeleteUser fallback anonymize #' . $userId . ': ' . $e->getMessage());
+            // Ensure promoter profiles never remain visible after a failed hard delete.
+            try {
+                $pdo->prepare('DELETE FROM promoters WHERE user_id = ?')->execute([$userId]);
+            } catch (\Throwable) {
+            }
             self::anonymizeUser($pdo, $userId);
 
             return true;

@@ -41,13 +41,27 @@ final class AuthMiddleware
             Response::error('Invalid token subject', 401);
         }
 
-        $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
-                    assigned_pickup_station_id
-             FROM users WHERE id = ?'
-        );
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
+        $pdo = Database::pdo();
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled,
+                        must_change_password, profile_photo, assigned_pickup_station_id
+                 FROM users WHERE id = ?'
+            );
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+        } catch (\Throwable) {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
+                        assigned_pickup_station_id
+                 FROM users WHERE id = ?'
+            );
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            if (is_array($user)) {
+                $user['must_change_password'] = 0;
+            }
+        }
 
         if ($user === false) {
             Response::error('User not found', 401);
@@ -192,13 +206,27 @@ final class AuthMiddleware
             return null;
         }
 
-        $stmt = Database::pdo()->prepare(
-            'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
-                    assigned_pickup_station_id
-             FROM users WHERE id = ?'
-        );
-        $stmt->execute([$userId]);
-        $user = $stmt->fetch();
+        $pdo = Database::pdo();
+        try {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled,
+                        must_change_password, profile_photo, assigned_pickup_station_id
+                 FROM users WHERE id = ?'
+            );
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+        } catch (\Throwable) {
+            $stmt = $pdo->prepare(
+                'SELECT id, name, username, email, phone, role, status, preferred_currency, totp_enabled, profile_photo,
+                        assigned_pickup_station_id
+                 FROM users WHERE id = ?'
+            );
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            if (is_array($user)) {
+                $user['must_change_password'] = 0;
+            }
+        }
 
         if ($user === false || $user['status'] === 'disabled' || $user['status'] === 'pending_deletion') {
             return null;

@@ -519,6 +519,110 @@ final class Mailer
         return self::send($toEmail, 'DanyPathMart Admin', 'New contact: ' . $ctx['subject'], $html);
     }
 
+    /** @param array<string,mixed> $app */
+    public static function promoterApplicationToAdmin(string $toEmail, array $app): bool
+    {
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $link = $appUrl . '/admin/marketplace?tab=promoters';
+        $name = htmlspecialchars((string) ($app['full_name'] ?? ''), ENT_QUOTES);
+        $email = htmlspecialchars((string) ($app['email'] ?? ''), ENT_QUOTES);
+        $phone = htmlspecialchars((string) ($app['phone'] ?? ''), ENT_QUOTES);
+        $city = htmlspecialchars((string) ($app['city'] ?? ''), ENT_QUOTES);
+        $exp = nl2br(htmlspecialchars((string) ($app['experience'] ?? '—'), ENT_QUOTES));
+        $why = nl2br(htmlspecialchars((string) ($app['why_join'] ?? ''), ENT_QUOTES));
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">New promoter application</h1>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Name:</strong> ' . $name . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Email:</strong> ' . $email . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Phone:</strong> ' . $phone . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 12px;"><strong>City:</strong> ' . $city . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Experience:</strong></p>'
+            . '<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #eee;margin-bottom:12px;">'
+            . '<p style="color:#333;font-size:14px;line-height:1.5;margin:0;">' . $exp . '</p></div>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Why they want to join:</strong></p>'
+            . '<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #eee;">'
+            . '<p style="color:#333;font-size:14px;line-height:1.5;margin:0;">' . $why . '</p></div>'
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($link, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Review in admin</a></div>'
+            . '</div></div></body></html>';
+
+        return self::send($toEmail, 'DanyPathMart Admin', 'Promoter application: ' . ($app['full_name'] ?? ''), $html);
+    }
+
+    /** @param array<string,mixed> $app */
+    public static function promoterApplicationToApplicant(string $toEmail, string $toName, array $app): bool
+    {
+        $name = htmlspecialchars($toName, ENT_QUOTES);
+        $phone = htmlspecialchars((string) ($app['phone'] ?? ''), ENT_QUOTES);
+        $city = htmlspecialchars((string) ($app['city'] ?? ''), ENT_QUOTES);
+        $exp = nl2br(htmlspecialchars((string) ($app['experience'] ?? '—'), ENT_QUOTES));
+        $why = nl2br(htmlspecialchars((string) ($app['why_join'] ?? ''), ENT_QUOTES));
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">We received your promoter application</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.55;">Hi ' . $name . ', thanks for applying. Here is a copy of what you sent us:</p>'
+            . '<p style="color:#444;font-size:14px;margin:12px 0 4px;"><strong>Phone:</strong> ' . $phone . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 12px;"><strong>City:</strong> ' . $city . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Experience</strong></p>'
+            . '<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #eee;margin-bottom:12px;">'
+            . '<p style="color:#333;font-size:14px;margin:0;">' . $exp . '</p></div>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 6px;"><strong>Why you want to join</strong></p>'
+            . '<div style="background:#fff;border-radius:10px;padding:12px;border:1px solid #eee;">'
+            . '<p style="color:#333;font-size:14px;margin:0;">' . $why . '</p></div>'
+            . '<p style="color:#666;font-size:13px;margin:16px 0 0;">Our team will review your application. If approved, we will email login details to this address.</p>'
+            . '</div></div></body></html>';
+
+        return self::send($toEmail, $toName, 'Your DanyPathMart promoter application', $html);
+    }
+
+    /** @param array{temp_password:string,otp?:string,code?:string} $ctx */
+    public static function promoterAccountCreated(string $toEmail, string $toName, array $ctx): bool
+    {
+        $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
+        $login = $appUrl . '/login';
+        $name = htmlspecialchars($toName, ENT_QUOTES);
+        $pass = htmlspecialchars((string) $ctx['temp_password'], ENT_QUOTES);
+        $code = htmlspecialchars((string) ($ctx['code'] ?? ''), ENT_QUOTES);
+        $otp = htmlspecialchars((string) ($ctx['otp'] ?? ''), ENT_QUOTES);
+
+        $html = '<!DOCTYPE html><html><body style="margin:0;padding:0;background:#111111;font-family:Arial,Helvetica,sans-serif;">'
+            . '<div style="max-width:560px;margin:0 auto;padding:32px 24px;">'
+            . '<div style="text-align:center;margin-bottom:20px;">'
+            . '<span style="font-size:24px;font-weight:800;color:#2C7A4B;">DanyPath</span>'
+            . '<span style="font-size:24px;font-weight:800;color:#F59E0B;">Mart</span></div>'
+            . '<div style="background:#FFFBF5;border-radius:16px;padding:28px 24px;">'
+            . '<h1 style="color:#111;font-size:20px;margin:0 0 12px;">Your promoter account is ready</h1>'
+            . '<p style="color:#444;font-size:15px;line-height:1.55;">Hi ' . $name . ', your promoter application was approved.</p>'
+            . '<p style="color:#444;font-size:14px;margin:12px 0 4px;"><strong>Login email:</strong> '
+            . htmlspecialchars($toEmail, ENT_QUOTES) . '</p>'
+            . '<p style="color:#444;font-size:14px;margin:0 0 4px;"><strong>Temporary password:</strong> '
+            . '<code style="background:#fff;padding:2px 6px;border-radius:6px;">' . $pass . '</code></p>'
+            . ($code !== '' ? '<p style="color:#444;font-size:14px;margin:0 0 4px;"><strong>Promoter code:</strong> ' . $code . '</p>' : '')
+            . ($otp !== '' ? '<p style="color:#444;font-size:14px;margin:0 0 12px;"><strong>Email verification code:</strong> '
+                . '<code style="background:#fff;padding:2px 6px;border-radius:6px;">' . $otp . '</code></p>' : '')
+            . '<p style="color:#666;font-size:13px;line-height:1.5;">Sign in, then you will be asked to change this password and verify your email before using your dashboard.</p>'
+            . '<div style="text-align:center;margin:20px 0 0;">'
+            . '<a href="' . htmlspecialchars($login, ENT_QUOTES) . '" '
+            . 'style="display:inline-block;background:#2C7A4B;color:#fff;text-decoration:none;'
+            . 'padding:12px 24px;border-radius:10px;font-weight:700;">Sign in</a></div>'
+            . '</div></div></body></html>';
+
+        return self::send($toEmail, $toName, 'Your DanyPathMart promoter login', $html);
+    }
+
     /** @param array{id:int,job_title:string,job_type_label:string,name:string,email:string,phone:string,city:string,cover_message:string,responses?:list<array<string,mixed>>} $ctx */
     public static function careerApplicationToAdmin(string $toEmail, array $ctx): bool
     {

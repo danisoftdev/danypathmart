@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import {
   useAdminShopApplications,
   useAdminShopBilling,
@@ -7,6 +7,9 @@ import {
   useAdminPromoterWithdrawals,
   useAdminShops,
   useAdminPromoters,
+  useAdminPromoterApplications,
+  useApprovePromoterApplication,
+  useRejectPromoterApplication,
   useCreatePromoter,
   useUpdatePromoterStatus,
   useDeletePromoter,
@@ -337,7 +340,12 @@ export default function AdminMarketplacePage() {
     return canOps;
   });
 
-  const [tab, setTab] = useState(() => (canOps ? 'applications' : canViewPolicy ? 'policy' : canViewMap ? 'map' : 'billing'));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => {
+    const fromUrl = searchParams.get('tab');
+    if (fromUrl && TABS.some((t) => t.id === fromUrl)) return fromUrl;
+    return canOps ? 'applications' : canViewPolicy ? 'policy' : canViewMap ? 'map' : 'billing';
+  });
   const [listingFilter, setListingFilter] = useState('approved');
   const [withdrawFilter, setWithdrawFilter] = useState('requested');
   const [withdrawKind, setWithdrawKind] = useState('shop');
@@ -355,6 +363,21 @@ export default function AdminMarketplacePage() {
   const [appToDelete, setAppToDelete] = useState(null);
   const [promoterToDelete, setPromoterToDelete] = useState(null);
   const [listingToUnpublish, setListingToUnpublish] = useState(null);
+  const [promoterAppFilter, setPromoterAppFilter] = useState('new');
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('tab');
+    if (fromUrl && TABS.some((t) => t.id === fromUrl) && fromUrl !== tab) {
+      setTab(fromUrl);
+    }
+  }, [searchParams, tab]);
+
+  const selectTab = (id) => {
+    setTab(id);
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', id);
+    setSearchParams(next, { replace: true });
+  };
 
   const { data: appData, isLoading: appsLoading } = useAdminShopApplications(canAccess && tab === 'applications');
   const { data: shops = [], isLoading: shopsLoading } = useAdminShops(
@@ -376,9 +399,15 @@ export default function AdminMarketplacePage() {
     canAccess && tab === 'withdrawals' && withdrawKind === 'promoter' && canManagePromoters
   );
   const { data: promoters = [], isLoading: promotersLoading } = useAdminPromoters(canAccess && tab === 'promoters' && canManagePromoters);
+  const { data: promoterApplications = [], isLoading: promoterAppsLoading } = useAdminPromoterApplications(
+    promoterAppFilter,
+    canAccess && tab === 'promoters' && canManagePromoters
+  );
   const createPromoter = useCreatePromoter();
   const updatePromoterStatus = useUpdatePromoterStatus();
   const deletePromoter = useDeletePromoter();
+  const approvePromoterApp = useApprovePromoterApplication();
+  const rejectPromoterApp = useRejectPromoterApplication();
   const canDeletePromoters = hasAnyPermission(user, ['delete_accounts', 'manage_promoters', 'edit_company_settings']);
   const [promoterForm, setPromoterForm] = useState({ name: '', email: '', password: '', display_name: '', code: '' });
 
@@ -608,7 +637,7 @@ export default function AdminMarketplacePage() {
           <button
             key={t.id}
             type="button"
-            onClick={() => setTab(t.id)}
+            onClick={() => selectTab(t.id)}
             className={tab === t.id ? 'admin-mobile-pill-active' : 'admin-mobile-pill'}
           >
             {t.label}
@@ -972,6 +1001,106 @@ export default function AdminMarketplacePage() {
 
       {tab === 'promoters' && canManagePromoters && (
         <>
+          <div className="admin-panel mb-6">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-bold uppercase text-muted">Promoter applications</h3>
+              <div className="flex flex-wrap gap-2">
+                {['new', 'approved', 'rejected', 'all'].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={`rounded-lg px-3 py-1 text-xs font-bold ${
+                      promoterAppFilter === s
+                        ? 'bg-brand-green text-white'
+                        : 'bg-black/5 text-muted dark:bg-white/10'
+                    }`}
+                    onClick={() => setPromoterAppFilter(s)}
+                  >
+                    {s === 'new' ? 'Pending' : s.charAt(0).toUpperCase() + s.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {promoterAppsLoading ? (
+              <AdminTableSkeleton rows={3} cols={4} />
+            ) : promoterApplications.length === 0 ? (
+              <p className="text-sm text-muted">No applications in this filter.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="admin-table w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th>Applicant</th>
+                      <th>City</th>
+                      <th>Why / experience</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promoterApplications.map((app) => (
+                      <tr key={app.id}>
+                        <td>
+                          <p className="font-semibold">{app.full_name}</p>
+                          <p className="text-xs text-muted">{app.email}</p>
+                          <p className="text-xs text-muted">{app.phone}</p>
+                        </td>
+                        <td>{app.city || '—'}</td>
+                        <td className="max-w-xs">
+                          <p className="line-clamp-3 text-xs">{app.why_join}</p>
+                          {app.experience && (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted">{app.experience}</p>
+                          )}
+                        </td>
+                        <td><StatusBadge status={app.status} /></td>
+                        <td className="whitespace-nowrap space-x-2">
+                          {app.status === 'new' && (
+                            <>
+                              <button
+                                type="button"
+                                className="text-xs font-bold text-brand-green"
+                                disabled={approvePromoterApp.isPending}
+                                onClick={async () => {
+                                  try {
+                                    await approvePromoterApp.mutateAsync({ id: app.id });
+                                    setAlert('Account created. Login details emailed to the applicant.');
+                                    setAlertType('success');
+                                  } catch (err) {
+                                    setAlert(err.response?.data?.message || 'Could not create account.');
+                                    setAlertType('error');
+                                  }
+                                }}
+                              >
+                                Create account
+                              </button>
+                              <button
+                                type="button"
+                                className="text-xs font-bold text-brand-red"
+                                disabled={rejectPromoterApp.isPending}
+                                onClick={async () => {
+                                  try {
+                                    await rejectPromoterApp.mutateAsync({ id: app.id });
+                                    setAlert('Application rejected.');
+                                    setAlertType('success');
+                                  } catch (err) {
+                                    setAlert(err.response?.data?.message || 'Could not reject.');
+                                    setAlertType('error');
+                                  }
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           <form
             className="admin-panel mb-6 grid gap-3 md:grid-cols-2"
             onSubmit={async (e) => {
@@ -988,7 +1117,7 @@ export default function AdminMarketplacePage() {
               }
             }}
           >
-            <h3 className="md:col-span-2 text-sm font-bold uppercase text-muted">Add promoter</h3>
+            <h3 className="md:col-span-2 text-sm font-bold uppercase text-muted">Add promoter manually</h3>
             <input className="input-field" placeholder="Display name" value={promoterForm.display_name} onChange={(e) => setPromoterForm((f) => ({ ...f, display_name: e.target.value, name: e.target.value }))} required />
             <input className="input-field" placeholder="Email" type="email" value={promoterForm.email} onChange={(e) => setPromoterForm((f) => ({ ...f, email: e.target.value }))} required />
             <input className="input-field" placeholder="Password (8+)" type="password" value={promoterForm.password} onChange={(e) => setPromoterForm((f) => ({ ...f, password: e.target.value }))} required />

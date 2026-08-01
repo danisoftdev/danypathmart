@@ -57,7 +57,7 @@ api.interceptors.response.use(
     // Credential / challenge endpoints return 401 for bad input — not an expired JWT.
     // Treating those as session expiry was kicking users off /2fa back to /login.
     const isAuthChallenge =
-      /\/auth\/(login|refresh|register|logout|forgot|reset|verify-email|2fa|webauthn|oauth|dev-admin)/.test(
+      /\/auth\/(login|refresh|register|logout|forgot|reset|verify-email|resend-otp|set-password|2fa|webauthn|oauth|dev-admin)/.test(
         url
       );
     const isSoftAuth =

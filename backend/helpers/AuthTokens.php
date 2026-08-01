@@ -93,6 +93,19 @@ final class AuthTokens
             $shopId = null;
         }
 
+        $mustChange = 0;
+        if (array_key_exists('must_change_password', $u)) {
+            $mustChange = (int) $u['must_change_password'];
+        } else {
+            try {
+                $flag = $pdo->prepare('SELECT must_change_password FROM users WHERE id = ?');
+                $flag->execute([(int) $u['id']]);
+                $mustChange = (int) ($flag->fetchColumn() ?: 0);
+            } catch (\Throwable) {
+                $mustChange = 0;
+            }
+        }
+
         return [
             'id'                 => (int) $u['id'],
             'name'               => $u['name'],
@@ -104,6 +117,8 @@ final class AuthTokens
             'phone'              => $u['phone'] ?? null,
             'profile_photo'      => $u['profile_photo'] ?? null,
             'totp_enabled'               => (int) ($u['totp_enabled'] ?? 0),
+            'must_change_password'       => $mustChange === 1,
+            'needs_email_verification'   => ($u['status'] ?? '') === 'unverified',
             'assigned_pickup_station_id' => isset($u['assigned_pickup_station_id'])
                 ? ($u['assigned_pickup_station_id'] !== null ? (int) $u['assigned_pickup_station_id'] : null)
                 : null,

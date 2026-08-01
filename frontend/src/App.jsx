@@ -82,6 +82,7 @@ import AdminPosLabelsPage from './pages/admin/AdminPosLabelsPage';
 import PosLayout from './components/layout/PosLayout';
 import PosTerminalPage from './pages/pos/PosTerminalPage';
 import ContactPage from './pages/ContactPage';
+import BecomeAPromoterPage from './pages/BecomeAPromoterPage';
 import ReturnsPolicyPage from './pages/ReturnsPolicyPage';
 import LegalPolicyPage from './pages/LegalPolicyPage';
 import AdminHeroBannersPage from './pages/admin/AdminHeroBannersPage';
@@ -106,6 +107,7 @@ import { useCompanyStore } from './store/companyStore';
 import AnalyticsLoader from './components/analytics/AnalyticsLoader';
 import CautionAcknowledgeGate from './components/trust/CautionAcknowledgeGate';
 import CookieConsentBanner from './components/legal/CookieConsentBanner';
+import AccountSetupGate from './components/auth/AccountSetupGate';
 
 function Boot({ children }) {
   const [ready, setReady] = useState(false);
@@ -136,6 +138,7 @@ function Boot({ children }) {
       <AnalyticsLoader />
       <CautionAcknowledgeGate />
       <CookieConsentBanner />
+      <AccountSetupGate />
       {children}
     </>
   );
@@ -173,6 +176,7 @@ export default function App() {
           <Route path="/product/:slug" element={<ProductDetailPage />} />
           <Route path="/search" element={<SearchResultsPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/become-a-promoter" element={<BecomeAPromoterPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/returns" element={<ReturnsPolicyPage />} />
           <Route path="/policies/:slug" element={<LegalPolicyPage />} />

@@ -49,7 +49,10 @@ final class PromoterService
     }
 
     /**
-     * @param array{name:string,email:string,password:string,display_name?:string,code?:string} $input
+     * @param array{
+     *   name:string,email:string,password:string,display_name?:string,code?:string,
+     *   must_change_password?:bool,status?:string,phone?:string
+     * } $input
      * @return array<string,mixed>
      */
     public static function create(PDO $pdo, array $input, int $adminId): array
@@ -59,6 +62,12 @@ final class PromoterService
         $password = (string) ($input['password'] ?? '');
         $displayName = trim((string) ($input['display_name'] ?? $name));
         $code = self::normalizeCode((string) ($input['code'] ?? ''));
+        $mustChange = !empty($input['must_change_password']);
+        $userStatus = (string) ($input['status'] ?? 'verified');
+        if (!in_array($userStatus, ['unverified', 'verified'], true)) {
+            $userStatus = 'verified';
+        }
+        $phone = trim((string) ($input['phone'] ?? ''));
 
         if ($displayName === '' || $email === '' || strlen($password) < 8) {
             throw new \InvalidArgumentException('Name, email, and password (8+ chars) are required.');
@@ -93,10 +102,33 @@ final class PromoterService
             $display = $name !== '' ? $name : $displayName;
             try {
                 // Match staff/driver inserts — do not require email_verified_at (absent on some DBs).
-                $pdo->prepare(
-                    "INSERT INTO users (name, username, email, password_hash, role, status)
-                     VALUES (?, ?, ?, ?, 'promoter', 'verified')"
-                )->execute([$display, $username, $email, $hash]);
+                try {
+                    $pdo->prepare(
+                        "INSERT INTO users (name, username, email, phone, password_hash, role, status, must_change_password)
+                         VALUES (?, ?, ?, ?, ?, 'promoter', ?, ?)"
+                    )->execute([
+                        $display,
+                        $username,
+                        $email,
+                        $phone !== '' ? $phone : null,
+                        $hash,
+                        $userStatus,
+                        $mustChange ? 1 : 0,
+                    ]);
+                } catch (\Throwable) {
+                    $pdo->prepare(
+                        "INSERT INTO users (name, username, email, password_hash, role, status)
+                         VALUES (?, ?, ?, ?, 'promoter', ?)"
+                    )->execute([$display, $username, $email, $hash, $userStatus]);
+                    if ($mustChange) {
+                        try {
+                            $uid = (int) $pdo->lastInsertId();
+                            $pdo->prepare('UPDATE users SET must_change_password = 1 WHERE id = ?')->execute([$uid]);
+                        } catch (\Throwable) {
+                            // Column may not exist until migration 077.
+                        }
+                    }
+                }
             } catch (\Throwable $roleErr) {
                 $msg = $roleErr->getMessage();
                 if (str_contains($msg, 'role') || str_contains($msg, 'Data truncated')) {

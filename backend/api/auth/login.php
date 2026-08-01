@@ -30,18 +30,31 @@ $pdo = Database::pdo();
 try {
     $stmt = $pdo->prepare(
         'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled,
-                deletion_requested_at
+                must_change_password, deletion_requested_at
          FROM users WHERE email = ?'
     );
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 } catch (\Throwable) {
-    $stmt = $pdo->prepare(
-        'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled
-         FROM users WHERE email = ?'
-    );
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled,
+                    deletion_requested_at
+             FROM users WHERE email = ?'
+        );
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+    } catch (\Throwable) {
+        $stmt = $pdo->prepare(
+            'SELECT id, name, username, email, password_hash, role, status, preferred_currency, totp_enabled
+             FROM users WHERE email = ?'
+        );
+        $stmt->execute([$email]);
+        $user = $stmt->fetch();
+    }
+    if (is_array($user) && !array_key_exists('must_change_password', $user)) {
+        $user['must_change_password'] = 0;
+    }
 }
 
 // Uniform failure message to avoid user enumeration.
@@ -55,7 +68,10 @@ if ($user['status'] === 'disabled') {
 
 $deletionGate = AccountDeletionService::gateLogin($pdo, $user);
 
-if ($user['status'] === 'unverified') {
+$mustChangePassword = (int) ($user['must_change_password'] ?? 0) === 1;
+
+// Unverified accounts normally cannot log in — except first-login setup (temp password).
+if ($user['status'] === 'unverified' && !$mustChangePassword) {
     Response::error('Please verify your email before logging in.', 403, [
         'code'    => 'email_unverified',
         'user_id' => (int) $user['id'],

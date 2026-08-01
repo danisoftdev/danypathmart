@@ -87,7 +87,7 @@ export default function Footer() {
           <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.14em] text-brand-gold">Work with us</h3>
           <ul className="space-y-2.5">
             <li>
-              <Link to="/contact?subject=Become%20a%20promoter" className="font-semibold text-white hover:text-brand-gold hover:underline">
+              <Link to="/become-a-promoter" className="font-semibold text-white hover:text-brand-gold hover:underline">
                 Become a promoter
               </Link>
               <p className="text-xs text-white/45">Earn by referring new shops</p>

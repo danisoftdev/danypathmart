@@ -1094,6 +1094,37 @@ export function useAdminPromoters(enabled = true) {
   });
 }
 
+export function useAdminPromoterApplications(status = 'new', enabled = true) {
+  return useQuery({
+    queryKey: ['admin-promoter-applications', status],
+    queryFn: async () =>
+      (await api.get('/admin/promoter-applications', { params: { status } })).data.applications,
+    enabled,
+    ...adminQuery,
+  });
+}
+
+export function useApprovePromoterApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, code }) =>
+      (await api.post(`/admin/promoter-applications/${id}/approve`, code ? { code } : {})).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-promoter-applications'] });
+      qc.invalidateQueries({ queryKey: ['admin-promoters'] });
+    },
+  });
+}
+
+export function useRejectPromoterApplication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, admin_note }) =>
+      (await api.post(`/admin/promoter-applications/${id}/reject`, { admin_note: admin_note || null })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-promoter-applications'] }),
+  });
+}
+
 export function useCreatePromoter() {
   const qc = useQueryClient();
   return useMutation({
@@ -1114,10 +1145,11 @@ export function useDeletePromoter() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, confirm_email }) =>
-      (await api.delete(`/admin/promoters/${id}`, { data: { confirm_email } })).data,
+      (await api.post(`/admin/promoters/${id}/delete`, { confirm_email })).data,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-promoters'] });
       qc.invalidateQueries({ queryKey: ['admin-users'] });
+      qc.invalidateQueries({ queryKey: ['admin-promoter-applications'] });
     },
   });
 }

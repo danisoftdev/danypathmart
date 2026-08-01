@@ -20,9 +20,16 @@ function PromptDialogForm({
     e.preventDefault();
     const trimmed = value.trim();
     if (!trimmed) return;
-    if (expectedValue != null && trimmed !== String(expectedValue)) {
-      setError('Text does not match. Check spelling and try again.');
-      return;
+    if (expectedValue != null) {
+      const expected = String(expectedValue);
+      const emailLike = expected.includes('@');
+      const matches = emailLike
+        ? trimmed.toLowerCase() === expected.toLowerCase()
+        : trimmed === expected;
+      if (!matches) {
+        setError('Text does not match. Check spelling and try again.');
+        return;
+      }
     }
     setError('');
     onSubmit(trimmed);
