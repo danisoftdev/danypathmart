@@ -6,7 +6,6 @@ import { canChangeProfilePhoto } from '../../../lib/brand';
 import UserAvatar from '../../brand/UserAvatar';
 import { CameraIcon } from '../../icons';
 import ChangeEmailModal from './ChangeEmailModal';
-import { AvailabilityHint, useAvailabilityCheck } from '../../../hooks/useAvailabilityCheck';
 import api from '../../../lib/api';
 
 const FALLBACK_REASONS = {
@@ -40,12 +39,6 @@ export default function ProfileTab() {
   const [deleteDetail, setDeleteDetail] = useState('');
   const [deleteErr, setDeleteErr] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState('');
-
-  const nameCheck = useAvailabilityCheck('name', name, {
-    excludeUserId: user?.id,
-    minLength: 2,
-    enabled: !!name.trim() && name.trim() !== (user?.name || ''),
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -83,10 +76,7 @@ export default function ProfileTab() {
     setErr('');
     setMsg('');
     if (!name.trim()) return setErr('Your name is required.');
-    if (name.trim() !== (user?.name || '')) {
-      if (nameCheck.checking) return setErr('Please wait while we verify your name.');
-      if (nameCheck.available === false) return setErr(nameCheck.message || 'This name is already in use.');
-    }
+    if (name.trim().length < 2) return setErr('Name is too short.');
     try {
       await updateProfile.mutateAsync({ name: name.trim(), phone: phone.trim() });
       setMsg('Profile saved.');
@@ -166,11 +156,6 @@ export default function ProfileTab() {
         <div>
           <label className="mb-1 block text-sm font-medium">Full name</label>
           <input className="modal-input" value={name} onChange={(e) => setName(e.target.value)} />
-          {name.trim() !== (user?.name || '') ? (
-            <AvailabilityHint check={nameCheck} />
-          ) : name.trim() ? (
-            <p className="mt-1.5 text-xs font-semibold text-brand-green">Verified — your current name</p>
-          ) : null}
         </div>
 
         <div>

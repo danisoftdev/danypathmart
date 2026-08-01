@@ -36,9 +36,8 @@ if ($username !== '' && !Validator::username($username)) {
 
 $pdo = Database::pdo();
 
-$nameCheck = AvailabilityService::check($pdo, 'name', $name);
-if (!$nameCheck['available']) {
-    Response::error($nameCheck['message'], 409);
+if (mb_strlen($name) < 2 || mb_strlen($name) > 120) {
+    Response::error('Full name must be between 2 and 120 characters', 422);
 }
 
 $emailCheck = AvailabilityService::check($pdo, 'email', $email);
@@ -85,19 +84,36 @@ $insert->execute([$name, $username, $email, $hash, 'customer', 'unverified']);
 $userId = (int) $pdo->lastInsertId();
 
 $otp = OTPService::issue($userId, 'registration');
-Mailer::send($email, $name, 'Verify your DanyPathMart account', Mailer::otpEmail($otp, 'registration'));
+$mailSent = false;
+try {
+    $mailSent = Mailer::send(
+        $email,
+        $name,
+        'Verify your DanyPathMart account',
+        Mailer::otpEmail($otp, 'registration')
+    );
+} catch (\Throwable $e) {
+    error_log('Registration email failed for user #' . $userId . ': ' . $e->getMessage());
+}
 
-NotificationService::notifyAdmins(
-    $pdo,
-    'New registration — ' . $name,
-    $email . ' registered (email verification pending).',
-    '/admin/users',
-    'admin_auth'
-);
+try {
+    NotificationService::notifyAdmins(
+        $pdo,
+        'New registration — ' . $name,
+        $email . ' registered (email verification pending).',
+        '/admin/users',
+        'admin_auth'
+    );
+} catch (\Throwable) {
+    // Never block signup because of admin notifications.
+}
 
 Response::success([
-    'message'  => 'Account created. Check your email for the 6-digit verification code.',
+    'message'  => $mailSent
+        ? 'Account created. Check your email for the 6-digit verification code.'
+        : 'Account created. If you do not receive an email shortly, use Resend code on the next screen.',
     'user_id'  => $userId,
     'email'    => $email,
     'username' => $username,
+    'email_sent' => $mailSent,
 ], 201);

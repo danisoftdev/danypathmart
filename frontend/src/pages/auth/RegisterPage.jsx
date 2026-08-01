@@ -18,7 +18,6 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const nameCheck = useAvailabilityCheck('name', form.name, { minLength: 2 });
   const emailCheck = useAvailabilityCheck('email', form.email, { minLength: 5 });
 
   const set = (key) => (e) => {
@@ -31,12 +30,12 @@ export default function RegisterPage() {
   const validateStep1 = () => {
     const errs = {};
     if (!form.name.trim()) errs.name = 'Please enter your full name.';
-    else if (nameCheck.available === false) errs.name = nameCheck.message || 'This name is already in use.';
+    else if (form.name.trim().length < 2) errs.name = 'Name is too short.';
     if (!form.email.trim()) errs.email = 'Email is required.';
     else if (!emailValid) errs.email = 'Enter a valid email address.';
     else if (emailCheck.available === false) errs.email = emailCheck.message || 'This email is already registered.';
-    if (nameCheck.checking || emailCheck.checking) {
-      setError('Please wait while we verify your details.');
+    if (emailCheck.checking) {
+      setError('Please wait while we verify your email.');
       return false;
     }
     setFieldErrors(errs);
@@ -101,7 +100,6 @@ export default function RegisterPage() {
               autoComplete="name"
               placeholder="Your full name"
             />
-            {!fieldErrors.name && <AvailabilityHint check={nameCheck} />}
           </FormField>
 
           <FormField label="Email address" required error={fieldErrors.email}>
@@ -120,12 +118,7 @@ export default function RegisterPage() {
             type="button"
             onClick={nextStep}
             className="btn-primary mt-2 min-h-[48px] w-full text-base"
-            disabled={
-              nameCheck.checking ||
-              emailCheck.checking ||
-              nameCheck.available === false ||
-              emailCheck.available === false
-            }
+            disabled={emailCheck.checking || emailCheck.available === false}
           >
             Continue
           </button>

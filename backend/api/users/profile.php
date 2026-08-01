@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\AuthTokens;
-use App\Helpers\AvailabilityService;
 use App\Helpers\Response;
 use App\Helpers\Validator;
 use App\Middleware\AuthMiddleware;
@@ -23,9 +22,8 @@ if ($phone !== '' && !preg_match('/^[0-9+()\-\s]{6,30}$/', $phone)) {
     Response::error('Please enter a valid phone number.', 422);
 }
 
-$nameCheck = AvailabilityService::check($pdo, 'name', $name, (int) $user['id']);
-if (!$nameCheck['available']) {
-    Response::error($nameCheck['message'], 409);
+if (mb_strlen($name) < 2 || mb_strlen($name) > 120) {
+    Response::error('Full name must be between 2 and 120 characters.', 422);
 }
 
 $pdo->prepare('UPDATE users SET name = ?, phone = ? WHERE id = ?')

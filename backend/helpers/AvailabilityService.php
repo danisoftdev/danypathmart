@@ -113,23 +113,17 @@ final class AvailabilityService
     /** @return array{available:bool,verified:bool,message:string,normalized:string} */
     private static function checkDisplayName(PDO $pdo, string $name, ?int $excludeUserId): array
     {
+        // Display names are not unique — many people share the same name.
+        // Email / username remain the unique account identifiers.
+        unset($pdo, $excludeUserId);
         if (mb_strlen($name) < 2) {
             return self::fail($name, 'Name is too short.');
         }
-        // Hold names during pending deletion; anonymized (disabled) accounts free the name.
-        $sql = "SELECT id FROM users WHERE LOWER(TRIM(name)) = LOWER(?) AND status != 'disabled'";
-        $params = [$name];
-        if ($excludeUserId !== null && $excludeUserId > 0) {
-            $sql .= ' AND id != ?';
-            $params[] = $excludeUserId;
-        }
-        $stmt = $pdo->prepare($sql . ' LIMIT 1');
-        $stmt->execute($params);
-        if ($stmt->fetch() !== false) {
-            return self::fail($name, 'This name is already in use. Choose another.');
+        if (mb_strlen($name) > 120) {
+            return self::fail($name, 'Name is too long.');
         }
 
-        return self::ok($name, 'Name is unique.');
+        return self::ok($name, 'Looks good.');
     }
 
     /** @return array{available:bool,verified:bool,message:string,normalized:string} */
