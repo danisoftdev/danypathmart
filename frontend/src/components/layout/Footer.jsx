@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { usePlatformFeatures } from '../../hooks/checkout';
-import { usePublicLegalPolicies } from '../../hooks/storefront';
+import { usePublicAboutPage, usePublicLegalPolicies } from '../../hooks/storefront';
 import { useCompanyStore } from '../../store/companyStore';
 import SiteLogo from '../brand/SiteLogo';
 import CopyableText from '../ui/CopyableText';
@@ -35,6 +35,8 @@ export default function Footer() {
   const company = useCompanyStore((s) => s.company);
   const { marketplaceEnabled, shopApplicationsOpen } = usePlatformFeatures();
   const { data: footerPolicies = [] } = usePublicLegalPolicies();
+  const { data: aboutMeta } = usePublicAboutPage();
+  const aboutEnabled = !!aboutMeta?.enabled;
 
   const policyLinks = footerPolicies.length > 0
     ? footerPolicies.map((p) => ({ to: `/policies/${p.slug}`, label: p.title }))
@@ -48,7 +50,18 @@ export default function Footer() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/60">
             Supermarket essentials and marketplace shops — delivered across Ghana.
           </p>
-          <Link to="/shop" className="mt-4 inline-block text-sm font-semibold text-white/80 hover:text-brand-gold hover:underline">
+          {aboutEnabled && (
+            <Link
+              to="/about"
+              className="group mt-4 inline-flex items-center gap-2 rounded-full border border-brand-gold/35 bg-brand-gold/10 px-3.5 py-1.5 text-sm font-semibold text-brand-gold transition hover:border-brand-gold/60 hover:bg-brand-gold/20"
+            >
+              About us
+              <span className="transition group-hover:translate-x-0.5" aria-hidden>
+                →
+              </span>
+            </Link>
+          )}
+          <Link to="/shop" className="mt-3 block text-sm font-semibold text-white/70 hover:text-white hover:underline">
             Shop all products
           </Link>
         </div>
