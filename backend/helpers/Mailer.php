@@ -47,8 +47,12 @@ final class Mailer
 
             $mail->send();
             return true;
-        } catch (PHPMailerException $e) {
-            self::$lastError = $mail->ErrorInfo !== '' ? $mail->ErrorInfo : $e->getMessage();
+        } catch (\Throwable $e) {
+            $info = '';
+            if (isset($mail) && is_object($mail) && !empty($mail->ErrorInfo)) {
+                $info = (string) $mail->ErrorInfo;
+            }
+            self::$lastError = $info !== '' ? $info : $e->getMessage();
             error_log('Mailer error: ' . self::$lastError);
             return false;
         }
@@ -522,6 +526,7 @@ final class Mailer
     /** @param array<string,mixed> $app */
     public static function promoterApplicationToAdmin(string $toEmail, array $app): bool
     {
+        Env::load();
         $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
         $link = $appUrl . '/admin/marketplace?tab=promoters';
         $name = htmlspecialchars((string) ($app['full_name'] ?? ''), ENT_QUOTES);
@@ -560,6 +565,7 @@ final class Mailer
     /** @param array<string,mixed> $app */
     public static function promoterApplicationToApplicant(string $toEmail, string $toName, array $app): bool
     {
+        Env::load();
         $name = htmlspecialchars($toName, ENT_QUOTES);
         $phone = htmlspecialchars((string) ($app['phone'] ?? ''), ENT_QUOTES);
         $city = htmlspecialchars((string) ($app['city'] ?? ''), ENT_QUOTES);
@@ -591,6 +597,7 @@ final class Mailer
     /** @param array{temp_password:string,otp?:string,code?:string} $ctx */
     public static function promoterAccountCreated(string $toEmail, string $toName, array $ctx): bool
     {
+        Env::load();
         $appUrl = rtrim((string) Env::get('CORS_ORIGIN', 'http://localhost:5173'), '/');
         $login = $appUrl . '/login';
         $name = htmlspecialchars($toName, ENT_QUOTES);

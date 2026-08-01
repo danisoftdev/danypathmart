@@ -28,7 +28,7 @@ export default function BecomeAPromoterPage() {
     e.preventDefault();
     setError('');
     try {
-      await submit.mutateAsync({
+      const data = await submit.mutateAsync({
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim(),
@@ -37,6 +37,9 @@ export default function BecomeAPromoterPage() {
         why_join: form.why_join.trim(),
       });
       setSent(true);
+      if (data?.email_sent === false) {
+        setError('Application saved, but the confirmation email could not be sent. Check spam later or contact us.');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Could not submit your application. Please try again.');
     }

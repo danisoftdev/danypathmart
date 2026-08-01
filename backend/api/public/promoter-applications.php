@@ -24,8 +24,12 @@ try {
     Response::error('Could not submit your application. Please try again.', 500);
 }
 
+$emailSent = !empty($result['email_sent']);
 Response::success([
-    'message' => 'Application received. Check your email for a copy of your details.',
-    'id'      => $result['id'],
-    'email'   => $result['email'],
+    'message' => $emailSent
+        ? 'Application received. Check your email for a copy of your details.'
+        : 'Application received. If you do not get a confirmation email, check spam or contact us.',
+    'id'         => $result['id'],
+    'email'      => $result['email'],
+    'email_sent' => $emailSent,
 ], 201);

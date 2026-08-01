@@ -63,20 +63,40 @@ final class PromoterApplicationService
             throw new \RuntimeException('Could not save application.');
         }
 
+        // Applicant copy first — most important for the sender.
+        $applicantSent = false;
+        try {
+            $applicantSent = Mailer::promoterApplicationToApplicant($email, $name, $row);
+            if (!$applicantSent) {
+                error_log('promoter apply applicant mail failed: ' . (Mailer::lastError() ?: 'unknown'));
+            }
+        } catch (\Throwable $e) {
+            error_log('promoter apply applicant mail exception: ' . $e->getMessage());
+        }
+
         Env::load();
         $adminEmail = trim((string) Env::get('ADMIN_EMAIL', 'admin@danypathmart.store'));
-        Mailer::promoterApplicationToAdmin($adminEmail, $row);
-        Mailer::promoterApplicationToApplicant($email, $name, $row);
+        try {
+            if ($adminEmail !== '' && !Mailer::promoterApplicationToAdmin($adminEmail, $row)) {
+                error_log('promoter apply admin mail failed: ' . (Mailer::lastError() ?: 'unknown'));
+            }
+        } catch (\Throwable $e) {
+            error_log('promoter apply admin mail exception: ' . $e->getMessage());
+        }
 
-        NotificationService::notifyAdmins(
-            $pdo,
-            'Promoter application — ' . $name,
-            "{$name} ({$email})\nPhone: {$phone}\nCity: {$city}\n\n{$why}",
-            '/admin/marketplace?tab=promoters',
-            'admin_contact'
-        );
+        try {
+            NotificationService::notifyAdmins(
+                $pdo,
+                'Promoter application — ' . $name,
+                "{$name} ({$email})\nPhone: {$phone}\nCity: {$city}\n\n{$why}",
+                '/admin/marketplace?tab=promoters',
+                'admin_contact'
+            );
+        } catch (\Throwable $e) {
+            error_log('promoter apply notifyAdmins: ' . $e->getMessage());
+        }
 
-        return ['id' => $id, 'email' => $email];
+        return ['id' => $id, 'email' => $email, 'email_sent' => $applicantSent];
     }
 
     /** @return list<array<string,mixed>> */
@@ -148,19 +168,71 @@ final class PromoterApplicationService
             error_log('promoter approve OTP: ' . $e->getMessage());
         }
 
-        Mailer::promoterAccountCreated(
-            (string) $app['email'],
-            (string) $app['full_name'],
-            [
+        $toEmail = (string) $app['email'];
+        $toName = (string) $app['full_name'];
+        $mailSent = false;
+
+        try {
+            $mailSent = Mailer::promoterAccountCreated($toEmail, $toName, [
                 'temp_password' => $tempPassword,
                 'otp'           => $otp,
                 'code'          => (string) ($promoter['code'] ?? ''),
-            ]
-        );
+            ]);
+            if (!$mailSent) {
+                error_log('promoter approve account mail failed: ' . (Mailer::lastError() ?: 'unknown'));
+            }
+        } catch (\Throwable $e) {
+            error_log('promoter approve account mail exception: ' . $e->getMessage());
+        }
+
+        // Fallback: same OTP template used by registration (known-good path).
+        if ($otp !== '') {
+            try {
+                $otpSent = Mailer::send(
+                    $toEmail,
+                    $toName,
+                    'Verify your DanyPathMart promoter account',
+                    Mailer::otpEmail($otp, 'registration')
+                );
+                if (!$otpSent) {
+                    error_log('promoter approve OTP mail failed: ' . (Mailer::lastError() ?: 'unknown'));
+                } else {
+                    $mailSent = true;
+                }
+            } catch (\Throwable $e) {
+                error_log('promoter approve OTP mail exception: ' . $e->getMessage());
+            }
+        }
+
+        // Plain fallback if HTML templates fail for any reason.
+        if (!$mailSent) {
+            try {
+                $plain = 'Your DanyPathMart promoter account is ready.'
+                    . "\nLogin email: {$toEmail}"
+                    . "\nTemporary password: {$tempPassword}"
+                    . ($otp !== '' ? "\nVerification code: {$otp}" : '')
+                    . "\nSign in: " . rtrim((string) Env::get('CORS_ORIGIN', 'https://danypathmart.store'), '/') . '/login';
+                $mailSent = Mailer::send(
+                    $toEmail,
+                    $toName,
+                    'Your DanyPathMart promoter login',
+                    '<pre style="font-family:Arial,sans-serif;white-space:pre-wrap;">'
+                        . htmlspecialchars($plain, ENT_QUOTES)
+                        . '</pre>',
+                    $plain
+                );
+                if (!$mailSent) {
+                    error_log('promoter approve plain mail failed: ' . (Mailer::lastError() ?: 'unknown'));
+                }
+            } catch (\Throwable $e) {
+                error_log('promoter approve plain mail exception: ' . $e->getMessage());
+            }
+        }
 
         return [
             'promoter'      => $promoter,
             'temp_password' => $tempPassword,
+            'email_sent'    => $mailSent,
             'application'   => self::findById($pdo, $applicationId) ?? $app,
         ];
     }
