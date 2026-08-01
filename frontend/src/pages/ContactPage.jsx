@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import api from '../lib/api';
 import { useAuthStore } from '../store/authStore';
@@ -15,12 +15,16 @@ function useSubmitContact() {
 export default function ContactPage() {
   const user = useAuthStore((s) => s.user);
   const company = useCompanyStore((s) => s.company);
+  const [searchParams] = useSearchParams();
   const submit = useSubmitContact();
+  const presetSubject = (searchParams.get('subject') || '').trim();
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    subject: '',
-    message: '',
+    subject: presetSubject,
+    message: presetSubject.toLowerCase().includes('promoter')
+      ? 'I would like to become a DanyPathMart promoter. Please tell me how to get started.'
+      : '',
   });
   const [error, setError] = useState('');
   const [sent, setSent] = useState(false);
