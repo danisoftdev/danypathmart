@@ -1,11 +1,12 @@
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import ProductImage from '../components/product/ProductImage';
 import CompletePaymentPanel from '../components/checkout/CompletePaymentPanel';
 import PrintExportActions from '../components/ui/PrintExportActions';
 import { formatPrice } from '../lib/currency';
 import { isGroupOrder, printGroupRoster, printReceipt, rosterLinesFromOrder } from '../lib/orderDocuments';
 import { downloadGroupRosterCsv } from '../lib/csvExport';
-import { useOrder, useAirLabels } from '../hooks/checkout';
+import { useOrder, useAirLabels, useVerifyPayment } from '../hooks/checkout';
 import { useCompanyStore } from '../store/companyStore';
 import { orderWhatsAppMessage, whatsAppLink } from '../lib/whatsapp';
 
@@ -31,9 +32,37 @@ function StatusBadge({ paid, pod }) {
 
 export default function OrderConfirmationPage() {
   const { id } = useParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { data, isLoading, isError, refetch } = useOrder(id);
+  const verifyPayment = useVerifyPayment();
   const company = useCompanyStore((s) => s.company);
   const labels = useAirLabels();
+  const [verifyNote, setVerifyNote] = useState(location.state?.paymentNotice || '');
+  const verifiedRef = useRef(false);
+
+  useEffect(() => {
+    if (!id || verifiedRef.current) return;
+    const reference = searchParams.get('reference') || searchParams.get('trxref') || '';
+    const mock = searchParams.get('mock') === '1';
+    if (!reference && !mock) return;
+    verifiedRef.current = true;
+    (async () => {
+      try {
+        await verifyPayment.mutateAsync({ orderId: Number(id), reference: reference || undefined });
+        setVerifyNote('Payment confirmed. Thank you!');
+        await refetch();
+      } catch (err) {
+        const code = err.response?.data?.code;
+        if (code === 'payment_pending') {
+          setVerifyNote('Payment is still processing. This page will update automatically.');
+        } else if (!err.response) {
+          setVerifyNote('Checking payment status…');
+        }
+        await refetch();
+      }
+    })();
+  }, [id, searchParams, verifyPayment, refetch]);
 
   if (isLoading) {
     return (
@@ -75,6 +104,11 @@ export default function OrderConfirmationPage() {
             <StatusBadge paid={paid} pod={isPod} />
             <span className="text-xs capitalize text-black/50 dark:text-white/50">{order.status?.replace(/_/g, ' ')}</span>
           </div>
+          {verifyNote && (
+            <p className="mt-4 rounded-xl bg-brand-green/10 px-4 py-3 text-sm text-brand-green">
+              {verifyNote}
+            </p>
+          )}
           {!paid && !isPod && (
             <p className="mt-4 rounded-xl bg-brand-gold/15 px-4 py-3 text-sm text-amber-900 dark:text-brand-gold">
               Complete payment below to start preparing your order.

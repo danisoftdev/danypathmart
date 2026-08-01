@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import {
   useShopSupportChats,
   useShopSupportConversation,
+  useShopSupportDelete,
   useShopSupportReply,
   useShopSupportUpload,
 } from '../../hooks/supportChat';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { resolveImageUrl } from '../../lib/currency';
 import { staffVisibleMessages } from '../../lib/supportChatMessages';
 
@@ -72,6 +74,7 @@ export default function ShopSupportChatPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -79,6 +82,7 @@ export default function ShopSupportChatPage() {
   const { data: thread, isLoading: threadLoading } = useShopSupportConversation(selectedId, !!selectedId);
   const reply = useShopSupportReply();
   const upload = useShopSupportUpload();
+  const removeChat = useShopSupportDelete();
 
   const messages = staffVisibleMessages(thread?.messages ?? []);
   const active = thread?.conversation ?? null;
@@ -86,6 +90,12 @@ export default function ShopSupportChatPage() {
   useEffect(() => {
     if (!selectedId && conversations[0]?.id) {
       setSelectedId(conversations[0].id);
+    }
+  }, [conversations, selectedId]);
+
+  useEffect(() => {
+    if (selectedId && !conversations.some((c) => c.id === selectedId)) {
+      setSelectedId(conversations[0]?.id ?? null);
     }
   }, [conversations, selectedId]);
 
@@ -118,6 +128,22 @@ export default function ShopSupportChatPage() {
       await reply.mutateAsync({ conversation_id: selectedId, image_url: uploaded.url });
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send image.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    setError('');
+    try {
+      const deletedId = selectedId;
+      await removeChat.mutateAsync(deletedId);
+      setConfirmDelete(false);
+      setDraft('');
+      const next = conversations.find((c) => c.id !== deletedId);
+      setSelectedId(next?.id ?? null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not delete chat.');
+      setConfirmDelete(false);
     }
   };
 
@@ -179,19 +205,29 @@ export default function ShopSupportChatPage() {
             <p className="p-4 text-sm text-white/50">Loading messages…</p>
           ) : (
             <>
-              <div className="border-b border-white/10 px-4 py-3">
-                <p className="font-bold">{active?.guest_name || 'Customer'}</p>
-                <p className="text-xs text-white/50">{active?.guest_email}</p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <span className="rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
-                    {visitorKind(active)}
-                  </span>
-                  {active?.dpm_joined && (
-                    <span className="rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
-                      DPM joined
+              <div className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div>
+                  <p className="font-bold">{active?.guest_name || 'Customer'}</p>
+                  <p className="text-xs text-white/50">{active?.guest_email}</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    <span className="rounded-md bg-amber-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                      {visitorKind(active)}
                     </span>
-                  )}
+                    {active?.dpm_joined && (
+                      <span className="rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+                        DPM joined
+                      </span>
+                    )}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  className="shrink-0 rounded-lg border border-red-400/40 px-3 py-1.5 text-xs font-bold text-red-200 hover:bg-red-500/15"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={removeChat.isPending}
+                >
+                  Delete chat
+                </button>
               </div>
               <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-4">
                 {messages.length === 0 ? (
@@ -222,6 +258,20 @@ export default function ShopSupportChatPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Delete this chat?"
+        message={
+          active
+            ? `Delete the conversation with ${active.guest_name || 'this customer'}? All messages will be removed. This cannot be undone.`
+            : 'Delete this conversation? This cannot be undone.'
+        }
+        confirmLabel="Delete chat"
+        loading={removeChat.isPending}
+      />
     </div>
   );
 }

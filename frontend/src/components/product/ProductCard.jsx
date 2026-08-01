@@ -31,7 +31,12 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
   const wishlisted = useIsWishlisted(product.id);
   const toggleWish = useToggleWishlist();
 
-  const outOfStock = !product.is_preorder && product.stock_qty <= 0;
+  const stockQty = Number(product.stock_qty ?? product.stock ?? 0);
+  const outOfStock = !product.is_preorder && stockQty <= 0;
+  // Shop products live on /stores/{slug}, not the main DPM /product/:slug catalogue.
+  const detailTo = storeMode && shopSlug
+    ? `/stores/${shopSlug}#product-${product.id}`
+    : `/product/${product.slug}`;
 
   const discount = productDiscount(product);
 
@@ -46,7 +51,10 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
 
   return (
 
-    <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/8 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-[#1E1E1E]">
+    <article
+      id={storeMode ? `product-${product.id}` : undefined}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-black/8 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-[#1E1E1E]"
+    >
 
       <div className="relative">
 
@@ -93,7 +101,7 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
 
 
 
-        <Link to={`/product/${product.slug}`} onClick={onNavigate} className="block overflow-hidden">
+        <Link to={detailTo} onClick={onNavigate} className="block overflow-hidden">
 
           <ProductImage
             src={product.images?.[0]}
@@ -133,7 +141,7 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
 
         <Link
 
-          to={`/product/${product.slug}`}
+          to={detailTo}
 
           onClick={onNavigate}
 

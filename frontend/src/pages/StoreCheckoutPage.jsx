@@ -70,17 +70,41 @@ export default function StoreCheckoutPage() {
     e.preventDefault();
     setError('');
     setMomoInfo(null);
+    let createdOrderId = null;
     try {
       const result = await placeOrder.mutateAsync();
+      createdOrderId = result.order_id;
+
       if (result.requires_online_payment) {
-        const pay = await api.post('/payments/initialize', { order_id: result.order_id });
-        const data = pay.data;
-        if (data.authorization_url) {
+        try {
+          const pay = await api.post('/payments/initialize', { order_id: result.order_id });
+          const data = pay.data;
+          if (data.authorization_url) {
+            clearCart();
+            window.location.href = data.authorization_url;
+            return;
+          }
+          // Order exists but gateway did not return a pay URL — send buyer to complete payment.
           clearCart();
-          window.location.href = data.authorization_url;
+          navigate(`/order/${result.order_id}`, {
+            replace: true,
+            state: { paymentNotice: 'Order placed. Complete payment below to confirm it.' },
+          });
+          return;
+        } catch (payErr) {
+          clearCart();
+          navigate(`/order/${result.order_id}`, {
+            replace: true,
+            state: {
+              paymentNotice:
+                payErr.response?.data?.message
+                || 'Order placed, but online payment could not start. Use Complete payment below.',
+            },
+          });
           return;
         }
       }
+
       clearCart();
       if (result.payment_method === 'momo') {
         setMomoInfo({ orderId: result.order_id, momo: result.momo_number });
@@ -88,6 +112,14 @@ export default function StoreCheckoutPage() {
       }
       navigate(`/order/${result.order_id}`);
     } catch (err) {
+      if (createdOrderId) {
+        clearCart();
+        navigate(`/order/${createdOrderId}`, {
+          replace: true,
+          state: { paymentNotice: 'Order placed. Check payment status below.' },
+        });
+        return;
+      }
       setError(err.response?.data?.message || 'Could not place order.');
     }
   };

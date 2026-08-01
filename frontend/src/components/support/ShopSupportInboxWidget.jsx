@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   useShopSupportChats,
   useShopSupportConversation,
+  useShopSupportDelete,
   useShopSupportReply,
   useShopSupportUpload,
 } from '../../hooks/supportChat';
@@ -80,6 +81,7 @@ export default function ShopSupportInboxWidget() {
   const { data: thread, isLoading: threadLoading } = useShopSupportConversation(selectedId, open && !!selectedId);
   const reply = useShopSupportReply();
   const upload = useShopSupportUpload();
+  const removeChat = useShopSupportDelete();
 
   const unread = useMemo(
     () => conversations.reduce((sum, c) => sum + (Number(c.shop_unread_count) || 0), 0),
@@ -117,6 +119,20 @@ export default function ShopSupportInboxWidget() {
       await reply.mutateAsync({ conversation_id: selectedId, image_url: uploaded.url });
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send image.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    if (!window.confirm('Delete this chat and all its messages? This cannot be undone.')) return;
+    setError('');
+    try {
+      const deletedId = selectedId;
+      await removeChat.mutateAsync(deletedId);
+      setDraft('');
+      setSelectedId(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not delete chat.');
     }
   };
 
@@ -203,14 +219,24 @@ export default function ShopSupportInboxWidget() {
                   <p className="p-4 text-sm text-white/50">Loading thread…</p>
                 ) : (
                   <>
-                    <div className="border-b border-white/10 px-3 py-2">
-                      <p className="text-sm font-bold">{visitorLabel(active)}</p>
-                      <p className="text-[11px] text-white/50">{active?.guest_email}</p>
-                      {active?.dpm_joined && (
-                        <span className="mt-1 inline-block rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
-                          DPM joined
-                        </span>
-                      )}
+                    <div className="flex items-start justify-between gap-2 border-b border-white/10 px-3 py-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold">{visitorLabel(active)}</p>
+                        <p className="text-[11px] text-white/50">{active?.guest_email}</p>
+                        {active?.dpm_joined && (
+                          <span className="mt-1 inline-block rounded-md bg-emerald-400/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-200">
+                            DPM joined
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-bold text-red-300 hover:bg-red-500/15"
+                        onClick={handleDelete}
+                        disabled={removeChat.isPending}
+                      >
+                        Delete
+                      </button>
                     </div>
                     <div ref={listRef} className="flex-1 space-y-2 overflow-y-auto p-3">
                       {messages.map((m) => (

@@ -96,6 +96,7 @@ $routes = [
     'POST ' . 'payments/bank-transfer'      => 'payments/bank-transfer.php',
     'POST ' . 'payments/webhook'            => 'payments/webhook.php',
     'POST ' . 'payments/dev-confirm'        => 'payments/dev-confirm.php',
+    'POST ' . 'payments/verify'             => 'payments/verify.php',
 
     // Image search follow-up + admin alerts (Day 3C)
     'POST ' . 'search/describe'             => 'search/describe.php',
@@ -196,6 +197,7 @@ $routes = [
     // Admin support live chat
     'GET '  . 'admin/support-chat/conversations'       => 'admin/support-chat/conversations/index.php',
     'GET '  . 'admin/support-chat/conversations/count' => 'admin/support-chat/conversations/count.php',
+    'POST ' . 'admin/support-chat/conversations/delete' => 'admin/support-chat/conversations/delete-bulk.php',
     'POST ' . 'admin/support-chat/upload'              => 'admin/support-chat/upload.php',
     'GET '  . 'admin/reviews'                          => 'admin/reviews/index.php',
     'POST ' . 'admin/reviews/moderate'                 => 'admin/reviews/moderate.php',
@@ -387,6 +389,13 @@ if ($handlerFile === null && $method === 'GET'
     $handlerFile = 'admin/support-chat/conversations/show.php';
 }
 
+// Dynamic route: DELETE admin/support-chat/conversations/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^admin/support-chat/conversations/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'admin/support-chat/conversations/delete.php';
+}
+
 // Dynamic route: POST admin/support-chat/conversations/{id}/messages
 if ($handlerFile === null && $method === 'POST'
     && preg_match('#^admin/support-chat/conversations/([0-9]+)/messages$#', $route, $m) === 1) {
@@ -413,6 +422,13 @@ if ($handlerFile === null && $method === 'GET'
     && preg_match('#^shop/support/([0-9]+)$#', $route, $m) === 1) {
     $_GET['id'] = $m[1];
     $handlerFile = 'shop/support/show.php';
+}
+
+// Dynamic route: DELETE shop/support/{id}
+if ($handlerFile === null && $method === 'DELETE'
+    && preg_match('#^shop/support/([0-9]+)$#', $route, $m) === 1) {
+    $_GET['id'] = $m[1];
+    $handlerFile = 'shop/support/delete.php';
 }
 
 // Dynamic route: PUT admin/job-posts/{id}

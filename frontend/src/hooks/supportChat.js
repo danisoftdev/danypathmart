@@ -198,6 +198,24 @@ export function useAdminUploadSupportChatImage() {
   });
 }
 
+export function useAdminDeleteSupportChat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids }) => {
+      const list = Array.isArray(ids) ? ids.filter(Boolean) : [ids].filter(Boolean);
+      if (list.length === 1) {
+        return (await api.delete(`/admin/support-chat/conversations/${list[0]}`)).data;
+      }
+      return (await api.post('/admin/support-chat/conversations/delete', { ids: list })).data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-support-chat'] });
+      qc.invalidateQueries({ queryKey: ['admin-support-chat-count'] });
+      qc.invalidateQueries({ queryKey: ['admin-support-chat-conversation'] });
+    },
+  });
+}
+
 export function useShopSupportChats(enabled = true) {
   return useQuery({
     queryKey: ['shop-support-chats'],
@@ -235,6 +253,17 @@ export function useShopSupportUpload() {
       return (await api.post('/shop/support/upload', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })).data;
+    },
+  });
+}
+
+export function useShopSupportDelete() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id) => (await api.delete(`/shop/support/${id}`)).data,
+    onSuccess: (_d, id) => {
+      qc.invalidateQueries({ queryKey: ['shop-support-chats'] });
+      qc.removeQueries({ queryKey: ['shop-support-conversation', id] });
     },
   });
 }

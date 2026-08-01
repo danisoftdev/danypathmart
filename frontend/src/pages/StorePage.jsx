@@ -62,6 +62,18 @@ export default function StorePage() {
     if (shop?.slug) setShop(shop.slug, shop.name);
   }, [shop?.slug, shop?.name, setShop]);
 
+  useEffect(() => {
+    if (!products.length) return;
+    const hash = typeof window !== 'undefined' ? window.location.hash.replace(/^#/, '') : '';
+    if (!hash.startsWith('product-')) return;
+    const el = document.getElementById(hash);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-brand-green');
+      window.setTimeout(() => el.classList.remove('ring-2', 'ring-brand-green'), 2500);
+    }
+  }, [products]);
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 pb-24">

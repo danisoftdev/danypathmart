@@ -185,20 +185,28 @@ final class StorefrontOrderService
             throw $e;
         }
 
-        ShopFulfillmentService::createForOrder($pdo, $orderId, $quote['lines'], $fulfillmentMode);
-
-        if ($paymentMethod !== 'paystack') {
-            ShopFulfillmentService::notifyAwaitingPayment($pdo, (int) $shop['id'], $orderId);
+        try {
+            ShopFulfillmentService::createForOrder($pdo, $orderId, $quote['lines'], $fulfillmentMode);
+        } catch (\Throwable $e) {
+            error_log('StorefrontOrderService fulfillment create failed for order #' . $orderId . ': ' . $e->getMessage());
         }
 
-        NotificationService::notifyOrderStatus(
-            $pdo,
-            $orderId,
-            'placed',
-            $paymentMethod === 'paystack'
-                ? 'Complete online payment to confirm your order with ' . ($shop['name'] ?? 'the shop') . '.'
-                : 'Your order was placed with ' . ($shop['name'] ?? 'the shop') . '. Pay as instructed — the shop will confirm.'
-        );
+        try {
+            if ($paymentMethod !== 'paystack') {
+                ShopFulfillmentService::notifyAwaitingPayment($pdo, (int) $shop['id'], $orderId);
+            }
+
+            NotificationService::notifyOrderStatus(
+                $pdo,
+                $orderId,
+                'placed',
+                $paymentMethod === 'paystack'
+                    ? 'Complete online payment to confirm your order with ' . ($shop['name'] ?? 'the shop') . '.'
+                    : 'Your order was placed with ' . ($shop['name'] ?? 'the shop') . '. Pay as instructed — the shop will confirm.'
+            );
+        } catch (\Throwable $e) {
+            error_log('StorefrontOrderService notify failed for order #' . $orderId . ': ' . $e->getMessage());
+        }
 
         $out = [
             'order_id'                 => $orderId,

@@ -387,6 +387,47 @@ final class SupportChatService
         )->execute([$conversationId]);
     }
 
+    /**
+     * Hard-delete a shop-routed conversation (messages cascade via FK).
+     */
+    public static function deleteForShop(PDO $pdo, int $conversationId, int $shopId): bool
+    {
+        $stmt = $pdo->prepare(
+            "DELETE FROM support_conversations
+             WHERE id = ? AND shop_id = ? AND routed_to = 'shop'"
+        );
+        $stmt->execute([$conversationId, $shopId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Hard-delete any support conversation (messages cascade via FK).
+     */
+    public static function deleteForAdmin(PDO $pdo, int $conversationId): bool
+    {
+        $stmt = $pdo->prepare('DELETE FROM support_conversations WHERE id = ?');
+        $stmt->execute([$conversationId]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * @param list<int> $ids
+     */
+    public static function deleteManyForAdmin(PDO $pdo, array $ids): int
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($id) => $id > 0)));
+        if ($ids === []) {
+            return 0;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("DELETE FROM support_conversations WHERE id IN ({$placeholders})");
+        $stmt->execute($ids);
+
+        return $stmt->rowCount();
+    }
+
     /** @return array<string,mixed> */
     public static function createForUser(PDO $pdo, int $userId, string $name, string $email): array
     {

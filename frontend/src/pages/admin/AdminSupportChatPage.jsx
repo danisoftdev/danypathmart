@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
+  useAdminDeleteSupportChat,
   useAdminJoinSupportChat,
   useAdminReplySupportChat,
   useAdminSupportChatConversation,
@@ -9,6 +10,7 @@ import {
 } from '../../hooks/supportChat';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
+import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
 import { resolveImageUrl } from '../../lib/currency';
 import { staffVisibleMessages } from '../../lib/supportChatMessages';
@@ -87,6 +89,7 @@ export default function AdminSupportChatPage() {
   const [routeFilter, setRouteFilter] = useState('all');
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const listRef = useRef(null);
   const fileRef = useRef(null);
 
@@ -95,6 +98,7 @@ export default function AdminSupportChatPage() {
   const reply = useAdminReplySupportChat();
   const join = useAdminJoinSupportChat();
   const upload = useAdminUploadSupportChatImage();
+  const removeChat = useAdminDeleteSupportChat();
 
   const conversations = listData?.conversations ?? [];
   const messages = staffVisibleMessages(threadData?.messages ?? []);
@@ -146,6 +150,20 @@ export default function AdminSupportChatPage() {
       await reply.mutateAsync({ id: selectedId, image_url: uploaded.url });
     } catch (err) {
       setError(err.response?.data?.message || 'Could not send image.');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedId) return;
+    setError('');
+    try {
+      await removeChat.mutateAsync({ ids: [selectedId] });
+      setConfirmDelete(false);
+      setDraft('');
+      selectConversation(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not delete chat.');
+      setConfirmDelete(false);
     }
   };
 
@@ -250,6 +268,20 @@ export default function AdminSupportChatPage() {
             <div className="p-4"><AdminTableSkeleton rows={4} cols={1} /></div>
           ) : (
             <>
+              <div className="flex items-start justify-between gap-3 border-b border-black/8 px-4 py-3 dark:border-white/10">
+                <div className="min-w-0">
+                  <p className="font-bold">{active?.guest_name || 'Visitor'}</p>
+                  <p className="truncate text-xs text-muted">{active?.guest_email || '—'}</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost shrink-0 px-3 py-2 text-sm text-brand-red"
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={removeChat.isPending}
+                >
+                  Delete chat
+                </button>
+              </div>
               {watchingShop && (
                 <div className="flex items-center justify-between gap-3 border-b border-black/8 px-4 py-3 dark:border-white/10">
                   <p className="text-sm text-muted">
@@ -293,6 +325,20 @@ export default function AdminSupportChatPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Delete this chat?"
+        message={
+          active
+            ? `Delete the conversation with ${active.guest_name || 'this visitor'}? All messages will be removed. This cannot be undone.`
+            : 'Delete this conversation? This cannot be undone.'
+        }
+        confirmLabel="Delete chat"
+        loading={removeChat.isPending}
+      />
     </div>
   );
 }

@@ -111,6 +111,27 @@ export function useOrder(orderId) {
     queryKey: ['order', orderId],
     queryFn: async () => (await api.get(`/orders/${orderId}`)).data,
     enabled: !!orderId,
+    refetchInterval: (query) => {
+      const paid = query.state.data?.order?.payment_status === 'paid';
+      return paid ? false : 4000;
+    },
+  });
+}
+
+/** Confirm Paystack payment after redirect (or while awaiting webhook). */
+export function useVerifyPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reference }) =>
+      (await api.post('/payments/verify', {
+        order_id: orderId,
+        reference: reference || undefined,
+      })).data,
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['order', String(vars.orderId)] });
+      qc.invalidateQueries({ queryKey: ['order', vars.orderId] });
+      qc.invalidateQueries({ queryKey: ['orders'] });
+    },
   });
 }
 

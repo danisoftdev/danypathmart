@@ -314,15 +314,20 @@ final class OrderService
             throw $e;
         }
 
-        self::sendConfirmation($pdo, (int) $order['id'], (int) $order['user_id']);
-        NotificationService::notifyOrderStatus($pdo, $orderId, 'pending', 'Your payment was received. We will prepare your order soon.');
-        NotificationService::notifyOrderPaid($pdo, $orderId, $order, $channel);
-        ReferralService::onOrderPaid($pdo, $orderId);
-        if (($order['payment_collector'] ?? 'dpm') !== 'shop') {
-            MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+        try {
+            self::sendConfirmation($pdo, (int) $order['id'], (int) $order['user_id']);
+            NotificationService::notifyOrderStatus($pdo, $orderId, 'pending', 'Your payment was received. We will prepare your order soon.');
+            NotificationService::notifyOrderPaid($pdo, $orderId, $order, $channel);
+            ReferralService::onOrderPaid($pdo, $orderId);
+            if (($order['payment_collector'] ?? 'dpm') !== 'shop') {
+                MarketplaceSplitService::recordOnPayment($pdo, $orderId);
+            }
+            ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
+            InventoryService::commitOrderInventory($pdo, $orderId);
+        } catch (Throwable $e) {
+            // Payment is already committed — never fail the client/webhook because of emails/push.
+            error_log('OrderService::markPaid side effects failed for order #' . $orderId . ': ' . $e->getMessage());
         }
-        ShopFulfillmentService::markPaidForOrder($pdo, $orderId);
-        InventoryService::commitOrderInventory($pdo, $orderId);
         return true;
     }
 

@@ -91,7 +91,9 @@ function ProductModal({ product, onClose, onSave, loading, categories, uploadFil
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-extrabold">{product ? 'Edit product' : 'Add product'}</h2>
-        <p className="mt-1 text-xs text-muted">Published to your store right away. Admin may unpublish with a reason if needed.</p>
+        <p className="mt-1 text-xs text-muted">
+          Published on your shop link (/stores/…) right away — not the main DanyPathMart catalogue. Admin may unpublish with a reason if needed.
+        </p>
         {product?.listing_status === 'rejected' && product?.listing_admin_note && (
           <p className="mt-3 rounded-xl border border-brand-red/30 bg-brand-red/10 px-3 py-2 text-xs text-brand-red">
             Unpublished reason: {product.listing_admin_note}
@@ -248,7 +250,7 @@ export default function ShopProductsPage() {
         <div>
           <h1 className="text-xl font-extrabold md:text-2xl">Products</h1>
           <p className="mt-1 text-sm text-muted">
-            Listings go live on your store immediately. Print and reset use your current filters.
+            Listings go live on your store link immediately. They do not appear in the main DPM shop search. Print and reset use your current filters.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
