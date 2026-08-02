@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { DEFAULT_MAP_ZOOM, formatLocationLine, googleDirectionsUrl, hasMapPin } from '../../lib/mapUtils';
+import { DEFAULT_MAP_ZOOM, addBaseTileLayer, formatLocationLine, googleDirectionsUrl, hasMapPin } from '../../lib/mapUtils';
 import 'leaflet/dist/leaflet.css';
 
 function fixLeafletIcons(L) {
@@ -40,14 +40,17 @@ export default function LocationMapView({
       if (cancelled || !containerRef.current || mapRef.current) return;
 
       fixLeafletIcons(L);
-      const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView([lat, lng], DEFAULT_MAP_ZOOM);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(map);
+      const el = containerRef.current;
+      if (el._leaflet_id) {
+        el._leaflet_id = undefined;
+        el.innerHTML = '';
+      }
+      const map = L.map(el, { scrollWheelZoom: false }).setView([lat, lng], DEFAULT_MAP_ZOOM);
+      addBaseTileLayer(L, map);
       L.marker([lat, lng]).addTo(map);
       mapRef.current = map;
-      setTimeout(() => map.invalidateSize(), 100);
+      setTimeout(() => map.invalidateSize(), 50);
+      setTimeout(() => map.invalidateSize(), 250);
     })();
 
     return () => {
@@ -69,8 +72,8 @@ export default function LocationMapView({
       {addressLine && <p className="mb-2 text-sm text-muted">{addressLine}</p>}
       <div
         ref={containerRef}
-        className="z-0 w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10"
-        style={{ height }}
+        className="leaflet-container z-0 w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10"
+        style={{ height, minHeight: height }}
       />
       <a
         href={href}

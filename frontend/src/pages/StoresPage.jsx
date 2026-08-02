@@ -5,7 +5,7 @@ import api from '../lib/api';
 import { resolveProductImageUrl } from '../lib/productImages';
 import EmptyState from '../components/ui/EmptyState';
 import ProductRating from '../components/product/ProductRating';
-import { hasMapPin } from '../lib/mapUtils';
+import { addBaseTileLayer, hasMapPin } from '../lib/mapUtils';
 import 'leaflet/dist/leaflet.css';
 
 function escapeHtml(str) {
@@ -45,10 +45,13 @@ export function ShopsMap({ shops }) {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
-      const map = L.map(containerRef.current).setView([5.6037, -0.187], 12);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(map);
+      const el = containerRef.current;
+      if (el._leaflet_id) {
+        el._leaflet_id = undefined;
+        el.innerHTML = '';
+      }
+      const map = L.map(el).setView([5.6037, -0.187], 12);
+      addBaseTileLayer(L, map);
 
       if (!document.getElementById('shop-map-marker-css')) {
         const style = document.createElement('style');

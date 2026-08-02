@@ -1,10 +1,27 @@
-/** Shared map helpers — OpenStreetMap + Leaflet + Nominatim. */
+/** Shared map helpers — Leaflet + Nominatim + Carto basemap tiles. */
 
 export const DEFAULT_MAP_CENTER = [5.6037, -0.187];
 export const DEFAULT_MAP_ZOOM = 13;
 export const PIN_MAP_ZOOM = 16;
 
 const NOMINATIM_BASE = 'https://nominatim.openstreetmap.org';
+
+/**
+ * Add a basemap that works in production (OSM.org tiles often block without referrer / for apps).
+ * Uses CARTO Voyager (OSM data) with proper attribution.
+ */
+export function addBaseTileLayer(L, map) {
+  if (L?.TileLayer?.prototype?.options) {
+    L.TileLayer.prototype.options.referrerPolicy = 'strict-origin-when-cross-origin';
+  }
+  return L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 20,
+    referrerPolicy: 'strict-origin-when-cross-origin',
+  }).addTo(map);
+}
 
 export function formatLocationLine({ street_address, city, region } = {}) {
   return [street_address, city, region].filter(Boolean).join(', ');

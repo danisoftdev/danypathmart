@@ -3,6 +3,7 @@ import {
   DEFAULT_MAP_CENTER,
   DEFAULT_MAP_ZOOM,
   PIN_MAP_ZOOM,
+  addBaseTileLayer,
   hasMapPin,
   normalizeCoords,
   reverseGeocode,
@@ -77,6 +78,8 @@ export default function LocationMapPicker({
 
   useEffect(() => {
     let cancelled = false;
+    let map = null;
+    let resizeObserver = null;
 
     (async () => {
       const L = (await import('leaflet')).default;
@@ -84,15 +87,20 @@ export default function LocationMapPicker({
 
       leafletRef.current = L;
       fixLeafletIcons(L);
+      const el = containerRef.current;
+      // Avoid "Map container is already initialized" after Strict Mode remounts.
+      if (el._leaflet_id) {
+        el._leaflet_id = undefined;
+        el.innerHTML = '';
+      }
+
       const start = hasMapPin(latitude, longitude) ? [Number(latitude), Number(longitude)] : DEFAULT_MAP_CENTER;
       const zoom = hasMapPin(latitude, longitude) ? PIN_MAP_ZOOM : DEFAULT_MAP_ZOOM;
-      const map = L.map(containerRef.current, { scrollWheelZoom: true }).setView(start, zoom);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
+      map = L.map(el, { scrollWheelZoom: true }).setView(start, zoom);
+      addBaseTileLayer(L, map);
 
       const placeMarker = (lat, lng, { fly = false } = {}) => {
+        if (!map) return;
         if (markerRef.current) {
           markerRef.current.setLatLng([lat, lng]);
         } else {
@@ -117,16 +125,25 @@ export default function LocationMapPicker({
       });
 
       mapRef.current = map;
-      setTimeout(() => map.invalidateSize(), 100);
+      const refresh = () => map?.invalidateSize();
+      setTimeout(refresh, 50);
+      setTimeout(refresh, 250);
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(refresh);
+        resizeObserver.observe(el);
+      }
     })();
 
     return () => {
       cancelled = true;
-      if (mapRef.current) {
+      resizeObserver?.disconnect();
+      if (map) {
+        map.remove();
+      } else if (mapRef.current) {
         mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
       }
+      mapRef.current = null;
+      markerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- map mounts once
   }, []);
@@ -337,8 +354,8 @@ export default function LocationMapPicker({
 
       <div
         ref={containerRef}
-        className="z-0 w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10"
-        style={{ height }}
+        className="leaflet-container z-0 w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10"
+        style={{ height, minHeight: height }}
         role="application"
         aria-label="Map — click to set location"
       />

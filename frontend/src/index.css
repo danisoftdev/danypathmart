@@ -8,6 +8,21 @@ body,
   min-height: 100%;
 }
 
+/* Tailwind preflight sets img { max-width:100%; height:auto } which breaks Leaflet tiles/markers. */
+.leaflet-container img,
+.leaflet-pane img,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile {
+  max-width: none !important;
+}
+
+.leaflet-container {
+  width: 100%;
+  z-index: 0;
+  background: #e8eef2;
+}
+
 body {
   @apply bg-[#FFF9F3] text-[#111111] antialiased dark:bg-[#121212] dark:text-white;
 }
