@@ -5,6 +5,7 @@ import { flattenCategories } from '../../lib/categories';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminSearchBar from '../../components/admin/AdminSearchBar';
 import AdminFilterBar, { AdminFilterSelect } from '../../components/admin/AdminFilterBar';
+import CategorySelect from '../../components/ui/CategorySelect';
 import ProductImage from '../../components/product/ProductImage';
 import ProductImagesField from '../../components/admin/ProductImagesField';
 import { formatPrice } from '../../lib/currency';
@@ -670,12 +671,17 @@ export default function AdminProductsPage() {
         <div className="flex flex-wrap gap-3">
           <AdminSearchBar value={search} onChange={setSearch} placeholder="Search products…" className="flex-1 sm:max-w-sm" />
           <AdminFilterBar>
-            <AdminFilterSelect value={categoryFilter} onChange={setCategoryFilter} label="Category">
-              <option value="">All categories</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>{'—'.repeat(c.depth)}{c.name}</option>
-              ))}
-            </AdminFilterSelect>
+            <label className="flex items-center gap-2 text-sm">
+              <span className="hidden font-semibold text-muted sm:inline">Category</span>
+              <CategorySelect
+                categories={categories}
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+                emptyLabel="All categories"
+                className="admin-filter-select"
+                aria-label="Category"
+              />
+            </label>
             <AdminFilterSelect value={status} onChange={setStatus} label="Status">
               <option value="">All</option>
               <option value="active">Active</option>
@@ -761,7 +767,14 @@ export default function AdminProductsPage() {
         <p className="text-xs font-bold uppercase tracking-wide text-muted">Add product</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <input className="input-field sm:col-span-2 lg:col-span-1" placeholder="Product name" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} required />
-          <select className="admin-filter-select w-full" value={draft.category_id} onChange={(e) => setDraft((d) => ({ ...d, category_id: e.target.value }))}>{categoryOptions}</select>
+          <CategorySelect
+            categories={categories}
+            value={draft.category_id}
+            onChange={(v) => setDraft((d) => ({ ...d, category_id: v }))}
+            emptyLabel="No category"
+            className="admin-filter-select w-full"
+            aria-label="Product category"
+          />
           <select className="admin-filter-select w-full" value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))}>
             <option value="active">Active</option>
             <option value="draft">Draft</option>
@@ -828,7 +841,14 @@ export default function AdminProductsPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input className="input-field sm:col-span-2" value={editing.name} onChange={(e) => setEditing((x) => ({ ...x, name: e.target.value }))} placeholder="Name" />
               <input className="input-field sm:col-span-2" value={editing.barcode || ''} onChange={(e) => setEditing((x) => ({ ...x, barcode: e.target.value }))} placeholder="Barcode / SKU" />
-              <select className="admin-filter-select w-full sm:col-span-2" value={editing.category_id} onChange={(e) => setEditing((x) => ({ ...x, category_id: e.target.value }))}>{categoryOptions}</select>
+              <CategorySelect
+                categories={categories}
+                value={editing.category_id ? String(editing.category_id) : ''}
+                onChange={(v) => setEditing((x) => ({ ...x, category_id: v }))}
+                emptyLabel="No category"
+                className="admin-filter-select w-full sm:col-span-2"
+                aria-label="Product category"
+              />
               <input className="input-field" type="number" step="0.01" value={editing.price} onChange={(e) => setEditing((x) => ({ ...x, price: e.target.value }))} placeholder="Sell price" />
               <input className="input-field" type="number" step="0.01" value={editing.cost_price} onChange={(e) => setEditing((x) => ({ ...x, cost_price: e.target.value }))} placeholder="Cost price" />
               <input className="input-field" type="number" value={editing.stock_qty} onChange={(e) => setEditing((x) => ({ ...x, stock_qty: e.target.value }))} placeholder="Stock" />

@@ -16,6 +16,7 @@ import { hasPermission } from '../../lib/permissions';
 import Modal from '../../components/dashboard/Modal';
 import { useCategories } from '../../hooks/catalog';
 import { flattenCategories } from '../../lib/categories';
+import CategorySelect from '../../components/ui/CategorySelect';
 import api from '../../lib/api';
 
 const DEFAULT_SECTIONS = {
@@ -210,12 +211,14 @@ export default function AdminReportsPage() {
                 <option value="inactive">Inactive</option>
                 <option value="draft">Draft</option>
               </select>
-              <select className="admin-filter-select" value={invCategory} onChange={(e) => setInvCategory(e.target.value)} aria-label="Category filter">
-                <option value="">All categories</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{'—'.repeat(c.depth)}{c.name}</option>
-                ))}
-              </select>
+              <CategorySelect
+                categories={categories}
+                value={invCategory}
+                onChange={setInvCategory}
+                emptyLabel="All categories"
+                className="admin-filter-select"
+                aria-label="Category filter"
+              />
               <button
                 type="button"
                 onClick={printInventory}

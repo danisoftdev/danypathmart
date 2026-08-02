@@ -10,6 +10,7 @@ import { useCategories } from '../../hooks/catalog';
 import { flattenCategories } from '../../lib/categories';
 import ShopPromoFields from '../../components/shop/ShopPromoFields';
 import ShopProductImagesField from '../../components/shop/ShopProductImagesField';
+import CategorySelect from '../../components/ui/CategorySelect';
 import { formatPrice } from '../../lib/currency';
 import { productDisplayBadges } from '../../lib/shopPromo';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
@@ -116,12 +117,14 @@ function ProductModal({ product, onClose, onSave, loading, categories, uploadFil
           </div>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Category</span>
-            <select className="input-field w-full" value={form.category_id} onChange={set('category_id')}>
-              <option value="">None</option>
-              {(categories || []).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <CategorySelect
+              categories={categories}
+              value={form.category_id}
+              onChange={(v) => setForm((f) => ({ ...f, category_id: v }))}
+              emptyLabel="None"
+              className="input-field w-full"
+              aria-label="Product category"
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-semibold">Description</span>
@@ -285,12 +288,14 @@ export default function ShopProductsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select className="admin-filter-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Category">
-          <option value="">All categories</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{'—'.repeat(c.depth)}{c.name}</option>
-          ))}
-        </select>
+        <CategorySelect
+          categories={categories}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          emptyLabel="All categories"
+          className="admin-filter-select"
+          aria-label="Category"
+        />
         <select className="admin-filter-select" value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status">
           <option value="">All statuses</option>
           <option value="active">Active</option>

@@ -1,5 +1,6 @@
 import { formatPrice } from '../../lib/currency';
 import { useAirLabels } from '../../hooks/checkout';
+import CategorySelect from '../ui/CategorySelect';
 
 function Toggle({ label, checked, onChange }) {
   return (
@@ -114,29 +115,21 @@ export default function FiltersPanel({ categories, facets, filters, update, onCl
         </p>
       </Section>
 
-      <Section title="Categories">
-        <div className="max-h-44 space-y-1 overflow-y-auto pr-1">
-          {categories.length === 0 ? (
-            <p className="text-xs text-muted">No categories yet.</p>
-          ) : (
-            categories.map((c) => (
-              <label
-                key={c.id}
-                className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"
-                style={{ paddingLeft: `${(c.depth || 0) * 12}px` }}
-              >
-                <input
-                  type="radio"
-                  name="shop-category"
-                  checked={filters.category === c.slug}
-                  onChange={() => update({ category: filters.category === c.slug ? '' : c.slug })}
-                  className="h-4 w-4 accent-brand-green"
-                />
-                {c.name}
-              </label>
-            ))
-          )}
-        </div>
+      <Section title="Category">
+        {categories.length === 0 ? (
+          <p className="text-xs text-muted">No categories yet.</p>
+        ) : (
+          <CategorySelect
+            categories={categories}
+            valueKey="slug"
+            value={filters.category || ''}
+            onChange={(slug) => update({ category: slug })}
+            emptyLabel="All categories"
+            className="modal-input w-full text-sm"
+            aria-label="Filter by category"
+          />
+        )}
+        <p className="mt-1 text-xs text-muted">Parents and subcategories are listed together.</p>
       </Section>
 
       {tags.length > 0 && (
