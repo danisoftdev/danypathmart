@@ -92,6 +92,14 @@ final class ProductQuery
             $params[] = 'active';
         }
 
+        // Main catalogue seller scope: all | dpm | shops
+        $seller = strtolower(trim((string) ($q['seller'] ?? '')));
+        if ($seller === 'dpm') {
+            $where[] = 'shop_id IS NULL';
+        } elseif ($seller === 'shops' || $seller === 'marketplace') {
+            $where[] = 'shop_id IS NOT NULL';
+        }
+
         if (!empty($q['is_featured']) && in_array((string) $q['is_featured'], ['0', '1'], true)) {
             $where[] = 'is_featured = ?';
             $params[] = (int) $q['is_featured'];
@@ -117,6 +125,10 @@ final class ProductQuery
     /**
      * Public catalogue visibility for DPM vs marketplace listings.
      *
+     * Main catalogue (shopId null): DPM products + approved listings from active shops
+     * (browse on DPM; purchase still happens on the shop storefront).
+     * Storefront (shopId set): that shop's approved active products only.
+     *
      * @return array{0:string,1:array<int,mixed>}
      */
     public static function marketplaceVisibility(PDO $pdo, ?int $shopId = null): array
@@ -134,8 +146,14 @@ final class ProductQuery
             return ['p.shop_id IS NULL', []];
         }
 
-        // Main catalogue: DPM products only — shop items sold via /stores/{slug}.
-        return ['p.shop_id IS NULL', []];
+        // Discover on main DPM: own catalogue OR approved marketplace listings from active shops.
+        return [
+            '(p.shop_id IS NULL OR ('
+                . 'p.listing_status = ?'
+                . ' AND EXISTS (SELECT 1 FROM shops sx WHERE sx.id = p.shop_id AND sx.status = ?)'
+                . '))',
+            ['approved', 'active'],
+        ];
     }
 
     public static function orderBy(?string $sort): string

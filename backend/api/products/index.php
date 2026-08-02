@@ -12,6 +12,8 @@ $pdo = Database::pdo();
 [$whereSql, $params] = ProductQuery::filters($_GET);
 [$marketSql, $marketParams] = ProductQuery::marketplaceVisibility($pdo, null);
 $whereSql = preg_replace('/\bstatus\b/', 'p.status', $whereSql);
+$whereSql = preg_replace('/\bshop_id\b/', 'p.shop_id', $whereSql);
+$whereSql = preg_replace('/\bcategory_id\b/', 'p.category_id', $whereSql);
 $whereSql = $whereSql . ' AND ' . $marketSql;
 $params = array_merge($params, $marketParams);
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\ProductQuery;
 use App\Helpers\Response;
 
 $q = trim((string) ($_GET['q'] ?? ''));
@@ -15,23 +16,30 @@ if (mb_strlen($q) < 2) {
 $pdo = Database::pdo();
 $like = '%' . $q . '%';
 
+[$marketSql, $marketParams] = ProductQuery::marketplaceVisibility($pdo, null);
 $productStmt = $pdo->prepare(
-    "SELECT id, name, price, images, slug
-     FROM products
-     WHERE (name LIKE ? OR description LIKE ? OR JSON_SEARCH(tags, 'one', ?) IS NOT NULL)
-       AND status = 'active' AND stock_qty > 0
-     ORDER BY name ASC
+    "SELECT p.id, p.name, p.price, p.images, p.slug, p.shop_id,
+            s.slug AS shop_slug
+     FROM products p
+     LEFT JOIN shops s ON s.id = p.shop_id
+     WHERE (p.name LIKE ? OR p.description LIKE ? OR JSON_SEARCH(p.tags, 'one', ?) IS NOT NULL)
+       AND p.status = 'active' AND p.stock_qty > 0
+       AND {$marketSql}
+     ORDER BY p.name ASC
      LIMIT 5"
 );
-$productStmt->execute([$like, $like, $like]);
+$productStmt->execute(array_merge([$like, $like, $like], $marketParams));
 $products = array_map(static function (array $r): array {
     $images = $r['images'] ? (json_decode((string) $r['images'], true) ?: []) : [];
+    $shopId = $r['shop_id'] !== null ? (int) $r['shop_id'] : null;
     return [
-        'id'     => (int) $r['id'],
-        'name'   => $r['name'],
-        'slug'   => $r['slug'],
-        'price'  => (float) $r['price'],
-        'images' => is_array($images) ? $images : [],
+        'id'        => (int) $r['id'],
+        'name'      => $r['name'],
+        'slug'      => $r['slug'],
+        'price'     => (float) $r['price'],
+        'images'    => is_array($images) ? $images : [],
+        'shop_id'   => $shopId,
+        'shop_slug' => $r['shop_slug'] !== null ? (string) $r['shop_slug'] : null,
     ];
 }, $productStmt->fetchAll());
 

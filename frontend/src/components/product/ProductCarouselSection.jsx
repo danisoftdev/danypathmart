@@ -5,6 +5,7 @@ import ProductImage from './ProductImage';
 import ProductTile from '../home/ProductTile';
 import { formatPrice } from '../../lib/currency';
 import { SkeletonBlock } from '../ui/Skeleton';
+import { isShopMarketplaceProduct } from '../../lib/marketplaceProduct';
 
 export default function ProductCarouselSection({ title, categoryId, excludeId, viewAllTo }) {
   const { data, isLoading } = useProducts({
@@ -55,7 +56,10 @@ export function FrequentlyBoughtTogether({ product, categoryId }) {
     sort: 'price_asc',
   });
 
-  const others = (data?.data ?? []).filter((p) => p.id !== product.id).slice(0, 2);
+  // Bundle cart is DPM-only — exclude marketplace shop listings.
+  const others = (data?.data ?? [])
+    .filter((p) => p.id !== product.id && !isShopMarketplaceProduct(p))
+    .slice(0, 2);
   if (!categoryId || (!isLoading && others.length === 0)) return null;
 
   return <FrequentlyBoughtBlock product={product} others={others} isLoading={isLoading} />;

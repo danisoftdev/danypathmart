@@ -7,51 +7,47 @@ export const useCartStore = create(
       items: [],
 
       addItem(product, qty = 1) {
+        // Marketplace shop items are bought on /stores/{slug}, never the main DPM cart.
+        const shopId = product?.shop_id ?? product?.shop?.id;
+        if (shopId != null && Number(shopId) > 0) {
+          return false;
+        }
         const items = [...get().items];
         const existing = items.find((i) => i.id === product.id);
         if (existing) {
           existing.qty += qty;
         } else {
-            items.push({
+          items.push({
             id: product.id,
             name: product.name,
             price: Number(product.price) || 0,
             image: Array.isArray(product.images) ? product.images[0] : product.image,
             is_preorder: !!product.is_preorder,
-            shop_id: product.shop_id ?? null,
-            shop_name: product.shop_name ?? product.shop?.name ?? null,
+            shop_id: null,
+            shop_name: null,
             requires_custom_proof: !!product.requires_custom_proof,
             custom_proof: product.custom_proof || null,
             qty,
           });
         }
         set({ items });
+        return true;
       },
 
       addItems(products = []) {
         if (!Array.isArray(products) || products.length === 0) return;
-        const items = [...get().items];
         for (const product of products) {
           const qty = Math.max(1, Number(product.qty) || 1);
-          const existing = items.find((i) => i.id === product.id);
-          if (existing) {
-            existing.qty += qty;
-          } else {
-            items.push({
-              id: product.id,
-              name: product.name,
-              price: Number(product.price) || 0,
-              image: Array.isArray(product.images) ? product.images[0] : product.image,
-              is_preorder: !!product.is_preorder,
-              shop_id: product.shop_id ?? null,
-              shop_name: product.shop_name ?? product.shop?.name ?? null,
-              requires_custom_proof: !!product.requires_custom_proof,
-              custom_proof: product.custom_proof || null,
-              qty,
-            });
-          }
+          get().addItem(product, qty);
         }
-        set({ items });
+      },
+
+      /** Drop any legacy shop lines that should not live in the main cart. */
+      purgeShopItems() {
+        const next = get().items.filter((i) => !(i.shop_id != null && Number(i.shop_id) > 0));
+        if (next.length !== get().items.length) {
+          set({ items: next });
+        }
       },
 
       removeItem(id) {

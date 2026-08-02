@@ -56,6 +56,8 @@ export default function FiltersPanel({ categories, facets, filters, update, onCl
       label: `Max ${formatPrice(filters.price_max)}`,
       clear: { price_max: '' },
     },
+    filters.seller === 'dpm' && { key: 'seller-dpm', label: 'DanyPathMart only', clear: { seller: '' } },
+    filters.seller === 'shops' && { key: 'seller-shops', label: 'Shop sellers', clear: { seller: '' } },
     filters.in_stock === '1' && { key: 'stock', label: 'In stock', clear: { in_stock: '' } },
     filters.is_preorder === '1' && { key: 'pre', label: labels.filter, clear: { is_preorder: '' } },
   ].filter(Boolean);
@@ -86,6 +88,30 @@ export default function FiltersPanel({ categories, facets, filters, update, onCl
           onChange={(e) => update({ search: e.target.value })}
           className="modal-input w-full text-sm"
         />
+      </Section>
+
+      <Section title="Sold by">
+        <div className="space-y-1">
+          {[
+            { value: '', label: 'All products' },
+            { value: 'dpm', label: 'DanyPathMart' },
+            { value: 'shops', label: 'Marketplace shops' },
+          ].map((opt) => (
+            <label key={opt.value || 'all'} className="flex cursor-pointer items-center gap-2 py-0.5 text-sm">
+              <input
+                type="radio"
+                name="shop-seller"
+                checked={(filters.seller || '') === opt.value}
+                onChange={() => update({ seller: opt.value })}
+                className="h-4 w-4 accent-brand-green"
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <p className="mt-1 text-xs text-muted">
+          Shop items open on the seller’s store to buy.
+        </p>
       </Section>
 
       <Section title="Categories">

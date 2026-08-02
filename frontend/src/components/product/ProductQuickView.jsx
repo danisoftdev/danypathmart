@@ -8,6 +8,11 @@ import { productDiscount, stockLabel } from '../../lib/productUi';
 import { useIsWishlisted, useToggleWishlist } from '../../hooks/wishlist';
 import { useCartStore } from '../../store/cartStore';
 import { CloseIcon } from '../icons';
+import {
+  isShopMarketplaceProduct,
+  shopBuyPath,
+  shopNameOf,
+} from '../../lib/marketplaceProduct';
 
 export default function ProductQuickView({ product, onClose }) {
   const addItem = useCartStore((s) => s.addItem);
@@ -17,6 +22,7 @@ export default function ProductQuickView({ product, onClose }) {
   const discount = product ? productDiscount(product) : null;
   const stock = product ? stockLabel(product) : null;
   const images = product?.images?.length ? product.images : [null];
+  const marketplace = product ? isShopMarketplaceProduct(product) : false;
 
   const close = useCallback(() => onClose?.(), [onClose]);
 
@@ -65,6 +71,9 @@ export default function ProductQuickView({ product, onClose }) {
           <div className="border-t border-black/8 p-4 dark:border-white/10 sm:border-l sm:border-t-0">
             <ProductRating product={product} size="md" />
             <h2 className="mt-2 text-lg font-bold text-[#111111] dark:text-white">{product.name}</h2>
+            {marketplace && (
+              <p className="mt-1 text-sm font-semibold text-muted">Sold by {shopNameOf(product)}</p>
+            )}
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-extrabold text-brand-green">{formatPrice(product.price)}</span>
               {discount && <span className="text-sm text-muted line-through">{formatPrice(discount.compareAt)}</span>}
@@ -86,14 +95,24 @@ export default function ProductQuickView({ product, onClose }) {
             )}
 
             <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => addItem(product, 1)}
-                disabled={outOfStock}
-                className="btn-primary flex-1 py-3 disabled:opacity-50"
-              >
-                {outOfStock ? 'Out of stock' : 'Add to cart'}
-              </button>
+              {marketplace ? (
+                <Link
+                  to={shopBuyPath(product)}
+                  onClick={close}
+                  className="btn-primary flex-1 py-3 text-center"
+                >
+                  Buy from {shopNameOf(product)}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => addItem(product, 1)}
+                  disabled={outOfStock}
+                  className="btn-primary flex-1 py-3 disabled:opacity-50"
+                >
+                  {outOfStock ? 'Out of stock' : 'Add to cart'}
+                </button>
+              )}
               <button
                 type="button"
                 aria-label={wish ? 'Remove from wishlist' : 'Add to wishlist'}

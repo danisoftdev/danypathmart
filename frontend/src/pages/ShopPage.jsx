@@ -28,6 +28,7 @@ export default function ShopPage() {
     category: searchParams.get('category') || '',
     search: searchParams.get('search') || '',
     tag: searchParams.get('tag') || '',
+    seller: searchParams.get('seller') || '',
     price_min: '',
     price_max: '',
     in_stock: '',
@@ -48,13 +49,14 @@ export default function ShopPage() {
         category: filters.category,
         search: filters.search,
         tag: filters.tag,
+        seller: filters.seller,
         price_min: filters.price_min,
         price_max: filters.price_max,
         in_stock: filters.in_stock,
         is_preorder: filters.is_preorder,
         sort: filters.sort,
       }),
-    [filters.category, filters.search, filters.tag, filters.price_min, filters.price_max, filters.in_stock, filters.is_preorder, filters.sort]
+    [filters.category, filters.search, filters.tag, filters.seller, filters.price_min, filters.price_max, filters.in_stock, filters.is_preorder, filters.sort]
   );
 
   const apiParams = useMemo(() => {
@@ -66,6 +68,7 @@ export default function ShopPage() {
     if (filters.is_preorder === '1') p.is_preorder = '1';
     if (filters.search) p.search = filters.search;
     if (filters.tag) p.tag = filters.tag;
+    if (filters.seller === 'dpm' || filters.seller === 'shops') p.seller = filters.seller;
     return p;
   }, [filters, selectedCategoryId]);
 
@@ -105,6 +108,7 @@ export default function ShopPage() {
       category: '',
       search: '',
       tag: '',
+      seller: '',
       price_min: '',
       price_max: '',
       in_stock: '',

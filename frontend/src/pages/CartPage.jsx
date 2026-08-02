@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ProductImage from '../components/product/ProductImage';
 import EmptyState from '../components/ui/EmptyState';
@@ -132,8 +132,13 @@ export default function CartPage() {
   const removeItem = useCartStore((s) => s.removeItem);
   const updateQty = useCartStore((s) => s.updateQty);
   const addItem = useCartStore((s) => s.addItem);
+  const purgeShopItems = useCartStore((s) => s.purgeShopItems);
   const subtotal = useCartStore((s) => s.subtotal());
   const [saved, setSaved] = useState(() => getSavedForLater());
+
+  useEffect(() => {
+    purgeShopItems();
+  }, [purgeShopItems]);
 
   const quoteItems = useMemo(
     () => items.map((i) => ({ product_id: i.id, quantity: i.qty })),

@@ -28,6 +28,12 @@ function SpecRow({ label, value }) {
 
 import { useAirLabels } from '../hooks/checkout';
 import { ProductBadgesInline } from '../components/product/ProductBadges';
+import {
+  isShopMarketplaceProduct,
+  shopBuyPath,
+  shopNameOf,
+  shopStorePath,
+} from '../lib/marketplaceProduct';
 
 function DetailTabs({ product, labels }) {
   const tabs = [
@@ -152,8 +158,11 @@ export default function ProductDetailPage() {
   const outOfStock = !product.is_preorder && product.stock_qty <= 0;
   const discount = productDiscount(product);
   const stock = stockLabel(product, labels);
+  const marketplace = isShopMarketplaceProduct(product);
+  const shopName = shopNameOf(product);
 
   const handleAdd = () => {
+    if (marketplace) return;
     const payload = product.requires_custom_proof
       ? { ...product, custom_proof: customProof }
       : product;
@@ -166,6 +175,10 @@ export default function ProductDetailPage() {
   };
 
   const handleBuyNow = () => {
+    if (marketplace) {
+      navigate(shopBuyPath(product));
+      return;
+    }
     const payload = product.requires_custom_proof
       ? { ...product, custom_proof: customProof }
       : product;
@@ -217,15 +230,15 @@ export default function ProductDetailPage() {
               {product.name}
             </h1>
 
-            {product.shop?.name && (
+            {marketplace && (
               <Link
-                to={`/stores/${product.shop.slug}`}
+                to={shopStorePath(product)}
                 className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-muted hover:text-brand-green"
               >
-                {product.shop.logo_url && (
+                {product.shop?.logo_url && (
                   <img src={product.shop.logo_url} alt="" className="h-5 w-5 rounded-full object-cover" />
                 )}
-                Sold by {product.shop.name}
+                Sold by {shopName}
               </Link>
             )}
 
@@ -246,8 +259,14 @@ export default function ProductDetailPage() {
               <li className="flex gap-3">
                 <span className="mt-0.5 shrink-0 text-base">🚚</span>
                 <div>
-                  <p className="font-semibold text-[#111111] dark:text-white">Delivery across Ghana</p>
-                  <p className="text-xs text-muted">Local delivery calculated at checkout</p>
+                  <p className="font-semibold text-[#111111] dark:text-white">
+                    {marketplace ? `Sold & fulfilled by ${shopName}` : 'Delivery across Ghana'}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {marketplace
+                      ? 'Checkout on the seller’s shop — they arrange delivery with you.'
+                      : 'Local delivery calculated at checkout'}
+                  </p>
                 </div>
               </li>
               <li className="flex gap-3">
@@ -291,7 +310,7 @@ export default function ProductDetailPage() {
 
           {product.size_guide && <SizeGuidePanel guide={product.size_guide} />}
 
-          {product.requires_custom_proof && !outOfStock && (
+          {!marketplace && product.requires_custom_proof && !outOfStock && (
             <CustomProofFields
               productId={product.id}
               productName={product.name}
@@ -300,7 +319,7 @@ export default function ProductDetailPage() {
             />
           )}
 
-          {outOfStock && (
+          {!marketplace && outOfStock && (
             <div className="mt-4">
               <RestockAlertButton
                 productId={product.id}
@@ -310,25 +329,36 @@ export default function ProductDetailPage() {
             </div>
           )}
 
-          <div className="mt-5 hidden items-center gap-3 md:flex">
-            <div className="flex items-center rounded-xl border-2 border-black/10 dark:border-white/15">
-              <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} className="min-h-[44px] min-w-[44px] text-xl">−</button>
-              <span className="w-10 text-center font-bold">{qty}</span>
-              <button type="button" onClick={() => setQty((q) => q + 1)} className="min-h-[44px] min-w-[44px] text-xl">+</button>
+          {marketplace ? (
+            <div className="mt-5 hidden flex-col gap-2 md:flex">
+              <Link to={shopBuyPath(product)} className="btn-primary py-3 text-center">
+                Buy from {shopName}
+              </Link>
+              <Link to={shopStorePath(product)} className="btn-secondary py-3 text-center">
+                Visit shop
+              </Link>
             </div>
-            <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3 disabled:opacity-50">
-              {added ? 'Added!' : outOfStock ? 'Out of stock' : product.is_preorder ? labels.addToCart : 'Add to cart'}
-            </button>
-            <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3 disabled:opacity-50">
-              Buy now
-            </button>
-          </div>
+          ) : (
+            <div className="mt-5 hidden items-center gap-3 md:flex">
+              <div className="flex items-center rounded-xl border-2 border-black/10 dark:border-white/15">
+                <button type="button" onClick={() => setQty((q) => Math.max(1, q - 1))} className="min-h-[44px] min-w-[44px] text-xl">−</button>
+                <span className="w-10 text-center font-bold">{qty}</span>
+                <button type="button" onClick={() => setQty((q) => q + 1)} className="min-h-[44px] min-w-[44px] text-xl">+</button>
+              </div>
+              <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3 disabled:opacity-50">
+                {added ? 'Added!' : outOfStock ? 'Out of stock' : product.is_preorder ? labels.addToCart : 'Add to cart'}
+              </button>
+              <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3 disabled:opacity-50">
+                Buy now
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       <DetailTabs product={product} labels={labels} />
 
-      <FrequentlyBoughtTogether product={product} categoryId={categoryId} />
+      {!marketplace && <FrequentlyBoughtTogether product={product} categoryId={categoryId} />}
 
       <ProductCarouselSection
         title="Related products"
@@ -340,12 +370,20 @@ export default function ProductDetailPage() {
       {/* Sticky mobile bar */}
       <div className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 border-t border-black/8 bg-white/95 p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur-md dark:border-white/10 dark:bg-[#1E1E1E]/95 md:hidden">
         <div className="mx-auto flex max-w-lg gap-2">
-          <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3.5 disabled:opacity-50">
-            {added ? 'Added!' : 'Add to cart'}
-          </button>
-          <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3.5 disabled:opacity-50">
-            Buy now
-          </button>
+          {marketplace ? (
+            <Link to={shopBuyPath(product)} className="btn-primary flex-1 py-3.5 text-center">
+              Buy from {shopName}
+            </Link>
+          ) : (
+            <>
+              <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3.5 disabled:opacity-50">
+                {added ? 'Added!' : 'Add to cart'}
+              </button>
+              <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3.5 disabled:opacity-50">
+                Buy now
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

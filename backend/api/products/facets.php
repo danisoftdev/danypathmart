@@ -3,22 +3,35 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\ProductQuery;
 use App\Helpers\Response;
 
 $pdo = Database::pdo();
+[$marketSql, $marketParams] = ProductQuery::marketplaceVisibility($pdo, null);
 
-$priceRow = $pdo->query(
-    "SELECT COALESCE(MIN(price), 0) AS price_min, COALESCE(MAX(price), 0) AS price_max
-     FROM products WHERE status = 'active'"
-)->fetch();
+$priceStmt = $pdo->prepare(
+    "SELECT COALESCE(MIN(p.price), 0) AS price_min, COALESCE(MAX(p.price), 0) AS price_max
+     FROM products p
+     WHERE p.status = 'active' AND {$marketSql}"
+);
+$priceStmt->execute($marketParams);
+$priceRow = $priceStmt->fetch();
 
-$origins = $pdo->query(
-    "SELECT DISTINCT origin_country FROM products
-     WHERE status = 'active' AND origin_country IS NOT NULL AND origin_country != ''
-     ORDER BY origin_country ASC"
-)->fetchAll(PDO::FETCH_COLUMN);
+$originStmt = $pdo->prepare(
+    "SELECT DISTINCT p.origin_country FROM products p
+     WHERE p.status = 'active' AND p.origin_country IS NOT NULL AND p.origin_country != ''
+       AND {$marketSql}
+     ORDER BY p.origin_country ASC"
+);
+$originStmt->execute($marketParams);
+$origins = $originStmt->fetchAll(PDO::FETCH_COLUMN);
 
-$tagRows = $pdo->query("SELECT tags FROM products WHERE status = 'active' AND tags IS NOT NULL")->fetchAll();
+$tagStmt = $pdo->prepare(
+    "SELECT p.tags FROM products p
+     WHERE p.status = 'active' AND p.tags IS NOT NULL AND {$marketSql}"
+);
+$tagStmt->execute($marketParams);
+$tagRows = $tagStmt->fetchAll();
 $tagSet = [];
 foreach ($tagRows as $row) {
     $decoded = json_decode((string) ($row['tags'] ?? '[]'), true);

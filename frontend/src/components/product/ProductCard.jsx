@@ -17,8 +17,12 @@ import { addRecentlyViewed } from '../../lib/browseStorage';
 import { useAirLabels } from '../../hooks/checkout';
 import { useCartStore } from '../../store/cartStore';
 import { useStoreCartStore } from '../../store/storeCartStore';
-
-
+import {
+  isShopMarketplaceProduct,
+  shopBuyPath,
+  shopNameOf,
+  shopStorePath,
+} from '../../lib/marketplaceProduct';
 
 export default function ProductCard({ product, onQuickView, storeMode = false, shopSlug, shopName }) {
 
@@ -33,10 +37,16 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
 
   const stockQty = Number(product.stock_qty ?? product.stock ?? 0);
   const outOfStock = !product.is_preorder && stockQty <= 0;
-  // Shop products live on /stores/{slug}, not the main DPM /product/:slug catalogue.
+  const marketplace = !storeMode && isShopMarketplaceProduct(product);
+  // Storefront cards deep-link in-shop; marketplace browse uses main product page then Buy from shop.
   const detailTo = storeMode && shopSlug
     ? `/stores/${shopSlug}#product-${product.id}`
     : `/product/${product.slug}`;
+  const buyLabel = marketplace
+    ? `Buy from ${shopNameOf(product)}`
+    : product.is_preorder
+      ? labels.addToCart
+      : 'Add to cart';
 
   const discount = productDiscount(product);
 
@@ -153,58 +163,37 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
 
         </Link>
 
-        {product.shop?.name && (
+        {(product.shop?.name || marketplace) && (
           <Link
-            to={`/stores/${product.shop.slug}`}
+            to={shopStorePath(product)}
             className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-brand-green"
           >
-            {product.shop.logo_url && (
+            {product.shop?.logo_url && (
               <img src={product.shop.logo_url} alt="" className="h-4 w-4 rounded-full object-cover" />
             )}
-            Sold by {product.shop.name}
+            Sold by {shopNameOf(product)}
           </Link>
         )}
 
-
-
         <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
-
           <span className="text-lg font-extrabold text-brand-green">{formatPrice(product.price)}</span>
-
           {discount && (
-
             <span className="text-xs text-muted line-through">{formatPrice(discount.compareAt)}</span>
-
           )}
-
         </div>
 
-
-
         <span
-
           className={`mt-1.5 inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] font-bold ${
-
             stock.tone === 'gold'
-
               ? 'bg-brand-gold/20 text-[#92400E]'
-
               : stock.tone === 'red'
-
                 ? 'bg-brand-red/15 text-brand-red'
-
                 : stock.tone === 'orange'
-
                   ? 'bg-brand-orange/15 text-brand-orange'
-
                   : 'bg-brand-green/15 text-brand-green'
-
           }`}
-
         >
-
           {stock.text}
-
         </span>
 
         {sold && (
@@ -213,23 +202,27 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
           </span>
         )}
 
-
-
-        <button
-
-          type="button"
-
-          onClick={() => (storeMode ? addStoreItem(product, 1, shopSlug, shopName) : addItem(product, 1))}
-
-          disabled={outOfStock}
-
-          className="mt-3 w-full rounded-xl bg-brand-green py-2.5 text-sm font-bold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-
-        >
-
-          {outOfStock ? 'Out of stock' : product.is_preorder ? labels.addToCart : 'Add to cart'}
-
-        </button>
+        {marketplace ? (
+          <Link
+            to={outOfStock ? shopStorePath(product) : shopBuyPath(product)}
+            className={`mt-3 block w-full rounded-xl py-2.5 text-center text-sm font-bold text-white transition ${
+              outOfStock
+                ? 'bg-black/40 dark:bg-white/20'
+                : 'bg-brand-green hover:bg-opacity-90'
+            }`}
+          >
+            {outOfStock ? `View ${shopNameOf(product)}` : buyLabel}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => (storeMode ? addStoreItem(product, 1, shopSlug, shopName) : addItem(product, 1))}
+            disabled={outOfStock}
+            className="mt-3 w-full rounded-xl bg-brand-green py-2.5 text-sm font-bold text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {outOfStock ? 'Out of stock' : buyLabel}
+          </button>
+        )}
 
       </div>
 

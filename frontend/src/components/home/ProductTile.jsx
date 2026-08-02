@@ -4,8 +4,12 @@ import { formatPrice } from '../../lib/currency';
 import { productDiscount } from '../../lib/productUi';
 import { useCartStore } from '../../store/cartStore';
 import { addRecentlyViewed } from '../../lib/browseStorage';
-
 import { useAirLabels } from '../../hooks/checkout';
+import {
+  isShopMarketplaceProduct,
+  shopBuyPath,
+  shopNameOf,
+} from '../../lib/marketplaceProduct';
 
 export default function ProductTile({ product, badge, compact = false }) {
   const addItem = useCartStore((s) => s.addItem);
@@ -13,6 +17,7 @@ export default function ProductTile({ product, badge, compact = false }) {
   const outOfStock = !product.is_preorder && product.stock_qty <= 0;
   const discount = productDiscount(product);
   const widthClass = compact ? 'w-36' : 'w-40 sm:w-44';
+  const marketplace = isShopMarketplaceProduct(product);
   const displayBadge =
     badge
     || (product.display_badges?.[0])
@@ -52,20 +57,36 @@ export default function ProductTile({ product, badge, compact = false }) {
         >
           {product.name}
         </Link>
+        {marketplace && (
+          <p className="mt-0.5 truncate text-[10px] font-semibold text-muted">
+            Sold by {shopNameOf(product)}
+          </p>
+        )}
         <div className="mt-1 flex flex-wrap items-baseline gap-1">
           <p className="text-base font-extrabold text-brand-green">{formatPrice(product.price)}</p>
           {discount && (
             <p className="text-[10px] text-muted line-through">{formatPrice(discount.compareAt)}</p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => addItem(product, 1)}
-          disabled={outOfStock}
-          className="mt-2 w-full rounded-lg bg-brand-green py-2 text-xs font-bold text-white transition hover:bg-opacity-90 disabled:opacity-50"
-        >
-          {outOfStock ? 'Sold out' : '+ Cart'}
-        </button>
+        {marketplace ? (
+          <Link
+            to={shopBuyPath(product)}
+            className={`mt-2 block w-full rounded-lg py-2 text-center text-xs font-bold text-white ${
+              outOfStock ? 'bg-black/40' : 'bg-brand-green hover:bg-opacity-90'
+            }`}
+          >
+            {outOfStock ? 'View shop' : 'Buy at shop'}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={() => addItem(product, 1)}
+            disabled={outOfStock}
+            className="mt-2 w-full rounded-lg bg-brand-green py-2 text-xs font-bold text-white transition hover:bg-opacity-90 disabled:opacity-50"
+          >
+            {outOfStock ? 'Sold out' : '+ Cart'}
+          </button>
+        )}
       </div>
     </article>
   );
