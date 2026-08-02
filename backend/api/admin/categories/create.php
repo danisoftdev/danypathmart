@@ -20,7 +20,6 @@ if ($parentId !== null && $parentId <= 0) {
 }
 
 // Bulk: names[] array, or names/bulk text ("Fashion, Groceries" / newlines).
-$bulkRaw = '';
 if (isset($body['names']) && is_array($body['names'])) {
     $list = [];
     foreach ($body['names'] as $n) {
@@ -31,7 +30,6 @@ if (isset($body['names']) && is_array($body['names'])) {
     }
 } else {
     $bulkRaw = trim((string) ($body['names'] ?? $body['bulk'] ?? $body['name'] ?? ''));
-    // Treat as bulk when separators present or explicit bulk/names field used.
     $explicitBulk = array_key_exists('names', $body) || array_key_exists('bulk', $body);
     $hasSeparators = preg_match('/[\n\r,;]/', $bulkRaw) === 1;
     if ($explicitBulk || $hasSeparators) {
@@ -45,9 +43,12 @@ if ($list === []) {
     Response::error('Category name is required. For bulk, separate names with commas or new lines.', 422);
 }
 
+$isSingle = count($list) === 1
+    && !array_key_exists('bulk', $body)
+    && !(isset($body['names']) && is_array($body['names']));
+
 try {
-    if (count($list) === 1 && !array_key_exists('bulk', $body) && !(isset($body['names']) && is_array($body['names']))) {
-        // Single create — allow optional custom slug/description/image.
+    if ($isSingle) {
         $category = CategoryService::createOne($pdo, [
             'name'        => $list[0],
             'slug'        => trim((string) ($body['slug'] ?? '')),
@@ -56,14 +57,16 @@ try {
             'parent_id'   => $parentId,
         ]);
         Response::success([
-            'message'    => 'Category created.',
-            'category'   => $category,
-            'categories' => [$category],
-            'created'    => 1,
+            'message'       => 'Category created.',
+            'category'      => $category,
+            'categories'    => [$category],
+            'created'       => 1,
+            'skipped'       => [],
+            'skipped_count' => 0,
         ], 201);
     }
 
-    $categories = CategoryService::createBulk($pdo, $list, $parentId);
+    $result = CategoryService::createBulk($pdo, $list, $parentId);
 } catch (\InvalidArgumentException $e) {
     Response::error($e->getMessage(), 422);
 } catch (\Throwable $e) {
@@ -71,12 +74,26 @@ try {
     Response::error('Could not create categories.', 500);
 }
 
-$count = count($categories);
+$created = (int) ($result['created'] ?? 0);
+$skipped = $result['skipped'] ?? [];
+$skippedCount = (int) ($result['skipped_count'] ?? count($skipped));
+$categories = $result['categories'] ?? [];
+
+if ($created === 1 && $skippedCount === 0) {
+    $message = 'Category created.';
+} elseif ($skippedCount === 0) {
+    $message = "{$created} categories created.";
+} elseif ($created === 0) {
+    $message = 'No new categories added — all names already exist.';
+} else {
+    $message = "{$created} created, {$skippedCount} skipped (already exist).";
+}
+
 Response::success([
-    'message'    => $count === 1
-        ? 'Category created.'
-        : "{$count} categories created.",
-    'category'   => $categories[0] ?? null,
-    'categories' => $categories,
-    'created'    => $count,
+    'message'       => $message,
+    'category'      => $categories[0] ?? null,
+    'categories'    => $categories,
+    'created'       => $created,
+    'skipped'       => $skipped,
+    'skipped_count' => $skippedCount,
 ], 201);

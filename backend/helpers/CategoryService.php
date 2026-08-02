@@ -141,6 +141,37 @@ final class CategoryService
     }
 
     /**
+     * True if a sibling with the same name (case-insensitive) already exists under this parent.
+     */
+    public static function siblingNameExists(PDO $pdo, string $name, ?int $parentId, ?int $excludeId = null): bool
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return false;
+        }
+        if ($parentId !== null && $parentId <= 0) {
+            $parentId = null;
+        }
+
+        if ($parentId === null) {
+            $sql = 'SELECT id FROM categories WHERE parent_id IS NULL AND LOWER(name) = LOWER(?)';
+            $params = [$name];
+        } else {
+            $sql = 'SELECT id FROM categories WHERE parent_id = ? AND LOWER(name) = LOWER(?)';
+            $params = [$parentId, $name];
+        }
+        if ($excludeId !== null && $excludeId > 0) {
+            $sql .= ' AND id <> ?';
+            $params[] = $excludeId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetch() !== false;
+    }
+
+    /**
      * @param array{name:string,slug?:string,description?:?string,image_url?:?string,parent_id?:?int} $input
      * @return array<string,mixed>
      */
@@ -159,6 +190,11 @@ final class CategoryService
             $parentId = null;
         }
         self::assertParentExists($pdo, $parentId);
+
+        if (self::siblingNameExists($pdo, $name, $parentId)) {
+            $where = $parentId === null ? 'at the top level' : 'under this parent';
+            throw new \InvalidArgumentException("Category \"{$name}\" already exists {$where}.");
+        }
 
         $slugInput = trim((string) ($input['slug'] ?? ''));
         $slug = $slugInput !== ''
@@ -191,12 +227,36 @@ final class CategoryService
     }
 
     /**
+     * Create many categories under one parent. Skips names that already exist as siblings.
+     *
      * @param list<string>|string $names
-     * @return list<array<string,mixed>>
+     * @return array{
+     *   categories:list<array<string,mixed>>,
+     *   created:int,
+     *   skipped:list<string>,
+     *   skipped_count:int
+     * }
      */
     public static function createBulk(PDO $pdo, array|string $names, ?int $parentId = null): array
     {
-        $list = is_array($names) ? $names : self::parseNames($names);
+        $list = is_array($names) ? array_values(array_filter(array_map(
+            static fn ($n): string => trim((string) $n),
+            $names
+        ), static fn (string $n): bool => $n !== '')) : self::parseNames($names);
+
+        // Dedupe within the request (case-insensitive), keep first spelling.
+        $unique = [];
+        $seen = [];
+        foreach ($list as $name) {
+            $key = mb_strtolower($name);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique[] = $name;
+        }
+        $list = $unique;
+
         if ($list === []) {
             throw new \InvalidArgumentException('Enter at least one category name.');
         }
@@ -204,12 +264,20 @@ final class CategoryService
             throw new \InvalidArgumentException('You can add at most 100 categories at once.');
         }
 
+        if ($parentId !== null && $parentId <= 0) {
+            $parentId = null;
+        }
         self::assertParentExists($pdo, $parentId);
 
         $created = [];
+        $skipped = [];
         $pdo->beginTransaction();
         try {
             foreach ($list as $name) {
+                if (self::siblingNameExists($pdo, $name, $parentId)) {
+                    $skipped[] = $name;
+                    continue;
+                }
                 $created[] = self::createOne($pdo, [
                     'name'      => $name,
                     'parent_id' => $parentId,
@@ -223,6 +291,19 @@ final class CategoryService
             throw $e;
         }
 
-        return $created;
+        if ($created === [] && $skipped !== []) {
+            throw new \InvalidArgumentException(
+                count($skipped) === 1
+                    ? "Category \"{$skipped[0]}\" already exists — nothing new to add."
+                    : 'All of those category names already exist — nothing new to add.'
+            );
+        }
+
+        return [
+            'categories'    => $created,
+            'created'       => count($created),
+            'skipped'       => $skipped,
+            'skipped_count' => count($skipped),
+        ];
     }
 }

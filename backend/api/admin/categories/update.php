@@ -50,6 +50,11 @@ try {
     Response::error($e->getMessage(), 422);
 }
 
+if (CategoryService::siblingNameExists($pdo, $name, $parentId, $categoryId)) {
+    $where = $parentId === null ? 'at the top level' : 'under this parent';
+    Response::error("Category \"{$name}\" already exists {$where}.", 422);
+}
+
 $sizeGuideId = array_key_exists('size_guide_id', $body)
     ? ($body['size_guide_id'] !== null && $body['size_guide_id'] !== '' ? (int) $body['size_guide_id'] : null)
     : ($existing['size_guide_id'] ?? null);
