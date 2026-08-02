@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Helpers;
 
+use App\Config\Database;
 use PDO;
 
 /**
@@ -22,14 +23,35 @@ final class ProductQuery
         $params = [];
 
         if (!empty($q['category_id'])) {
-            $where[] = 'category_id = ?';
-            $params[] = (int) $q['category_id'];
+            $catId = (int) $q['category_id'];
+            // Include subcategories so parent filters (e.g. Clothes) match Kids clothes products.
+            $ids = CategoryService::selfAndDescendantIds(Database::pdo(), $catId);
+            if ($ids === []) {
+                $ids = [$catId];
+            }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $where[] = "category_id IN ({$placeholders})";
+            foreach ($ids as $id) {
+                $params[] = $id;
+            }
         }
 
         $categorySlug = trim((string) ($q['category_slug'] ?? ''));
         if ($categorySlug !== '') {
-            $where[] = 'category_id IN (SELECT id FROM categories WHERE slug = ?)';
-            $params[] = $categorySlug;
+            $pdo = Database::pdo();
+            $slugStmt = $pdo->prepare('SELECT id FROM categories WHERE slug = ? LIMIT 1');
+            $slugStmt->execute([$categorySlug]);
+            $slugId = (int) ($slugStmt->fetchColumn() ?: 0);
+            if ($slugId > 0) {
+                $ids = CategoryService::selfAndDescendantIds($pdo, $slugId);
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                $where[] = "category_id IN ({$placeholders})";
+                foreach ($ids as $id) {
+                    $params[] = $id;
+                }
+            } else {
+                $where[] = '1 = 0';
+            }
         }
 
         $tag = trim((string) ($q['tag'] ?? ''));

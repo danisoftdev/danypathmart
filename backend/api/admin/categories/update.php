@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\CategoryService;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\PermissionMiddleware;
@@ -25,7 +26,29 @@ if ($existing === false) {
 }
 
 $name = trim((string) ($body['name'] ?? $existing['name']));
+if ($name === '') {
+    Response::error('Category name is required.', 422);
+}
+
 $slug = trim((string) ($body['slug'] ?? $existing['slug']));
+if ($slug === '') {
+    $slug = CategoryService::uniqueSlug($pdo, $name, $categoryId);
+} else {
+    $slug = CategoryService::uniqueSlug($pdo, $slug, $categoryId);
+}
+
+$parentId = array_key_exists('parent_id', $body)
+    ? ($body['parent_id'] !== null && $body['parent_id'] !== '' ? (int) $body['parent_id'] : null)
+    : ($existing['parent_id'] !== null ? (int) $existing['parent_id'] : null);
+if ($parentId !== null && $parentId <= 0) {
+    $parentId = null;
+}
+
+try {
+    CategoryService::assertValidParent($pdo, $categoryId, $parentId);
+} catch (\InvalidArgumentException $e) {
+    Response::error($e->getMessage(), 422);
+}
 
 $sizeGuideId = array_key_exists('size_guide_id', $body)
     ? ($body['size_guide_id'] !== null && $body['size_guide_id'] !== '' ? (int) $body['size_guide_id'] : null)
@@ -39,9 +62,7 @@ try {
         $slug,
         array_key_exists('description', $body) ? ($body['description'] ?: null) : $existing['description'],
         array_key_exists('image_url', $body) ? ($body['image_url'] ?: null) : $existing['image_url'],
-        array_key_exists('parent_id', $body)
-            ? ($body['parent_id'] !== null && $body['parent_id'] !== '' ? (int) $body['parent_id'] : null)
-            : ($existing['parent_id'] !== null ? (int) $existing['parent_id'] : null),
+        $parentId,
         $sizeGuideId,
         $categoryId,
     ]);
@@ -53,9 +74,7 @@ try {
         $slug,
         array_key_exists('description', $body) ? ($body['description'] ?: null) : $existing['description'],
         array_key_exists('image_url', $body) ? ($body['image_url'] ?: null) : $existing['image_url'],
-        array_key_exists('parent_id', $body)
-            ? ($body['parent_id'] !== null && $body['parent_id'] !== '' ? (int) $body['parent_id'] : null)
-            : ($existing['parent_id'] !== null ? (int) $existing['parent_id'] : null),
+        $parentId,
         $categoryId,
     ]);
 }
