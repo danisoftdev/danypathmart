@@ -396,12 +396,21 @@ export default function ShopApplyPage() {
         </div>
         <div>
           <p className="mb-2 text-sm font-semibold">Shop location on map</p>
-          <p className="mb-3 text-xs text-muted">Pin your shop so customers can find you and pick up orders in person.</p>
+          <p className="mb-3 text-xs text-muted">
+            Pin the exact shop: search the address, use your current location, enter coordinates, or drop a pin.
+          </p>
           <LocationMapPicker
             latitude={form.latitude}
             longitude={form.longitude}
-            onChange={({ latitude, longitude }) =>
-              setForm((f) => ({ ...f, latitude, longitude }))
+            onChange={({ latitude, longitude, street_address, city, region }) =>
+              setForm((f) => ({
+                ...f,
+                latitude,
+                longitude,
+                ...(street_address ? { street_address } : {}),
+                ...(city ? { city } : {}),
+                ...(region ? { region } : {}),
+              }))
             }
           />
         </div>

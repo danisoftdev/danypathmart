@@ -213,7 +213,16 @@ export default function ShopSettingsPage() {
             <LocationMapPicker
               latitude={form.latitude}
               longitude={form.longitude}
-              onChange={({ latitude, longitude }) => setForm((f) => ({ ...f, latitude, longitude }))}
+              onChange={({ latitude, longitude, street_address, city, region }) =>
+                setForm((f) => ({
+                  ...f,
+                  latitude,
+                  longitude,
+                  ...(street_address ? { street_address } : {}),
+                  ...(city ? { city } : {}),
+                  ...(region ? { region } : {}),
+                }))
+              }
             />
           </div>
           <label className="mt-4 flex items-start gap-3 text-sm">
