@@ -731,6 +731,19 @@ export function useDeleteContactMessages() {
   });
 }
 
+export function useUploadCategoryImage() {
+  return useMutation({
+    mutationFn: async (file) => {
+      const fd = new FormData();
+      fd.append('image', file);
+      const { data } = await api.post('/admin/categories/upload-image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return data;
+    },
+  });
+}
+
 export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({

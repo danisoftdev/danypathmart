@@ -3,10 +3,13 @@ import { useCategories } from '../../hooks/catalog';
 import { useCreateCategory, useDeleteCategory, useSizeGuides, useUpdateCategory } from '../../hooks/admin';
 import AdminPageHeader from '../../components/admin/AdminPageHeader';
 import AdminTable, { AdminTableCell, AdminTableRow } from '../../components/admin/AdminTable';
+import CategoryImageUploadField from '../../components/admin/CategoryImageUploadField';
 import ConfirmDialog from '../../components/admin/ConfirmDialog';
 import AdminPageAlert from '../../components/admin/AdminPageAlert';
 import Modal from '../../components/dashboard/Modal';
 import { AdminTableSkeleton } from '../../components/ui/Skeleton';
+import { resolveImageUrl } from '../../lib/currency';
+import { getCategoryDisplay } from '../../lib/categoryDisplay';
 
 function flattenCategories(nodes = [], depth = 0) {
   return nodes.flatMap((n) => [
@@ -24,6 +27,29 @@ function parseBulkNames(raw) {
     .filter((name, i, arr) => arr.findIndex((x) => x.toLowerCase() === name.toLowerCase()) === i);
 }
 
+function CategoryThumb({ category, index = 0 }) {
+  const src = resolveImageUrl(category?.image_url);
+  const { tint } = getCategoryDisplay(category, index);
+  const letter = (category?.name || '?').charAt(0).toUpperCase();
+
+  if (src) {
+    return (
+      <span className="inline-flex h-9 w-9 shrink-0 overflow-hidden rounded-full bg-black/5 ring-1 ring-black/10 dark:bg-white/10 dark:ring-white/15">
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ring-1 ring-black/10 dark:ring-white/15 ${tint}`}
+      aria-hidden
+    >
+      {letter}
+    </span>
+  );
+}
+
 function CategoryEditModal({ category, flat, guides, onClose, onSave, loading }) {
   const [name, setName] = useState(category?.name || '');
   const [parentId, setParentId] = useState(
@@ -32,6 +58,8 @@ function CategoryEditModal({ category, flat, guides, onClose, onSave, loading })
   const [sizeGuideId, setSizeGuideId] = useState(
     category?.size_guide_id != null ? String(category.size_guide_id) : ''
   );
+  const [imageUrl, setImageUrl] = useState(category?.image_url || '');
+  const isTopLevel = !parentId;
 
   const submit = (e) => {
     e.preventDefault();
@@ -40,6 +68,7 @@ function CategoryEditModal({ category, flat, guides, onClose, onSave, loading })
       name: name.trim(),
       parent_id: parentId ? Number(parentId) : null,
       size_guide_id: sizeGuideId ? Number(sizeGuideId) : null,
+      image_url: imageUrl.trim() || null,
     });
   };
 
@@ -68,8 +97,19 @@ function CategoryEditModal({ category, flat, guides, onClose, onSave, loading })
               ))}
           </select>
         </label>
+        <div className="mb-4">
+          <CategoryImageUploadField
+            value={imageUrl}
+            onChange={setImageUrl}
+            hint={
+              isTopLevel
+                ? 'Recommended for top-level categories on the home page. Square JPEG, PNG or WebP up to 5MB.'
+                : 'Optional for subcategories (dropdowns use text). Square JPEG, PNG or WebP up to 5MB.'
+            }
+          />
+        </div>
         <label className="mb-6 block text-sm">
-          <span className="mb-1 block font-bold">Size guide (product line)</span>
+          <span className="mb-1 block font-bold">Size guide (optional)</span>
           <select
             className="admin-filter-select w-full"
             value={sizeGuideId}
@@ -82,7 +122,7 @@ function CategoryEditModal({ category, flat, guides, onClose, onSave, loading })
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-muted">Products in this category use this chart unless overridden per product.</p>
+          <p className="mt-1 text-xs text-muted">For apparel / uniforms. Products use this chart unless overridden.</p>
         </label>
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onClose} disabled={loading} className="btn-ghost">
@@ -114,7 +154,6 @@ export default function AdminCategoriesPage() {
 
   const flat = useMemo(() => flattenCategories(data?.data || []), [data]);
   const byId = useMemo(() => Object.fromEntries(flat.map((c) => [c.id, c])), [flat]);
-  const guideById = useMemo(() => Object.fromEntries(guides.map((g) => [g.id, g.name])), [guides]);
   const previewNames = useMemo(() => parseBulkNames(namesText), [namesText]);
   const parentLabel = parentId ? byId[Number(parentId)]?.name : null;
   const parentKey = parentId ? Number(parentId) : null;
@@ -197,11 +236,17 @@ export default function AdminCategoriesPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const confirmEdit = async ({ name, parent_id, size_guide_id }) => {
+  const confirmEdit = async ({ name, parent_id, size_guide_id, image_url }) => {
     if (!editTarget) return;
     setPageError('');
     try {
-      await updateCat.mutateAsync({ id: editTarget.id, name, parent_id, size_guide_id });
+      await updateCat.mutateAsync({
+        id: editTarget.id,
+        name,
+        parent_id,
+        size_guide_id,
+        image_url,
+      });
       setEditTarget(null);
       setPageAlert(`Updated “${name}”.`);
     } catch (err) {
@@ -227,7 +272,7 @@ export default function AdminCategoriesPage() {
     <div>
       <AdminPageHeader
         title="Categories"
-        subtitle="Organise the catalogue into parents and subcategories. Bulk paste is supported — duplicates at the same level are skipped automatically."
+        subtitle="Organise parents and subcategories. Upload images for top-level categories (home strip). Bulk paste skips duplicates at the same level."
       />
 
       <AdminPageAlert type="success" message={pageAlert} onDismiss={() => setPageAlert('')} />
@@ -377,12 +422,14 @@ export default function AdminCategoriesPage() {
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Category tree</h2>
-          <p className="mt-0.5 text-xs text-muted">Indented rows are subcategories. Use Add under to nest quickly.</p>
+          <p className="mt-0.5 text-xs text-muted">
+            Click a thumbnail or Edit to upload an image (best for parents). Indented rows are subcategories.
+          </p>
         </div>
       </div>
 
       {isLoading ? (
-        <AdminTableSkeleton rows={5} cols={5} />
+        <AdminTableSkeleton rows={5} cols={6} />
       ) : flat.length === 0 ? (
         <div className="admin-panel px-4 py-10 text-center text-sm text-muted">
           No categories yet. Add your first top-level groups above.
@@ -390,16 +437,27 @@ export default function AdminCategoriesPage() {
       ) : (
         <AdminTable
           columns={[
+            { key: 'image', label: 'Image' },
             { key: 'name', label: 'Name' },
             { key: 'level', label: 'Level' },
             { key: 'slug', label: 'Slug' },
             { key: 'parent', label: 'Parent' },
-            { key: 'guide', label: 'Size guide' },
             { key: 'actions', label: '', className: 'text-right' },
           ]}
         >
-          {flat.map((c) => (
+          {flat.map((c, index) => (
             <AdminTableRow key={c.id}>
+              <AdminTableCell>
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(c)}
+                  className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                  title={c.image_url ? 'Edit image' : 'Add image'}
+                  aria-label={c.image_url ? `Edit image for ${c.name}` : `Add image for ${c.name}`}
+                >
+                  <CategoryThumb category={c} index={index} />
+                </button>
+              </AdminTableCell>
               <AdminTableCell className="font-bold" style={{ paddingLeft: `${12 + c.depth * 18}px` }}>
                 <span className="inline-flex items-center gap-2">
                   {c.depth > 0 && (
@@ -424,9 +482,6 @@ export default function AdminCategoriesPage() {
               <AdminTableCell className="text-muted">{c.slug}</AdminTableCell>
               <AdminTableCell className="text-muted">
                 {c.parent_id ? byId[c.parent_id]?.name || `#${c.parent_id}` : '—'}
-              </AdminTableCell>
-              <AdminTableCell className="text-muted">
-                {c.size_guide_id ? guideById[c.size_guide_id] || `#${c.size_guide_id}` : '—'}
               </AdminTableCell>
               <AdminTableCell>
                 <div className="flex flex-wrap justify-end gap-2">

@@ -127,6 +127,7 @@ $routes = [
     'GET '  . 'admin/reports/summary'        => 'admin/reports/summary.php',
     'GET '  . 'admin/reports/financial'      => 'admin/reports/financial.php',
     'POST ' . 'admin/categories'            => 'admin/categories/create.php',
+    'POST ' . 'admin/categories/upload-image' => 'admin/categories/upload-image.php',
 
     // Company settings + public company info (Day 4C)
     'GET '  . 'admin/company-settings'      => 'admin/company-settings/index.php',
