@@ -4,6 +4,7 @@ import { useProduct } from '../hooks/catalog';
 import ProductGallery from '../components/product/ProductGallery';
 import ProductImage from '../components/product/ProductImage';
 import ProductRating from '../components/product/ProductRating';
+import ProductPurchaseMeta from '../components/product/ProductPurchaseMeta';
 import ProductCarouselSection, { FrequentlyBoughtTogether } from '../components/product/ProductCarouselSection';
 import SizeGuidePanel from '../components/product/SizeGuidePanel';
 import { formatPrice } from '../lib/currency';
@@ -15,6 +16,7 @@ import RestockAlertButton from '../components/product/RestockAlertButton';
 import CustomProofFields from '../components/product/CustomProofFields';
 import EmptyState from '../components/ui/EmptyState';
 import { ProductDetailSkeleton } from '../components/ui/Skeleton';
+import { CheckCircleIcon } from '../components/icons';
 
 function SpecRow({ label, value }) {
   if (value == null || value === '') return null;
@@ -281,6 +283,7 @@ export default function ProductDetailPage() {
                     {stock.text}
                     {!product.is_preorder && product.stock_qty > 0 ? ` (${product.stock_qty} in stock)` : ''}
                   </p>
+                  <ProductPurchaseMeta product={product} className="mt-1.5" />
                 </div>
               </li>
               {(product.is_preorder || product.estimated_arrival_days) && (
@@ -345,8 +348,26 @@ export default function ProductDetailPage() {
                 <span className="w-10 text-center font-bold">{qty}</span>
                 <button type="button" onClick={() => setQty((q) => q + 1)} className="min-h-[44px] min-w-[44px] text-xl">+</button>
               </div>
-              <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3 disabled:opacity-50">
-                {added ? 'Added!' : outOfStock ? 'Out of stock' : product.is_preorder ? labels.addToCart : 'Add to cart'}
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={outOfStock}
+                className={`btn-primary flex flex-1 items-center justify-center gap-1.5 py-3 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  added ? 'ring-2 ring-brand-green/40' : ''
+                }`}
+              >
+                {added ? (
+                  <>
+                    <CheckCircleIcon className="h-4 w-4" />
+                    Added!
+                  </>
+                ) : outOfStock ? (
+                  'Out of stock'
+                ) : product.is_preorder ? (
+                  labels.addToCart
+                ) : (
+                  'Add to cart'
+                )}
               </button>
               <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3 disabled:opacity-50">
                 Buy now
@@ -376,8 +397,22 @@ export default function ProductDetailPage() {
             </Link>
           ) : (
             <>
-              <button type="button" onClick={handleAdd} disabled={outOfStock} className="btn-primary flex-1 py-3.5 disabled:opacity-50">
-                {added ? 'Added!' : 'Add to cart'}
+              <button
+                type="button"
+                onClick={handleAdd}
+                disabled={outOfStock}
+                className={`btn-primary flex flex-1 items-center justify-center gap-1.5 py-3.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  added ? 'ring-2 ring-brand-green/40' : ''
+                }`}
+              >
+                {added ? (
+                  <>
+                    <CheckCircleIcon className="h-4 w-4" />
+                    Added!
+                  </>
+                ) : (
+                  'Add to cart'
+                )}
               </button>
               <button type="button" onClick={handleBuyNow} disabled={outOfStock} className="btn-secondary flex-1 py-3.5 disabled:opacity-50">
                 Buy now

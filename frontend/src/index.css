@@ -51,6 +51,17 @@ body {
   @apply block h-auto w-full max-w-[260px] rounded-2xl object-contain sm:max-w-[300px] lg:max-w-[320px];
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;

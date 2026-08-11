@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { showCartAddedToast } from './toastStore';
 
 export const useCartStore = create(
   persist(
@@ -31,6 +32,7 @@ export const useCartStore = create(
           });
         }
         set({ items });
+        showCartAddedToast(product.name);
         return true;
       },
 

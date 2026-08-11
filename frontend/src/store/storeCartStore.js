@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { showCartAddedToast } from './toastStore';
 
 /** Per-shop cart for storefront checkout (/stores/:slug). */
 export const useStoreCartStore = create(
@@ -44,6 +45,7 @@ export const useStoreCartStore = create(
           });
         }
         set({ items });
+        showCartAddedToast(product.name);
       },
 
       removeItem(id) {

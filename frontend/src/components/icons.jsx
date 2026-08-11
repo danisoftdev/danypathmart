@@ -132,6 +132,15 @@ export function ShieldCheckIcon({ className = 'h-5 w-5' }) {
   );
 }
 
+export function CheckCircleIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} {...base}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8.5 12l2.5 2.5 5-5" />
+    </svg>
+  );
+}
+
 export function TruckIcon({ className = 'h-5 w-5' }) {
   return (
     <svg viewBox="0 0 24 24" className={className} {...base}>

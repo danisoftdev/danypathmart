@@ -21,6 +21,13 @@ export function productRating(product) {
   return { rating: Math.min(rating, 5), reviews };
 }
 
+export function purchasedCountLabel(product, settings) {
+  if (settings?.show_units_sold === false) return null;
+  const units = Number(product?.units_sold) || 0;
+  if (units <= 0) return null;
+  return units === 1 ? '1 purchased' : `${units.toLocaleString()} purchased`;
+}
+
 export function unitsSoldLabel(product, settings) {
   if (settings?.show_units_sold === false) return null;
   const units = Number(product?.units_sold) || 0;

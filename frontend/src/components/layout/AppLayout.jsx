@@ -13,6 +13,7 @@ import SupportChatWidget from '../support/SupportChatWidget';
 import StaffSupportInboxWidget from '../support/StaffSupportInboxWidget';
 import ShopSupportInboxWidget from '../support/ShopSupportInboxWidget';
 import PushNotificationPrompt from '../notifications/PushNotificationPrompt';
+import CartToast from '../ui/CartToast';
 import { useAuthStore } from '../../store/authStore';
 import { canManageSupportChat, isShopOwnerUser } from '../../lib/permissions';
 
@@ -44,6 +45,7 @@ export default function AppLayout() {
         <ScrollToTop />
         {chatWidget}
         <PushNotificationPrompt />
+        <CartToast />
       </div>
     </SearchProvider>
   );
