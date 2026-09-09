@@ -12,14 +12,14 @@
   "dependencies": {
     "@paystack/inline-js": "^2.22.9",
     "@tanstack/react-query": "^5.100.14",
-    "axios": "^1.16.1",
+    "axios": "^1.18.0",
     "jsbarcode": "^3.12.3",
     "leaflet": "^1.9.4",
     "lodash": "^4.18.1",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router-dom": "^7.16.0",
+    "react-router-dom": "^7.18.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
@@ -32,8 +32,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.28",
     "tailwindcss": "^3.4.19",
-    "vite": "^8.0.12"
+    "vite": "^8.2.2"
   }
 }
