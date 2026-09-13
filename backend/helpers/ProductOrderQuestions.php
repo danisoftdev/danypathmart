@@ -41,7 +41,7 @@ final class ProductOrderQuestions
             }
             $id = trim((string) ($row['id'] ?? ''));
             if ($id === '') {
-                $id = 'q' . count($out) + 1;
+                $id = 'q' . (count($out) + 1);
             }
             $out[] = [
                 'id'       => $id,
