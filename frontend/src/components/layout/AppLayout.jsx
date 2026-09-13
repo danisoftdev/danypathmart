@@ -14,6 +14,7 @@ import StaffSupportInboxWidget from '../support/StaffSupportInboxWidget';
 import ShopSupportInboxWidget from '../support/ShopSupportInboxWidget';
 import PushNotificationPrompt from '../notifications/PushNotificationPrompt';
 import CartToast from '../ui/CartToast';
+import DocumentMeta from '../seo/DocumentMeta';
 import { useAuthStore } from '../../store/authStore';
 import { canManageSupportChat, isShopOwnerUser } from '../../lib/permissions';
 
@@ -32,6 +33,7 @@ export default function AppLayout() {
   return (
     <SearchProvider>
       <div className="flex min-h-screen flex-col bg-[#FFF9F3] dark:bg-[#121212]">
+        <DocumentMeta />
         <StoreAnnouncementBar />
         <Navbar />
         <StoreCategoryNav />

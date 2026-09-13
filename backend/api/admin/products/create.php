@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Config\Database;
 use App\Helpers\PosBarcodeService;
+use App\Helpers\ProductOrderQuestions;
 use App\Helpers\ProductPresenter;
 use App\Helpers\Response;
 use App\Middleware\AuthMiddleware;
@@ -87,6 +88,19 @@ $id = (int) $pdo->lastInsertId();
 if ($barcode === null) {
     $barcode = PosBarcodeService::assignIfMissing($pdo, $id);
 }
+
+try {
+    if (!empty($body['requires_custom_proof'])) {
+        $pdo->prepare('UPDATE products SET requires_custom_proof = 1 WHERE id = ?')->execute([$id]);
+    }
+    if (array_key_exists('order_questions', $body)) {
+        $pdo->prepare('UPDATE products SET order_questions = ? WHERE id = ?')
+            ->execute([ProductOrderQuestions::encodeForStorage($body['order_questions']), $id]);
+    }
+} catch (\Throwable) {
+    // Optional columns not migrated yet.
+}
+
 $row = $pdo->prepare('SELECT * FROM products WHERE id = ?');
 $row->execute([$id]);
 $product = $row->fetch();

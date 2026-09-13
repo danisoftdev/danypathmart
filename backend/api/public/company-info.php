@@ -10,16 +10,26 @@ $pdo = Database::pdo();
 try {
     $row = $pdo->query(
         'SELECT company_name, email, phone, whatsapp_group, whatsapp_support,
-                facebook, instagram, twitter, address, business_hours, return_policy,
+                facebook, instagram, twitter, address, business_hours,
+                site_tagline, site_seo_description, return_policy,
                 latitude, longitude
          FROM company_settings ORDER BY id ASC LIMIT 1'
     )->fetch();
 } catch (\Throwable) {
-    $row = $pdo->query(
-        'SELECT company_name, email, phone, whatsapp_group, whatsapp_support,
-                facebook, instagram, twitter, address, business_hours, return_policy
-         FROM company_settings ORDER BY id ASC LIMIT 1'
-    )->fetch();
+    try {
+        $row = $pdo->query(
+            'SELECT company_name, email, phone, whatsapp_group, whatsapp_support,
+                    facebook, instagram, twitter, address, business_hours, return_policy,
+                    latitude, longitude
+             FROM company_settings ORDER BY id ASC LIMIT 1'
+        )->fetch();
+    } catch (\Throwable) {
+        $row = $pdo->query(
+            'SELECT company_name, email, phone, whatsapp_group, whatsapp_support,
+                    facebook, instagram, twitter, address, business_hours, return_policy
+             FROM company_settings ORDER BY id ASC LIMIT 1'
+        )->fetch();
+    }
 }
 
 // Public payload: deliberately excludes usd_to_ghs_rate, updated_by.

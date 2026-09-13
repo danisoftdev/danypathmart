@@ -198,10 +198,12 @@ export default function ProductCard({ product, onQuickView, storeMode = false, s
             type="button"
             onClick={handleAddToCart}
             disabled={outOfStock}
-            className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-black/25 disabled:text-white/70 dark:disabled:bg-white/15 ${
+            className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition disabled:cursor-not-allowed disabled:bg-black/25 disabled:text-white/70 dark:disabled:bg-white/15 ${
               added
-                ? 'bg-brand-green ring-2 ring-brand-green/40'
-                : 'bg-brand-green hover:bg-opacity-90'
+                ? 'bg-brand-green text-white ring-2 ring-brand-green/40'
+                : product.is_preorder
+                  ? 'bg-brand-gold text-[#111111] hover:bg-brand-gold/90'
+                  : 'bg-brand-green text-white hover:bg-opacity-90'
             }`}
           >
             {added ? (

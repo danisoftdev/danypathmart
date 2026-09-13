@@ -4,13 +4,15 @@ import api from '../../lib/api';
 import PasswordStrength from '../../components/auth/PasswordStrength';
 import StepProgress from '../../components/auth/StepProgress';
 import FormField, { AuthAlert } from '../../components/auth/FormField';
-import SocialAuthButtons, { SocialAuthSetupHint } from '../../components/auth/SocialAuthButtons';
+import SocialAuthButtons from '../../components/auth/SocialAuthButtons';
+import { useCompanyStore } from '../../store/companyStore';
 import { meetsPolicy } from '../../lib/password';
 import { AvailabilityHint, useAvailabilityCheck } from '../../hooks/useAvailabilityCheck';
 
 const STEPS = ['Your details', 'Secure password'];
 
 export default function RegisterPage() {
+  const companyName = useCompanyStore((s) => s.company.company_name) || 'DanyPathMart';
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm_password: '' });
@@ -79,7 +81,7 @@ export default function RegisterPage() {
     <form onSubmit={submit} className="auth-card-lg">
       <div className="mb-2 text-center sm:text-left">
         <h1 className="text-2xl font-extrabold sm:text-3xl">Create your account</h1>
-        <p className="mt-2 text-base text-muted">Join DanyPathMart — your supermarket &amp; marketplace.</p>
+        <p className="mt-2 text-base text-muted">Join {companyName} to shop, track orders, and save favourites.</p>
       </div>
 
       <StepProgress step={step} total={2} labels={STEPS} />
@@ -176,9 +178,6 @@ export default function RegisterPage() {
           Sign in
         </Link>
       </p>
-      <div className="mt-4">
-        <SocialAuthSetupHint />
-      </div>
     </form>
   );
 }

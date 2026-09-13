@@ -509,6 +509,20 @@ try {
     // Migration 056 not applied yet.
 }
 
+try {
+    $siteTagline = nullable($body['site_tagline'] ?? null);
+    $siteSeo = nullable($body['site_seo_description'] ?? null);
+    if ($siteSeo !== null && strlen($siteSeo) > 320) {
+        $siteSeo = substr($siteSeo, 0, 320);
+    }
+    $pdo->prepare('UPDATE company_settings SET site_tagline = ?, site_seo_description = ? WHERE id = 1')
+        ->execute([$siteTagline, $siteSeo]);
+    $fields['site_tagline'] = $siteTagline;
+    $fields['site_seo_description'] = $siteSeo;
+} catch (\Throwable) {
+    // Migration 079 not applied yet.
+}
+
 Response::success(['message' => 'Company settings saved.', 'settings' => $fields]);
 
 function nullable(mixed $value): ?string

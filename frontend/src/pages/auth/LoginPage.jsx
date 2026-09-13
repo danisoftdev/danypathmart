@@ -4,11 +4,13 @@ import { useAuthStore } from '../../store/authStore';
 import { useWebAuthn } from '../../hooks/useWebAuthn';
 import { homePathForUser } from '../../lib/permissions';
 import FormField, { AuthAlert } from '../../components/auth/FormField';
-import SocialAuthButtons, { SocialAuthSetupHint } from '../../components/auth/SocialAuthButtons';
+import SocialAuthButtons from '../../components/auth/SocialAuthButtons';
+import { useCompanyStore } from '../../store/companyStore';
 
 const REMEMBER_KEY = 'dpm_remember_email';
 
 export default function LoginPage() {
+  const companyName = useCompanyStore((s) => s.company.company_name) || 'DanyPathMart';
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((s) => s.login);
@@ -172,14 +174,11 @@ export default function LoginPage() {
       )}
 
       <p className="mt-8 text-center text-sm text-muted">
-        New to DanyPathMart?{' '}
+        New to {companyName}?{' '}
         <Link to="/register" className="font-bold text-brand-green hover:underline">
           Create an account
         </Link>
       </p>
-      <div className="mt-4">
-        <SocialAuthSetupHint />
-      </div>
     </form>
   );
 }

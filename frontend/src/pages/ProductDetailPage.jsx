@@ -14,9 +14,15 @@ import { useIsWishlisted, useToggleWishlist } from '../hooks/wishlist';
 import { useCartStore } from '../store/cartStore';
 import RestockAlertButton from '../components/product/RestockAlertButton';
 import CustomProofFields from '../components/product/CustomProofFields';
+import ProductOrderQuestionsForm, {
+  formatOrderQuestionAnswers,
+  validateOrderQuestionAnswers,
+} from '../components/product/ProductOrderQuestionsForm';
 import EmptyState from '../components/ui/EmptyState';
 import { ProductDetailSkeleton } from '../components/ui/Skeleton';
 import { CheckCircleIcon } from '../components/icons';
+import useDocumentMeta from '../hooks/useDocumentMeta';
+import { useCompanyStore } from '../store/companyStore';
 
 function SpecRow({ label, value }) {
   if (value == null || value === '') return null;
@@ -128,9 +134,24 @@ export default function ProductDetailPage() {
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
   const [customProof, setCustomProof] = useState({ label_text: '', file_path: '' });
+  const [optionAnswers, setOptionAnswers] = useState({});
+  const [questionError, setQuestionError] = useState('');
   const [wishToggled, setWishToggled] = useState(null);
   const wishlisted = useIsWishlisted(data?.data?.id ?? 0);
   const toggleWish = useToggleWishlist();
+  const companyName = useCompanyStore((s) => s.company.company_name);
+  const productPreview = data?.data;
+
+  useDocumentMeta(
+    productPreview
+      ? {
+          title: `${productPreview.name} | ${companyName || 'DanyPathMart'}`,
+          description: productPreview.description
+            ? String(productPreview.description).trim().slice(0, 320)
+            : undefined,
+        }
+      : undefined
+  );
 
   // Persist recently viewed (external storage only).
   useEffect(() => {
@@ -163,11 +184,34 @@ export default function ProductDetailPage() {
   const marketplace = isShopMarketplaceProduct(product);
   const shopName = shopNameOf(product);
 
+  const orderQuestions = product.order_questions || [];
+
+  const buildPayload = () => {
+    const err = validateOrderQuestionAnswers(orderQuestions, optionAnswers);
+    if (err) {
+      setQuestionError(err);
+      return null;
+    }
+    setQuestionError('');
+    const answers = formatOrderQuestionAnswers(orderQuestions, optionAnswers);
+    const option_answers = answers
+      ? Object.fromEntries(
+          orderQuestions
+            .filter((q) => optionAnswers[q.id])
+            .map((q) => [q.id, optionAnswers[q.id]])
+        )
+      : null;
+    return {
+      ...product,
+      ...(product.requires_custom_proof ? { custom_proof: customProof } : {}),
+      ...(option_answers ? { option_answers } : {}),
+    };
+  };
+
   const handleAdd = () => {
     if (marketplace) return;
-    const payload = product.requires_custom_proof
-      ? { ...product, custom_proof: customProof }
-      : product;
+    const payload = buildPayload();
+    if (!payload) return;
     addItem(payload, qty);
     if (product.requires_custom_proof) {
       updateCustomProof(product.id, customProof);
@@ -181,9 +225,8 @@ export default function ProductDetailPage() {
       navigate(shopBuyPath(product));
       return;
     }
-    const payload = product.requires_custom_proof
-      ? { ...product, custom_proof: customProof }
-      : product;
+    const payload = buildPayload();
+    if (!payload) return;
     addItem(payload, qty);
     if (product.requires_custom_proof) {
       updateCustomProof(product.id, customProof);
@@ -192,6 +235,7 @@ export default function ProductDetailPage() {
   };
 
   const categoryId = product.category?.id ?? product.category_id;
+  const preOrderBtnClass = product.is_preorder ? 'bg-brand-gold text-[#111111] hover:bg-brand-gold/90' : '';
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-36 pt-4 md:pb-10 md:pt-6">
@@ -313,6 +357,15 @@ export default function ProductDetailPage() {
 
           {product.size_guide && <SizeGuidePanel guide={product.size_guide} />}
 
+          {!marketplace && orderQuestions.length > 0 && !outOfStock && (
+            <ProductOrderQuestionsForm
+              questions={orderQuestions}
+              value={optionAnswers}
+              onChange={setOptionAnswers}
+              error={questionError}
+            />
+          )}
+
           {!marketplace && product.requires_custom_proof && !outOfStock && (
             <CustomProofFields
               productId={product.id}
@@ -354,7 +407,7 @@ export default function ProductDetailPage() {
                 disabled={outOfStock}
                 className={`btn-primary flex flex-1 items-center justify-center gap-1.5 py-3 disabled:cursor-not-allowed disabled:opacity-50 ${
                   added ? 'ring-2 ring-brand-green/40' : ''
-                }`}
+                } ${preOrderBtnClass}`}
               >
                 {added ? (
                   <>
@@ -403,7 +456,7 @@ export default function ProductDetailPage() {
                 disabled={outOfStock}
                 className={`btn-primary flex flex-1 items-center justify-center gap-1.5 py-3.5 disabled:cursor-not-allowed disabled:opacity-50 ${
                   added ? 'ring-2 ring-brand-green/40' : ''
-                }`}
+                } ${preOrderBtnClass}`}
               >
                 {added ? (
                   <>

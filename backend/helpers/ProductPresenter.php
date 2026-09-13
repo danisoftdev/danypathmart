@@ -38,6 +38,7 @@ final class ProductPresenter
             'tags'        => self::decodeJson($r['tags'] ?? null),
             'is_preorder' => (bool) ($r['is_preorder'] ?? 0),
             'requires_custom_proof' => (bool) ($r['requires_custom_proof'] ?? 0),
+            'order_questions' => ProductOrderQuestions::decode($r['order_questions'] ?? null),
             'stock_qty'   => (int) ($r['stock_qty'] ?? 0),
             'units_sold'  => (int) ($r['units_sold'] ?? 0),
             'category_id' => isset($r['category_id']) ? (int) $r['category_id'] : null,
