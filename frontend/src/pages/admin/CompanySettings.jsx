@@ -23,6 +23,8 @@ const EMPTY = {
   latitude: null,
   longitude: null,
   business_hours: '',
+  site_tagline: '',
+  site_seo_description: '',
   return_policy: '',
   usd_to_ghs_rate: 0,
   paystack_enabled: true,
@@ -313,6 +315,26 @@ export default function CompanySettings() {
           </Field>
           <Field label="Business hours">
             <input className="modal-input" value={form.business_hours || ''} onChange={(e) => set('business_hours', e.target.value)} placeholder="Mon-Sat 8am-6pm" />
+          </Field>
+        </Section>
+
+        <Section title="Search &amp; footer">
+          <Field label="Site tagline" hint="Short line under the logo in the footer. Leave blank to hide.">
+            <textarea
+              className="modal-input min-h-[72px] resize-y"
+              value={form.site_tagline || ''}
+              onChange={(e) => set('site_tagline', e.target.value)}
+              placeholder="e.g. Supermarket essentials and marketplace shops — delivered across Ghana."
+            />
+          </Field>
+          <Field label="Default search description" hint="Used in Google/search previews for shop pages. Max 320 characters.">
+            <textarea
+              className="modal-input min-h-[88px] resize-y"
+              maxLength={320}
+              value={form.site_seo_description || ''}
+              onChange={(e) => set('site_seo_description', e.target.value)}
+              placeholder="Brief description of your store for search engines."
+            />
           </Field>
         </Section>
 

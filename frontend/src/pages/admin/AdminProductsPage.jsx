@@ -21,10 +21,12 @@ import { useAuthStore } from '../../store/authStore';
 import { hasPermission } from '../../lib/permissions';
 import api from '../../lib/api';
 import Modal from '../../components/dashboard/Modal';
+import ProductOrderQuestionsEditor, { normalizeOrderQuestions } from '../../components/admin/ProductOrderQuestionsEditor';
 
 const EMPTY_DRAFT = {
   name: '',
   barcode: '',
+  description: '',
   price: '',
   cost_price: '',
   compare_at_price: '',
@@ -39,8 +41,10 @@ const EMPTY_DRAFT = {
   is_featured: false,
   is_flash_deal: false,
   origin_country: '',
+  estimated_arrival_days: '',
   tags: '',
   images: [],
+  order_questions: [],
 };
 
 function tagsToArray(raw) {
@@ -513,6 +517,7 @@ export default function AdminProductsPage() {
   const payloadFrom = (v) => ({
     name: v.name.trim(),
     barcode: v.barcode?.trim() || null,
+    description: v.description?.trim() || null,
     price: Number(v.price),
     cost_price: Number(v.cost_price) || 0,
     compare_at_price: v.compare_at_price !== '' ? Number(v.compare_at_price) : null,
@@ -527,8 +532,12 @@ export default function AdminProductsPage() {
     is_featured: !!v.is_featured,
     is_flash_deal: !!v.is_flash_deal,
     origin_country: v.origin_country.trim() || null,
+    estimated_arrival_days: v.estimated_arrival_days !== '' && v.estimated_arrival_days != null
+      ? Number(v.estimated_arrival_days)
+      : null,
     tags: tagsToArray(v.tags),
     images: Array.isArray(v.images) ? v.images.filter(Boolean).slice(0, 5) : [],
+    order_questions: normalizeOrderQuestions(v.order_questions),
   });
 
   const saveNew = async (e) => {
@@ -582,13 +591,16 @@ export default function AdminProductsPage() {
       badge_label: p.badge_label ?? '',
       stock_qty: p.stock_qty,
       category_id: p.category_id ?? '',
+      description: p.description ?? '',
       origin_country: p.origin_country ?? '',
+      estimated_arrival_days: p.estimated_arrival_days ?? '',
       tags: Array.isArray(p.tags) ? p.tags.join(', ') : '',
       is_preorder: !!p.is_preorder,
       requires_custom_proof: !!p.requires_custom_proof,
       is_featured: !!p.is_featured,
       is_flash_deal: !!p.is_flash_deal,
       images: Array.isArray(p.images) ? [...p.images] : [],
+      order_questions: Array.isArray(p.order_questions) ? p.order_questions : [],
     });
   };
 
@@ -785,15 +797,37 @@ export default function AdminProductsPage() {
           <input className="input-field" type="number" step="0.01" placeholder="Cost price (GHS)" value={draft.cost_price} onChange={(e) => setDraft((d) => ({ ...d, cost_price: e.target.value }))} />
           <input className="input-field" type="number" placeholder="Stock qty" value={draft.stock_qty} onChange={(e) => setDraft((d) => ({ ...d, stock_qty: e.target.value }))} />
           <input className="input-field" placeholder="Tags (comma separated)" value={draft.tags} onChange={(e) => setDraft((d) => ({ ...d, tags: e.target.value }))} />
+          <textarea
+            className="input-field min-h-[80px] resize-y sm:col-span-2 lg:col-span-3"
+            placeholder="Product description (shown on product page and search)"
+            value={draft.description}
+            onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+          />
           <input className="input-field" placeholder="Origin country" value={draft.origin_country} onChange={(e) => setDraft((d) => ({ ...d, origin_country: e.target.value }))} />
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={draft.is_preorder} onChange={(e) => setDraft((d) => ({ ...d, is_preorder: e.target.checked }))} className="h-4 w-4 accent-brand-green" />
-            By air (international)
+            Pre-order / by air
           </label>
+          {draft.is_preorder && (
+            <input
+              className="input-field"
+              type="number"
+              min="1"
+              placeholder="Est. arrival (days)"
+              value={draft.estimated_arrival_days}
+              onChange={(e) => setDraft((d) => ({ ...d, estimated_arrival_days: e.target.value }))}
+            />
+          )}
           <label className="flex items-center gap-2 text-sm font-medium">
             <input type="checkbox" checked={!!draft.requires_custom_proof} onChange={(e) => setDraft((d) => ({ ...d, requires_custom_proof: e.target.checked }))} className="h-4 w-4 accent-brand-green" />
             Requires custom proof (engravings)
           </label>
+          <div className="sm:col-span-2 lg:col-span-3">
+            <ProductOrderQuestionsEditor
+              value={draft.order_questions}
+              onChange={(order_questions) => setDraft((d) => ({ ...d, order_questions }))}
+            />
+          </div>
           <ProductImagesField
             className="sm:col-span-2 lg:col-span-3"
             images={draft.images}
@@ -853,6 +887,12 @@ export default function AdminProductsPage() {
               <input className="input-field" type="number" step="0.01" value={editing.cost_price} onChange={(e) => setEditing((x) => ({ ...x, cost_price: e.target.value }))} placeholder="Cost price" />
               <input className="input-field" type="number" value={editing.stock_qty} onChange={(e) => setEditing((x) => ({ ...x, stock_qty: e.target.value }))} placeholder="Stock" />
               <input className="input-field" placeholder="Tags" value={editing.tags} onChange={(e) => setEditing((x) => ({ ...x, tags: e.target.value }))} />
+              <textarea
+                className="input-field min-h-[80px] resize-y sm:col-span-2"
+                placeholder="Product description"
+                value={editing.description || ''}
+                onChange={(e) => setEditing((x) => ({ ...x, description: e.target.value }))}
+              />
               <input className="input-field sm:col-span-2" placeholder="Origin country" value={editing.origin_country} onChange={(e) => setEditing((x) => ({ ...x, origin_country: e.target.value }))} />
               <select className="admin-filter-select w-full sm:col-span-2" value={editing.status || 'active'} onChange={(e) => setEditing((x) => ({ ...x, status: e.target.value }))}>
                 <option value="active">Active</option>
@@ -861,12 +901,28 @@ export default function AdminProductsPage() {
               </select>
               <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
                 <input type="checkbox" checked={!!editing.is_preorder} onChange={(e) => setEditing((x) => ({ ...x, is_preorder: e.target.checked }))} className="h-4 w-4 accent-brand-green" />
-                By air (international)
+                Pre-order / by air
               </label>
+              {editing.is_preorder && (
+                <input
+                  className="input-field sm:col-span-2"
+                  type="number"
+                  min="1"
+                  placeholder="Est. arrival (days)"
+                  value={editing.estimated_arrival_days ?? ''}
+                  onChange={(e) => setEditing((x) => ({ ...x, estimated_arrival_days: e.target.value }))}
+                />
+              )}
               <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
                 <input type="checkbox" checked={!!editing.requires_custom_proof} onChange={(e) => setEditing((x) => ({ ...x, requires_custom_proof: e.target.checked }))} className="h-4 w-4 accent-brand-green" />
                 Requires custom proof
               </label>
+              <div className="sm:col-span-2">
+                <ProductOrderQuestionsEditor
+                  value={editing.order_questions || []}
+                  onChange={(order_questions) => setEditing((x) => ({ ...x, order_questions }))}
+                />
+              </div>
               <ProductImagesField
                 className="sm:col-span-2"
                 images={editing.images || []}

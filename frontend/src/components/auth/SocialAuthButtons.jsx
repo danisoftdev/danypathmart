@@ -87,12 +87,3 @@ export default function SocialAuthButtons({ mode = 'login' }) {
   );
 }
 
-export function SocialAuthSetupHint() {
-  const { data: providers = [], isLoading } = useOAuthProviders();
-  if (isLoading || providers.length > 0) return null;
-  return (
-    <p className="text-center text-xs text-muted">
-      Social sign-in becomes available once Google, Microsoft, or Apple keys are added in backend `.env`.
-    </p>
-  );
-}

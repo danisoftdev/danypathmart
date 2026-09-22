@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Config\Database;
+use App\Helpers\ProductOrderQuestions;
 use App\Helpers\ProductPresenter;
 use App\Helpers\Response;
 use App\Helpers\RestockAlertService;
@@ -74,6 +75,14 @@ if (array_key_exists('images', $body) && is_array($body['images'])) {
 if (array_key_exists('tags', $body) && is_array($body['tags'])) {
     $fields[] = 'tags = ?';
     $params[] = json_encode(array_values($body['tags']), JSON_UNESCAPED_SLASHES);
+}
+if (array_key_exists('order_questions', $body)) {
+    try {
+        $fields[] = 'order_questions = ?';
+        $params[] = ProductOrderQuestions::encodeForStorage($body['order_questions']);
+    } catch (\Throwable) {
+        // Migration 080 not applied yet.
+    }
 }
 
 if ($fields === []) {

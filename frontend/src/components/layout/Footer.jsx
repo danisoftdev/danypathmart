@@ -47,9 +47,11 @@ export default function Footer() {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-10 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <SiteLogo size="h-14 w-14" />
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/60">
-            Supermarket essentials and marketplace shops — delivered across Ghana.
-          </p>
+          {company.site_tagline && (
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/60">
+              {company.site_tagline}
+            </p>
+          )}
           {aboutEnabled && (
             <Link
               to="/about"
@@ -179,13 +181,7 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-white/10 px-6 py-4 text-center text-xs text-white/50">
-        &copy; {new Date().getFullYear()} DanyPathMart &middot; Developed by{' '}
-        <ExternalLink
-          href="https://danysoftdev.com"
-          className="font-semibold text-brand-gold hover:underline"
-        >
-          danysoftdev.com
-        </ExternalLink>
+        &copy; {new Date().getFullYear()} {company.company_name || 'DanyPathMart'}
       </div>
     </footer>
   );

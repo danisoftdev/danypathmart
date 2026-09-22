@@ -13,13 +13,29 @@ import { usePaymentSettings, useWallet } from '../../hooks/wallet';
 import { useAuthStore } from '../../store/authStore';
 import WhatsAppOptIn from './WhatsAppOptIn';
 
+function formatOptionAnswers(item) {
+  const questions = Array.isArray(item.order_questions) ? item.order_questions : [];
+  const answers = item.option_answers && typeof item.option_answers === 'object' ? item.option_answers : {};
+  const parts = [];
+  for (const q of questions) {
+    const picked = String(answers[q.id] || '').trim();
+    if (picked) parts.push(`${q.question}: ${picked}`);
+  }
+  return parts.length ? parts.join('; ') : undefined;
+}
+
 function buildCustomizations(cartItems) {
   return cartItems
-    .filter((i) => i.custom_proof?.file_path || i.custom_proof?.label_text)
+    .filter((i) => {
+      const hasProof = i.custom_proof?.file_path || i.custom_proof?.label_text;
+      const hasAnswers = formatOptionAnswers(i);
+      return hasProof || hasAnswers;
+    })
     .map((i) => ({
       product_id: i.id,
       file_path: i.custom_proof?.file_path || undefined,
       label_text: i.custom_proof?.label_text || undefined,
+      instructions: formatOptionAnswers(i),
     }));
 }
 

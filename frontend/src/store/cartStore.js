@@ -28,6 +28,8 @@ export const useCartStore = create(
             shop_name: null,
             requires_custom_proof: !!product.requires_custom_proof,
             custom_proof: product.custom_proof || null,
+            order_questions: product.order_questions || [],
+            option_answers: product.option_answers || null,
             qty,
           });
         }
@@ -64,6 +66,12 @@ export const useCartStore = create(
       updateCustomProof(id, custom_proof) {
         set({
           items: get().items.map((i) => (i.id === id ? { ...i, custom_proof } : i)),
+        });
+      },
+
+      updateOptionAnswers(id, option_answers) {
+        set({
+          items: get().items.map((i) => (i.id === id ? { ...i, option_answers } : i)),
         });
       },
 
